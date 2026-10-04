@@ -191,7 +191,9 @@ export class CmrTopologyCard extends LitElement {
   }
 
   getGridOptions() {
-    return { columns: "full", rows: Math.round((this._config?.height ?? 440) / 56) + 1, min_columns: 6, min_rows: 4 };
+    // Height follows the content (the map's `height`); if the card is given
+    // more rows, the map grows to fill them instead of leaving a gap.
+    return { columns: "full", rows: "auto", min_columns: 6, min_rows: 4 };
   }
 
   getCardSize(): number {
@@ -522,7 +524,7 @@ export class CmrTopologyCard extends LitElement {
         ${layoutInfo?.comment ? html`<div class="subtitle">${layoutInfo.comment}</div>` : nothing}
         <div
           class="viewport"
-          style="height:${height}px"
+          style="min-height:${height}px"
           @wheel=${this._onWheel}
           @pointerdown=${this._onPointerDown}
           @pointermove=${this._onPointerMove}
@@ -870,7 +872,9 @@ export class CmrTopologyCard extends LitElement {
       .root.active { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
       .subtitle { padding: 0 16px 6px; font-size: 12px; color: var(--cmr-muted); }
 
+      ha-card { display: flex; flex-direction: column; }
       .viewport {
+        flex: 1 1 auto;
         position: relative; overflow: hidden; cursor: grab; touch-action: pan-y pinch-zoom;
         background:
           radial-gradient(circle, var(--cmr-line) 1px, transparent 1.2px) 0 0 / 22px 22px;
