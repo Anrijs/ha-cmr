@@ -138,7 +138,7 @@ Every feature reads the controller over REST; only upgrades need write access.
 | Port names, PoE, SFP, traffic on cables; per-device alert counters | `/execute` running `/cmr/layout/link/print detail` and `/cmr/device/print detail` | same (works read-only) |
 | Timeline and issues | `/log` (new lines only), `/system/clock` | same |
 | Instant alerts | Controller calls `POST /api/webhook/<id>` | (the controller must reach Home Assistant) |
-| Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow starting upgrades* option |
+| Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow actions on the controller* option |
 
 The `api` policy is needed even though the integration only uses REST: REST
 logins also use it internally, and without it the controller's menus appear
@@ -279,12 +279,12 @@ have them yet.
 |---|---|---|
 | Polling interval | 30 s | How often the controller is read (10–600 s) |
 | Home Assistant address | Home Assistant's internal URL | The address the controller uses for alert webhooks |
-| Allow starting upgrades | off | Adds *Install* to update entities and the upgrade buttons; needs `write` |
+| Allow actions on the controller | off | Adds *Install* to update entities, the upgrade buttons, and *Approve* for devices waiting to be paired; needs `write` |
 | Home Assistant activity log | Notable events | Which timeline events also appear in the activity log: notable, all, or none |
 | Product catalog URL | empty (off) | Optional catalog that adds product photos and names to devices (map, device table, status card, update entities). Photos load from the catalog's image server. A new URL is checked when you save |
 | Issue detection (collapsed section) | 5 Wi-Fi drops / 15 min, 3 link flaps / 30 min, 3 disconnects / 1 h, 2 reboots / 24 h, 5 login failures / 10 min, 1 failed alert action / 1 h, offline after 15 min | How many occurrences inside each rule's window raise an issue; 0 turns a rule off |
 
-Options apply immediately, except *Allow starting upgrades*, which reloads
+Options apply immediately, except *Allow actions on the controller*, which reloads
 the integration. To move to a new address, user or HTTPS setting, use
 *Reconfigure* on the entry (⋮ menu) instead of deleting it; the entry keeps
 its entities and history.
@@ -402,6 +402,34 @@ actions:
       message: "Office-AP lost the CMR controller"
 ```
 
+### Pairing new devices
+
+Both sides must agree before the controller manages a device. With the
+controller's default `pairing-requirement=confirm`, every new device that
+connects waits for approval on the controller. The integration turns that
+into a Repair issue (*Settings → Repairs*): "*Office-AP* is waiting to be
+paired". With *Allow actions on the controller* on, the issue is fixable
+and approves the pairing; the *Devices* card shows an *Approve* button on
+the row as well. A device whose own side still has to agree shows "waiting
+for approval on the device" instead, with the command to run there.
+
+For a phone notification, listen for the timeline event:
+
+```yaml
+trigger:
+  - trigger: event
+    event_type: cmr_event
+    event_data:
+      category: device
+      data:
+        event: pending
+action:
+  - action: notify.mobile_app_phone
+    data:
+      title: "New network device"
+      message: "{{ trigger.event.data.title }}"
+```
+
 ### Alerts in real time
 
 Polling sees alert rules change state within 30 seconds. To get each alert the
@@ -412,7 +440,7 @@ with the rule's name and severity in the body; edit its `find` to choose rules.
 
 ### Upgrades
 
-With *Allow starting upgrades* on and `write` on the router user:
+With *Allow actions on the controller* on and `write` on the router user:
 
 - **Install** on a device's firmware update upgrades that one device. It always
   pins the exact version shown, and only offers versions that are newer than
@@ -500,7 +528,7 @@ names or comments.
 | "The controller rejected the login" | Wrong password, or the user's `address` doesn't include Home Assistant's address. |
 | Cables have no port names | The controller didn't detect ports for that link (it shows dashed), or `/execute` was refused; the log says so once. |
 | The events card stays empty | The user can't read `/log`, or the controller's log is empty. Check the integration's debug log. |
-| No upgrade buttons | Turn on *Allow starting upgrades* in the options. |
+| No upgrade buttons | Turn on *Allow actions on the controller* in the options. |
 | "The controller refused to upgrade …" | The user lacks `write`, or the controller refused the job; the message carries its reason. |
 | The dashboard says it couldn't be built | Reload the page. If it stays, check that the integration is loaded. |
 | *CMR network* is missing under Add dashboard, or cards show "Custom element doesn't exist" | Add the integration first (the cards are served by it), then reload the browser page. |

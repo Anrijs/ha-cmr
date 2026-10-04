@@ -18,9 +18,11 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
+from .api import CmrApiError
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry
 from .models import is_prerelease
+from .pairing import async_pair
 from .webhook import alert_setup_script, entry_webhook_url
 
 _DEVICE_ENTITIES = {
@@ -48,6 +50,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_events)
     websocket_api.async_register_command(hass, ws_alert_setup)
+    websocket_api.async_register_command(hass, ws_pair)
 
 
 def _loaded_entries(hass: HomeAssistant, entry_id: str | None) -> list[CmrConfigEntry]:
@@ -151,6 +154,8 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
         "controller_url": coordinator.api.base_url,
         "last_update": coordinator.last_poll.isoformat() if coordinator.last_poll else None,
         "available": coordinator.last_update_success,
+        # Whether Home Assistant may act on the controller (pair, upgrade).
+        "actions": coordinator.allow_upgrades,
         "fleet_entities": {
             name: entity_id(platform, f"{controller_key}_{name}")
             for name, platform in _FLEET_ENTITIES.items()
@@ -235,6 +240,40 @@ def ws_alert_setup(
         msg["id"],
         {"url": url, "script": alert_setup_script(base, entry.data["webhook_id"])},
     )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "cmr/pair",
+        vol.Required("entry_id"): str,
+        vol.Required("device_key"): str,
+        vol.Optional("username"): str,
+        vol.Optional("password"): str,
+    }
+)
+@websocket_api.async_response
+async def ws_pair(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Approve a device's pairing (the Approve button on the cards)."""
+    entries = _loaded_entries(hass, msg["entry_id"])
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return
+    coordinator = entries[0].runtime_data
+    if not coordinator.allow_upgrades:
+        connection.send_error(msg["id"], "not_allowed", "Actions on the controller are not allowed in the options")
+        return
+    device = coordinator.data.devices.get(msg["device_key"])
+    if device is None or not device.pending:
+        connection.send_error(msg["id"], "not_pending", "This device is not waiting for approval on the controller")
+        return
+    try:
+        await async_pair(coordinator.api, device, msg.get("username"), msg.get("password"))
+    except CmrApiError as err:
+        connection.send_error(msg["id"], "pair_failed", err.detail)
+        return
+    connection.send_result(msg["id"], {"device_key": device.key})
+    await coordinator.async_request_refresh()
 
 
 @websocket_api.websocket_command(

@@ -64,6 +64,8 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         # The upgrade controls are entities, so this option only takes effect
         # on a reload; remembered to tell that change from the live ones.
         self.allow_upgrades = bool(entry.options.get(CONF_ALLOW_UPGRADES))
+        # Repair issue ids currently open for devices waiting to be paired.
+        self.pairing_issues: set[str] = set()
         # Last raw responses, kept for diagnostics and as a fallback when an
         # optional menu fails transiently.
         self.raw: dict[str, Any] = {}

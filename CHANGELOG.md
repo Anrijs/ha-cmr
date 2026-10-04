@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+- Approve the pairing of new devices from Home Assistant: a Repair issue per waiting device (fixable when actions are allowed) and an Approve button on the Devices card.
+- The upgrades option is now "Allow actions on the controller" (same setting, wider meaning).
+
 ## 0.4.1
 - Scheduled upgrade jobs no longer show as "installing" for days.
 - Label selectors follow the controller's grammar (`+and`, `-not`, `all`).

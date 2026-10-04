@@ -16,6 +16,7 @@ from .coordinator import CmrConfigEntry, CmrCoordinator
 from .entity import registry_device_info
 from .eventlog import CmrEventLog
 from .frontend import async_register_frontend
+from .pairing import async_clear_pairing_issues, async_sync_pairing_issues
 from .webhook import async_register_webhook
 from .websocket import async_register_websocket
 
@@ -48,9 +49,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
 
     _sync_device_registry(hass, entry)
-    entry.async_on_unload(
-        coordinator.async_add_listener(lambda: _sync_device_registry(hass, entry))
-    )
+    async_sync_pairing_issues(hass, entry)
+
+    @callback
+    def _after_poll() -> None:
+        _sync_device_registry(hass, entry)
+        async_sync_pairing_issues(hass, entry)
+
+    entry.async_on_unload(coordinator.async_add_listener(_after_poll))
+    entry.async_on_unload(lambda: async_clear_pairing_issues(hass, entry))
     async_register_webhook(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

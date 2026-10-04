@@ -31,15 +31,36 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
   static properties: PropertyDeclarations = {
     _filter: { state: true },
     _sort: { state: true },
+    _pairing: { state: true },
   };
 
   declare _filter: Set<string>;
   declare _sort: { key: SortKey; desc: boolean };
+  /** Device key -> "busy" or an error message, while an approval is in flight or failed. */
+  declare _pairing: Map<string, string>;
 
   constructor() {
     super();
     this._filter = new Set();
     this._sort = { key: "device", desc: false };
+    this._pairing = new Map();
+  }
+
+  private async _approve(d: CmrDevice): Promise<void> {
+    this._pairing = new Map(this._pairing).set(d.key, "busy");
+    try {
+      await this.hass.connection.sendMessagePromise({
+        type: "cmr/pair",
+        entry_id: this._entry!.entry_id,
+        device_key: d.key,
+      });
+      const next = new Map(this._pairing);
+      next.delete(d.key);
+      this._pairing = next;
+    } catch (err) {
+      const message = (err as { message?: string })?.message ?? String(err);
+      this._pairing = new Map(this._pairing).set(d.key, message);
+    }
   }
 
   setConfig(config: FleetConfig): void {
@@ -143,6 +164,18 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     `;
   }
 
+  private _pairingCell(d: CmrDevice, status: ReturnType<typeof deviceStatus>): TemplateResult {
+    const state = this._pairing.get(d.key);
+    const canApprove = d.pending && !!this._entry?.actions && !!this.hass.user?.is_admin;
+    return html`<span class="offline" title=${pairingHint(d)}>${STATUS_LABEL[status]}</span>
+      ${canApprove
+        ? html`<button class="approve" ?disabled=${state === "busy"}
+            @click=${(e: Event) => { e.stopPropagation(); this._approve(d); }}>
+            ${state === "busy" ? "Approving…" : "Approve"}</button>`
+        : nothing}
+      ${state && state !== "busy" ? html`<span class="small offline">${state}</span>` : nothing}`;
+  }
+
   private _row(d: CmrDevice): TemplateResult {
     const status = deviceStatus(d);
     return html`
@@ -166,7 +199,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
         </div>
         <div class="c-uptime">${d.connected && status !== "pending"
           ? formatDuration(d.uptime)
-          : html`<span class="offline" title=${pairingHint(d)}>${STATUS_LABEL[status]}</span>`}</div>
+          : this._pairingCell(d, status)}</div>
         <div class="c-address">
           ${d.address
             ? html`<a class="mono" href=${deviceUrl(d.address)} target="_blank" rel="noreferrer" @click=${(e: Event) => e.stopPropagation()}>${d.address}</a>`
@@ -204,6 +237,13 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
       .update { display: inline-flex; align-items: center; gap: 3px; color: var(--cmr-update); font-weight: 600; --mdc-icon-size: 15px; }
       .c-uptime { font-size: 13px; font-variant-numeric: tabular-nums; }
       .offline { color: var(--cmr-offline); font-weight: 500; }
+      .status-pending .offline { color: var(--cmr-pending); }
+      .c-uptime { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+      .approve {
+        all: unset; cursor: pointer; font-size: 12px; padding: 3px 10px; border-radius: 999px;
+        background: var(--primary-color); color: var(--text-primary-color, #fff);
+      }
+      .approve[disabled] { opacity: 0.6; cursor: default; }
       .c-address a { color: var(--primary-color); text-decoration: none; font-size: 12.5px; }
       .c-address a:hover { text-decoration: underline; }
 

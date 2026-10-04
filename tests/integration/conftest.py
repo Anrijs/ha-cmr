@@ -100,6 +100,11 @@ class FakeController:
             if payload.get("script", "").startswith("/cmr/device/"):
                 return {"ret": self.device_console_output()}
             return {"ret": self.link_console_output()}
+        if path == "cmr/device/pair":
+            for d in self.devices:
+                if d[".id"] == payload.get("numbers"):
+                    d.pop("pending", None)  # approved: the device is managed from now on
+            return [{"device": payload.get("numbers"), "status": "paired"}]
         if path in ("cmr/upgrade/version-check", "cmr/upgrade/trigger", "cmr/device/upgrade"):
             return []
         raise CmrNotFoundError(f"POST {path}: no such command", "no such command")
@@ -111,7 +116,9 @@ class FakeController:
             ids = d["ids"]
             lines.append(
                 f" {d['.id']} {flags or ' '}  ids={ids[:40]}\n        {ids[40:]} peer={d['peer']} board=\"{d['board']}\""
-                f" version=\"{d['version']}\"\n        labels={d['labels']} alerts={d['alerts']} serial=\"{d['serial']}\""
+                f" version=\"{d['version']}\"\n        labels={d['labels']}"
+                + (f" alerts={d['alerts']}" if d.get("alerts") else "")  # unpaired devices have none yet
+                + f" serial=\"{d['serial']}\""
                 f"\n        identity=\"{d['identity']}\""
             )
         return "\n \n".join(lines) + "\n"

@@ -66,12 +66,12 @@
         "data": {
           "scan_interval": "Polling interval",
           "webhook_base_url": "Home Assistant address, as the controller reaches it",
-          "allow_upgrades": "Allow starting upgrades from Home Assistant",
+          "allow_upgrades": "Allow actions on the controller (upgrades, pairing)",
           "activity_log": "Home Assistant activity log",
           "catalog_url": "Product catalog URL"
         },
         "data_description": {
-          "allow_upgrades": "Adds Install to each firmware update and a button per upgrade rule. Needs the `write` policy on the router user.",
+          "allow_upgrades": "Adds Install to each firmware update, a button per upgrade rule, and Approve for devices waiting to be paired. Needs the `write` policy on the router user.",
           "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything.",
           "catalog_url": "Optional. A product catalog that adds photos and product names to devices; leave empty to turn it off. Photos then load from the catalog's image server."
         },
@@ -231,6 +231,32 @@
     "network_issue": {
       "title": "{title}",
       "description": "{detail}\n\nThis was detected by the CMR integration and clears itself once things are quiet again."
+    },
+    "pairing_pending": {
+      "title": "{identity} is waiting to be paired",
+      "description": "A {board} has connected to the controller and waits for approval there. Approve it here, or run `/cmr/device/pair` for it on the controller. Approving from Home Assistant needs *Allow actions on the controller* in the integration's options.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Approve pairing of {identity}",
+            "description": "The controller will accept {identity} ({board}) as a managed device. Only when the device itself requires a password, enter the credentials of a user on that device; otherwise leave both empty.",
+            "data": {
+              "username": "Username on the device",
+              "password": "Password on the device"
+            }
+          }
+        },
+        "abort": {
+          "not_pending": "This device is no longer waiting for approval."
+        },
+        "error": {
+          "pair_failed": "The controller refused the pairing: {detail}"
+        }
+      }
+    },
+    "pairing_remote": {
+      "title": "{identity} is waiting for approval on the device",
+      "description": "The controller accepted the {board} but the device's own pairing requirement is not met yet. Run `/cmr/client/pair` on the device (with the controller's credentials if it asks for a password). This notice disappears once the pairing completes."
     }
   }
 }

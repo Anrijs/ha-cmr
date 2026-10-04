@@ -66,12 +66,12 @@
         "data": {
           "scan_interval": "Aptaujas intervāls",
           "webhook_base_url": "Home Assistant adrese, kā to sasniedz kontrolieris",
-          "allow_upgrades": "Ļaut sākt atjauninājumus no Home Assistant",
+          "allow_upgrades": "Ļaut darbības kontrolierī (atjauninājumi, pārošana)",
           "activity_log": "Home Assistant aktivitāšu žurnāls",
           "catalog_url": "Produktu kataloga URL"
         },
         "data_description": {
-          "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt un katram atjaunināšanas noteikumam pogu. Rūtera lietotājam vajag `write` politiku.",
+          "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt, katram atjaunināšanas noteikumam pogu un Apstiprināt ierīcēm, kas gaida pārošanu. Rūtera lietotājam vajag `write` politiku.",
           "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss.",
           "catalog_url": "Neobligāts. Produktu katalogs, kas ierīcēm pievieno attēlus un produktu nosaukumus; atstāj tukšu, lai izslēgtu. Attēli tad ielādējas no kataloga attēlu servera."
         },
@@ -231,6 +231,32 @@
     "network_issue": {
       "title": "{title}",
       "description": "{detail}\n\nTo atklāja CMR integrācija; tas pazudīs pats, kad viss nomierināsies."
+    },
+    "pairing_pending": {
+      "title": "{identity} gaida pārošanu",
+      "description": "Kontrolierim ir pieslēgusies ierīce {board}, un tā gaida apstiprinājumu tur. Apstiprini to šeit vai palaid kontrolierī `/cmr/device/pair` šai ierīcei. Apstiprināšanai no Home Assistant integrācijas iestatījumos jābūt ieslēgtai opcijai *Ļaut darbības kontrolierī*.",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Apstiprināt {identity} pārošanu",
+            "description": "Kontrolieris pieņems {identity} ({board}) kā pārvaldītu ierīci. Tikai tad, ja pati ierīce prasa paroli, ievadi šīs ierīces lietotāja datus; citādi atstāj abus laukus tukšus.",
+            "data": {
+              "username": "Lietotājvārds ierīcē",
+              "password": "Parole ierīcē"
+            }
+          }
+        },
+        "abort": {
+          "not_pending": "Šī ierīce vairs negaida apstiprinājumu."
+        },
+        "error": {
+          "pair_failed": "Kontrolieris noraidīja pārošanu: {detail}"
+        }
+      }
+    },
+    "pairing_remote": {
+      "title": "{identity} gaida apstiprinājumu ierīcē",
+      "description": "Kontrolieris ir pieņēmis ierīci {board}, bet pašas ierīces pārošanas prasība vēl nav izpildīta. Palaid ierīcē `/cmr/client/pair` (ar kontroliera lietotāja datiem, ja tā prasa paroli). Šis paziņojums pazūd, kad pārošana ir pabeigta."
     }
   }
 }

@@ -114,6 +114,8 @@ export interface CmrEntry {
   controller_url: string;
   last_update: string | null;
   available: boolean;
+  /** Home Assistant may act on the controller (pair, upgrade). */
+  actions: boolean;
   fleet_entities: Record<string, string | null>;
   devices: CmrDevice[];
   alerts: CmrAlertRule[];
