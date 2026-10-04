@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1
+- Upgrade jobs show their real state and "starts in …" for scheduled ones.
+- A Repair hint when the controller's topology tracking is off.
+- Wi-Fi client events from every access point, used as soon as the controller serves them over REST.
+
 ## 0.5.0
 - Approve the pairing of new devices from Home Assistant: a Repair issue per waiting device (fixable when actions are allowed) and an Approve button on the Devices card.
 - The upgrades option is now "Allow actions on the controller" (same setting, wider meaning).

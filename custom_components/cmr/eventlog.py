@@ -38,6 +38,7 @@ from .logparse import (
     gmt_offset_seconds,
     log_id_value,
     parse_router_time,
+    wifi_log_event,
 )
 from .models import CmrSnapshot, split_list
 
@@ -87,6 +88,13 @@ class CmrEventLog:
         self._clock_read: datetime | None = None
         # Whether the controller filters `/log` by id itself; None until checked.
         self._query_ok: bool | None = None
+        # Fleet-wide Wi-Fi client events from `/cmr/device/wifi-logs`: None
+        # until tried, False when the controller doesn't serve them over REST.
+        self._wifi_logs_ok: bool | None = None
+        self._wifi_last: datetime | None = None
+        # (time, mac, event, source) of recently ingested Wi-Fi events, so the
+        # same event seen in `/log` and in `wifi-logs` is kept once.
+        self._wifi_seen: dict[tuple[str, str, str], datetime] = {}
         # The snapshot being processed (the coordinator's is set only afterwards).
         self._snapshot: CmrSnapshot | None = None
 
@@ -149,6 +157,7 @@ class CmrEventLog:
 
         replay = self.last_log_id is None and not self.events
         events = await self._read_log(api, snapshot, now)
+        events += await self._read_wifi_logs(api, snapshot, now, replay=replay)
         if previous is not None:
             events += diff_snapshots(previous, snapshot, now)
         self._ingest(events, snapshot, now, replay=replay)
@@ -209,11 +218,95 @@ class CmrEventLog:
                 "device_name": device.identity if device else None,
             }
             if parsed.category == "wifi":
-                name = self._client_name(parsed.data["mac"])
-                if name:
-                    event["subject_name"] = f"{name} ({parsed.data['mac']})"
-                    event["title"] = parsed.title.replace(parsed.data["mac"], name, 1)
+                self._name_wifi_client(event, parsed.data["mac"])
+                self._wifi_seen[(parsed.data["mac"], parsed.data["event"], device.identity if device else "")] = when
             events.append(event)
+        return events
+
+    def _name_wifi_client(self, event: dict[str, Any], mac: str) -> None:
+        name = self._client_name(mac)
+        if name:
+            event["subject_name"] = f"{name} ({mac})"
+            event["title"] = event["title"].replace(mac, name, 1)
+
+    async def _read_wifi_logs(
+        self, api: CmrApi, snapshot: CmrSnapshot, now: datetime, *, replay: bool
+    ) -> list[dict[str, Any]]:
+        """Client events from every access point, via `/cmr/device/wifi-logs`.
+
+        The controller's own log only has the events of radios it manages
+        itself; this command collects them from the whole fleet. For now it
+        ignores the device selection, so one call returns everything.
+        """
+        if self._wifi_logs_ok is False or snapshot.controller is None:
+            return []
+        offset = timedelta(seconds=self._gmt_offset or 0)
+        start = self._wifi_last or (now - timedelta(hours=1 if replay else 0, minutes=0 if replay else 5))
+        start_local = (start + offset).replace(tzinfo=None)
+        payload = {
+            "numbers": snapshot.controller.rest_id,
+            "once": "",
+            "time-start": start_local.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        try:
+            items = await api.post("cmr/device/wifi-logs", payload)
+        except CmrApiError as err:
+            if self._wifi_logs_ok is None:
+                _LOGGER.info("Wi-Fi client events aren't available over REST on this controller (%s)", err.detail)
+            self._wifi_logs_ok = False
+            return []
+        if not isinstance(items, list):
+            _LOGGER.debug("Unexpected wifi-logs response: %r", items)
+            self._wifi_logs_ok = False
+            return []
+        rows = [(item, wifi_log_event(item)) for item in items if isinstance(item, dict)]
+        if self._wifi_logs_ok is None:
+            # A controller that serves the rows without their fields is not
+            # asked again: the answer is large and carries nothing.
+            self._wifi_logs_ok = not rows or any(parsed for _, parsed in rows)
+            _LOGGER.info(
+                "Wi-Fi client events over REST: %s (%d rows, first %r)",
+                "available" if self._wifi_logs_ok else "rows carry no data; not using them",
+                len(rows), items[0] if items else None,
+            )
+            if not self._wifi_logs_ok:
+                return []
+
+        now_local = (now + offset).replace(tzinfo=None)
+        events: list[dict[str, Any]] = []
+        for item, parsed in rows:
+            if parsed is None:
+                continue
+            local = parse_router_time(str(item.get("time", "")), now_local)
+            when = (local - offset).replace(tzinfo=UTC) if local else now
+            if when < start:
+                continue  # the controller may ignore time-start and send everything
+            device = snapshot.device_by_identity(parsed.data["identity"])
+            key = (parsed.data["mac"], parsed.data["event"], device.identity if device else "")
+            seen = self._wifi_seen.get(key)
+            if seen is not None and abs((seen - when).total_seconds()) < 3:
+                continue  # the controller's own log already reported it
+            self._wifi_seen[key] = when
+            event = {
+                "time": when,
+                "source": "wifi",
+                "category": "wifi",
+                "severity": parsed.severity,
+                "title": parsed.title,
+                "message": "",
+                "data": parsed.data,
+                "device_key": device.key if device else None,
+                "device_name": device.identity if device else parsed.data["identity"],
+            }
+            self._name_wifi_client(event, parsed.data["mac"])
+            events.append(event)
+            if self._wifi_last is None or when > self._wifi_last:
+                self._wifi_last = when
+        if self._wifi_last is None:
+            self._wifi_last = now
+        # Forget dedup keys older than a few minutes.
+        cutoff = now - timedelta(minutes=5)
+        self._wifi_seen = {k: t for k, t in self._wifi_seen.items() if t >= cutoff}
         return events
 
     async def _fetch_log(self, api: CmrApi) -> list[dict[str, Any]]:

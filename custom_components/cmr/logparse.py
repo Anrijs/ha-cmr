@@ -178,6 +178,34 @@ def _who(text: str) -> str:
     return re.sub(r"/action:\d+$", "", text)
 
 
+def wifi_log_event(item: dict[str, Any]) -> LogEvent | None:
+    """One row of `/cmr/device/wifi-logs`: a client (dis)connecting on any AP.
+
+    Rows carry the source device (`identity@address`), the client MAC, the
+    event (connected, disconnected, failed) and the BSSID; the controller
+    collects them from every managed access point.
+    """
+    mac = str(item.get("address") or item.get("mac") or "").upper()
+    event = str(item.get("event") or "").lower()
+    if not re.fullmatch(_MAC, mac) or event not in ("connected", "disconnected", "failed"):
+        return None
+    source = str(item.get("source") or "")
+    identity = source.split("@", 1)[0] or None
+    bssid = str(item.get("bssid") or "").upper() or None
+    where = identity or bssid or "Wi-Fi"
+    title = {
+        "connected": f"Wi-Fi client {mac} connected to {where}",
+        "disconnected": f"Wi-Fi client {mac} disconnected from {where}",
+        "failed": f"Wi-Fi client {mac} failed to connect to {where}",
+    }[event]
+    return LogEvent(
+        "wifi",
+        "notice" if event == "failed" else "info",
+        title,
+        {"mac": mac, "event": event, "bssid": bssid, "source": source, "identity": identity},
+    )
+
+
 def find_identity(text: str, identities: list[str]) -> str | None:
     """The longest managed identity that appears as a whole token in text.
 

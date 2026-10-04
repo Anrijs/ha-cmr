@@ -88,6 +88,32 @@ async def test_websocket_pair(hass: HomeAssistant, controller: FakeController, m
     assert ("POST", "cmr/device/pair", {"numbers": "*42", "username": "admin", "password": "pw"}) in controller.calls
 
 
+async def test_topology_tracking_hint(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    controller.data["cmr"]["track-topology"] = "false"
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"topology_tracking_{entry.entry_id}")
+    assert issue and issue.translation_key == "topology_tracking_off"
+
+    del controller.data["cmr"]["track-topology"]  # back to the default (yes)
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert ir.async_get(hass).async_get_issue(DOMAIN, f"topology_tracking_{entry.entry_id}") is None
+
+
+async def test_wifi_logs_without_fields_are_not_polled(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    """Some controllers answer with empty rows; one look is enough."""
+    controller.wifi_logs = [{}, {}, {}]
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.runtime_data.eventlog._wifi_logs_ok is False
+    calls_before = sum(path == "cmr/device/wifi-logs" for _, path, _ in controller.calls)
+    await entry.runtime_data.async_refresh()
+    assert sum(path == "cmr/device/wifi-logs" for _, path, _ in controller.calls) == calls_before == 1
+
+
 async def test_websocket_pair_refused_without_actions(hass: HomeAssistant, controller: FakeController, entry, hass_ws_client) -> None:
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "cmr/pair", "entry_id": entry.entry_id, "device_key": "S0000000001"})

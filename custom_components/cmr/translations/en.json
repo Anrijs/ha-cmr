@@ -254,6 +254,10 @@
         }
       }
     },
+    "topology_tracking_off": {
+      "title": "Topology tracking is off on the controller",
+      "description": "The controller's `track-topology` setting is `no`, so it doesn't learn which ports connect the devices: the map draws every cable without port names, PoE or traffic, and `rebuild-links` finds nothing. Set `/cmr set track-topology=yes` on the controller to get them back."
+    },
     "pairing_remote": {
       "title": "{identity} is waiting for approval on the device",
       "description": "The controller accepted the {board} but the device's own pairing requirement is not met yet. Run `/cmr/client/pair` on the device (with the controller's credentials if it asks for a password). This notice disappears once the pairing completes."

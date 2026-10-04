@@ -9,13 +9,19 @@ interface UpgradesConfig {
   jobs?: number;
 }
 
+// Controller job states (plus "failed" for a done job that didn't upgrade everything).
 const JOB_ICON: Record<string, string> = {
   done: "mdi:check-circle",
   failed: "mdi:close-circle",
-  running: "mdi:progress-upload",
+  processing: "mdi:progress-upload",
+  "version check": "mdi:magnify",
+  "waiting devices": "mdi:timer-sand",
+  queued: "mdi:tray-full",
+  "queued (busy)": "mdi:tray-full",
   scheduled: "mdi:calendar-clock",
-  waiting: "mdi:timer-sand",
+  cancelled: "mdi:cancel",
 };
+const RUNNING = new Set(["processing", "version check", "waiting devices", "queued", "queued (busy)"]);
 
 function split(value: string | undefined): string[] {
   return (value ?? "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -25,7 +31,12 @@ function split(value: string | undefined): string[] {
 function jobStatus(job: Record<string, string>): string {
   const [ok, total] = (job.success ?? "").split("/").map(Number);
   if (job.state === "done" && total && ok < total) return "failed";
-  return job.state ?? "waiting";
+  return job.state ?? "scheduled";
+}
+
+/** "6d2h" → "6d 2h", for the controller's starts-in value. */
+function startsIn(value: string | undefined): string {
+  return (value ?? "").replace(/([a-z])(\d)/g, "$1 $2");
 }
 
 export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
@@ -86,13 +97,18 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
               <div class="jobs">
                 ${jobs.map((job) => {
                   const status = jobStatus(job);
-                  return html`<div class="job js-${status}">
-                    <ha-icon icon=${JOB_ICON[status] ?? "mdi:circle-outline"}></ha-icon>
+                  const cls = status === "failed" ? "failed" : RUNNING.has(status) ? "running" : status === "scheduled" ? "scheduled" : status === "done" ? "done" : "other";
+                  const when = status === "scheduled" && job.starts_in
+                    ? `starts in ${startsIn(job.starts_in)}`
+                    : `${job.schedule_time ?? ""}${job.run_time ? ` · took ${job.run_time}` : ""}`;
+                  return html`<div class="job js-${cls}">
+                    <ha-icon icon=${JOB_ICON[status] ?? "mdi:circle-outline"} title=${status}></ha-icon>
                     <div class="what">
-                      <div><span class="mono">${job.channel ?? "?"}</span> → ${split(job.labels).join(", ") || "all"}</div>
-                      <div class="muted small">${job.schedule_time ?? ""}${job.run_time ? ` · took ${job.run_time}` : ""}</div>
+                      <div><span class="mono">${job.channel ?? "?"}</span> → ${split(job.labels).join(", ") || "all"}
+                        ${RUNNING.has(status) ? html`<span class="chip update">${status}</span>` : nothing}</div>
+                      <div class="muted small">${when}</div>
                     </div>
-                    <div class="ok mono">${job.success || "–"}</div>
+                    <div class="ok mono">${job.success || (status === "scheduled" ? "" : "–")}</div>
                   </div>`;
                 })}
               </div>`
@@ -165,7 +181,9 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
       .job ha-icon { --mdc-icon-size: 20px; }
       .js-done ha-icon { color: var(--cmr-ok); }
       .js-failed ha-icon { color: var(--cmr-alert); }
-      .js-running ha-icon, .js-scheduled ha-icon { color: var(--cmr-update); }
+      .js-running ha-icon { color: var(--cmr-update); }
+      .js-scheduled ha-icon { color: var(--cmr-pending); }
+      .js-other ha-icon { color: var(--cmr-muted); }
       .what { flex: 1; min-width: 0; }
       .ok { font-size: 12px; color: var(--cmr-muted); }
     `,

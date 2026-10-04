@@ -257,6 +257,10 @@
     "pairing_remote": {
       "title": "{identity} gaida apstiprinājumu ierīcē",
       "description": "Kontrolieris ir pieņēmis ierīci {board}, bet pašas ierīces pārošanas prasība vēl nav izpildīta. Palaid ierīcē `/cmr/client/pair` (ar kontroliera lietotāja datiem, ja tā prasa paroli). Šis paziņojums pazūd, kad pārošana ir pabeigta."
+    },
+    "topology_tracking_off": {
+      "title": "Kontrolierī izslēgta topoloģijas izsekošana",
+      "description": "Kontroliera iestatījums `track-topology` ir `no`, tāpēc tas nenoskaidro, kuri porti savieno ierīces: kartē kabeļi ir bez portu nosaukumiem, PoE un datplūsmas, un `rebuild-links` neko neatrod. Iestati kontrolierī `/cmr set track-topology=yes`, lai tos atgūtu."
     }
   }
 }

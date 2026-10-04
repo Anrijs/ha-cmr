@@ -110,6 +110,13 @@ async def test_websocket_subscribe_payload(hass: HomeAssistant, entry, hass_ws_c
     assert first["reset"] is True
     categories = {event["category"] for event in first["events"]}
     assert {"link", "wifi", "security"} <= categories
+    wifi = [event for event in first["events"] if event["category"] == "wifi"]
+    # Two from the remote AP's wifi-logs, one from the controller's log; the
+    # duplicate that both sources report is kept once.
+    assert sorted(e["device_name"] for e in wifi) == ["Remote-AP", "Remote-AP", "Site-AP1"]
+    remote = next(e for e in wifi if e["device_name"] == "Remote-AP" and e["data"]["event"] == "connected")
+    assert remote["source"] == "wifi" and remote["data"]["bssid"] == "D0:EA:11:AE:17:FE"
+    assert remote["device_key"] == "S0000000007"
 
 
 async def test_diagnostics_redact_secrets(hass: HomeAssistant, entry, hass_client) -> None:

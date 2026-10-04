@@ -196,6 +196,27 @@ def test_thresholds_are_configurable():
     assert kind == "raised" and "5 minutes" in insights.describe(insight, engine.offline_after)[1]
 
 
+def test_wifi_log_rows():
+    row = {"source": "Office-AP@192.0.2.5", "time": "2026-10-04 20:45:19", "address": "3c:dc:75:c0:85:ac",
+           "event": "disconnected", "bssid": "d0:ea:11:ae:17:fe"}
+    e = logparse.wifi_log_event(row)
+    assert e.category == "wifi" and e.severity == "info"
+    assert e.title == "Wi-Fi client 3C:DC:75:C0:85:AC disconnected from Office-AP"
+    assert e.data == {"mac": "3C:DC:75:C0:85:AC", "event": "disconnected", "bssid": "D0:EA:11:AE:17:FE",
+                      "source": "Office-AP@192.0.2.5", "identity": "Office-AP"}
+    failed = logparse.wifi_log_event({**row, "event": "failed"})
+    assert failed.severity == "notice" and "failed to connect" in failed.title
+    assert logparse.wifi_log_event({"address": "not-a-mac", "event": "connected"}) is None
+    assert logparse.wifi_log_event({**row, "event": "roamed"}) is None
+    # The flapping rule counts these rows like log lines.
+    engine = insights.InsightEngine(thresholds={"wifi_flapping": 2})
+    for i in range(2):
+        changes = engine.observe({"time": T0 + timedelta(minutes=i), "category": "wifi", "device_key": "AP1",
+                                  "device_name": "Office-AP", "data": e.data})
+    (kind, insight), = changes
+    assert kind == "raised" and insight.data["where"] == "Office-AP"
+
+
 def test_state_round_trip():
     engine = insights.InsightEngine()
     for m in range(5):

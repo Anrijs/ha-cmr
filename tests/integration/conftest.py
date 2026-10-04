@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import copy
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 from typing import Any
@@ -30,15 +31,25 @@ FIXTURES = Path(__file__).parents[1] / "fixtures"
 # serves them the way the real one does (see below).
 CONTROLLER = json.loads((FIXTURES / "controller.json").read_text())
 
+# (seconds ago, topics, message): stamped when served, so time filters see them as fresh.
 LOG_LINES = [
-    {".id": "*1", "time": "2026-10-04 11:58:02", "topics": "interface,info", "message": "ether6 link down"},
-    {".id": "*2", "time": "2026-10-04 11:58:09", "topics": "interface,info",
-     "message": "ether6 link up (speed 1G, full duplex)"},
-    {".id": "*3", "time": "2026-10-04 11:59:30", "topics": "wireless,info",
-     "message": "02:00:5E:10:00:01@wifi1-Site-AP1(Home) disconnected, connection lost, signal strength -71"},
-    {".id": "*4", "time": "2026-10-04 12:00:00", "topics": "system,error,critical",
-     "message": "login failure for user admin from 203.0.113.9 via ssh"},
+    (150, "interface,info", "ether6 link down"),
+    (143, "interface,info", "ether6 link up (speed 1G, full duplex)"),
+    (60, "wireless,info", "02:00:5E:10:00:01@wifi1-Site-AP1(Home) disconnected, connection lost, signal strength -71"),
+    (30, "system,error,critical", "login failure for user admin from 203.0.113.9 via ssh"),
 ]
+# (seconds ago, source, client MAC, event, BSSID); the remote AP never appears in the controller's own log.
+WIFI_ROWS = [
+    (180, "Remote-AP@198.51.100.216", "3C:DC:75:C0:85:AC", "disconnected", "D0:EA:11:AE:17:FE"),
+    (175, "Remote-AP@198.51.100.216", "3C:DC:75:C0:85:AC", "connected", "D0:EA:11:AE:17:FE"),
+    # The same event the controller's log line reports, from the AP's point of view.
+    (60, "Site-AP1@192.0.2.15", "02:00:5E:10:00:01", "disconnected", "D0:EA:11:AE:17:00"),
+]
+
+
+def stamp(seconds_ago: int) -> str:
+    """A controller timestamp (the fake clock runs at UTC)."""
+    return (datetime.now(UTC) - timedelta(seconds=seconds_ago)).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class FakeController:
@@ -50,7 +61,8 @@ class FakeController:
         self.auth_ok = True
         self.has_cmr = True
         self.console_ok = True
-        self.log = list(LOG_LINES)
+        # Set to override the generated rows (e.g. [{}] for a controller that serves no fields).
+        self.wifi_logs: list[dict[str, Any]] | None = None
 
     @property
     def devices(self) -> list[dict[str, Any]]:
@@ -75,7 +87,10 @@ class FakeController:
         if path == "system/clock":
             return {"gmt-offset": "+00:00", "time": "12:00:00", "date": "2026-10-04"}
         if path == "log":
-            return list(self.log)
+            return [
+                {".id": f"*{i + 1}", "time": stamp(ago), "topics": topics, "message": message}
+                for i, (ago, topics, message) in enumerate(LOG_LINES)
+            ]
         if path not in self.data:
             raise CmrNotFoundError(f"GET {path}: no such command", "no such command")
         items = copy.deepcopy(self.data[path])
@@ -94,6 +109,14 @@ class FakeController:
             return []  # the real controller returns nothing here
         if path == "log/print":
             return []
+        if path == "cmr/device/wifi-logs":
+            assert payload.get("numbers") and "time-start" in payload
+            if self.wifi_logs is not None:
+                return list(self.wifi_logs)
+            return [
+                {"source": source, "time": stamp(ago), "address": mac, "event": event, "bssid": bssid}
+                for ago, source, mac, event, bssid in WIFI_ROWS
+            ]
         if path == "execute":
             if not self.console_ok:
                 raise CmrAuthError("POST execute: not enough permissions", "not enough permissions")
