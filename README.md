@@ -461,8 +461,8 @@ names or comments.
 
 - **Layouts, positions and links** come from the CMR layouts you arrange in
   the controller's layout editor. Nodes without saved coordinates are placed in a row below the others.
-  Without any layouts, the map arranges devices by role (gateway, router,
-  switch, access points) around the controller.
+  Without any layouts, the map puts the controller on top and every other
+  device in a row below it.
 - **Ports, PoE and traffic.** REST leaves out a link's detected ports, so they
   are read from the console's `print detail` output through `/execute`. Each
   cable shows the port at both ends next to its own device; ⚡ marks the port

@@ -100,8 +100,7 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
             return True
         self._installing_to = None
         return any(
-            device.identity in str(job.get("labels", "")).split(",")
-            and str(job.get("state", "")) not in _FINISHED
+            str(job.get("state", "")) not in _FINISHED and device.matches_labels(job.get("labels"))
             for job in self.coordinator.data.upgrade_jobs
         )
 

@@ -1,7 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
 import {
-  ROLE_ICON,
   deviceVisual,
   modelCode,
   modelName,

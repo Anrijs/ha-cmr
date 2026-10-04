@@ -132,36 +132,6 @@ def is_prerelease(version: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Device role (used for icons and topology shapes)
-# ---------------------------------------------------------------------------
-
-_ROLE_LABELS = (
-    ("gateway", {"gw", "gateway", "wan", "edge"}),
-    ("router", {"router", "core"}),
-    ("switch", {"switch", "sw"}),
-    ("ap", {"ap", "wifi", "wireless", "cap"}),
-)
-_ROLE_BOARDS = (
-    ("lte", re.compile(r"^(ATL|LtAP|Chateau|LHG.*LTE|SXT.*LTE|wAP.*LTE|KNOT)", re.I)),
-    ("switch", re.compile(r"^(CRS|CSS|netPower|FiberBox)", re.I)),
-    ("ap", re.compile(r"^(cAP|wAP|Audience|mAP|NetMetal|SXT|LHG|mANTBox|Disc|Cube)", re.I)),
-    ("router", re.compile(r"^(RB|CCR|hEX|L009|RB5009|CHR|x86|hAP)", re.I)),
-)
-
-
-def device_role(labels: list[str], board: str | None) -> str:
-    """Best guess of a device's role: gateway, router, switch, ap, lte or device."""
-    lowered = {label.lower() for label in labels}
-    for role, names in _ROLE_LABELS:
-        if lowered & names:
-            return role
-    for role, pattern in _ROLE_BOARDS:
-        if board and pattern.match(board):
-            return role
-    return "device"
-
-
-# ---------------------------------------------------------------------------
 # Alert counters and link details
 # ---------------------------------------------------------------------------
 
@@ -397,9 +367,18 @@ class CmrDevice:
         known = {self.identity, self.board, self.address, self.arch}
         return next((label for label in self.auto_labels if label not in known), None)
 
-    @property
-    def role(self) -> str:
-        return device_role(self.labels, self.board)
+    def matches_labels(self, selector: Any) -> bool:
+        """Whether a label selector (an upgrade rule's or job's `labels`) covers this device.
+
+        `all` means every device; otherwise any user label, auto-label or the
+        identity (a single-device job's selector) counts.
+        """
+        wanted = set(split_list(selector))
+        if not wanted:
+            return False
+        if "all" in wanted:
+            return True
+        return bool(wanted & ({self.identity, *self.labels, *self.auto_labels} - {None}))
 
     @property
     def update_available(self) -> bool:

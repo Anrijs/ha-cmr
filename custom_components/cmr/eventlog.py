@@ -233,8 +233,6 @@ class CmrEventLog:
             return device.name_by_user or device.name
         return self._mac_hosts.get(mac)
 
-    # ---------------------------------------------------- snapshot changes
-
     # ------------------------------------------------------------- output
 
     def _ingest(
@@ -387,6 +385,8 @@ class CmrEventLog:
 
     def _device_states(self, snapshot: CmrSnapshot, now: datetime) -> list[dict[str, Any]]:
         states = []
+        for key in set(self._offline_since) - set(snapshot.devices):
+            del self._offline_since[key]
         for device in snapshot.devices.values():
             if device.connected:
                 self._offline_since.pop(device.key, None)

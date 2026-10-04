@@ -205,6 +205,12 @@ class InsightEngine:
                 insight = self.active.pop(key)
                 insight.resolved = now
                 changes.append(("resolved", insight))
+        # A device removed from the controller is no longer "offline".
+        present = {f"device_offline:{device['key']}" for device in devices}
+        for key in [k for k in self.active if k.startswith("device_offline:") and k not in present]:
+            insight = self.active.pop(key)
+            insight.resolved = now
+            changes.append(("resolved", insight))
         return changes
 
     def sweep(self, now: datetime) -> list[Insight]:

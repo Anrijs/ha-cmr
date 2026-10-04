@@ -103,12 +103,13 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         await self._merge_computed(raw)
         await self._merge_link_ports(raw)
         if not self._platform_read:
-            self._platform_read = True
             try:
                 resource = await self.api.get("system/resource")
+            except CmrApiError as err:
+                _LOGGER.debug("Reading /system/resource failed, will retry: %s", err)
+            else:
+                self._platform_read = True
                 self.platform = resource.get("platform") if isinstance(resource, dict) else None
-            except CmrApiError:
-                self.platform = None
         self.raw = raw
         self.last_poll = dt_util.utcnow()
         snapshot = parse_snapshot(raw)

@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
-import { ROLE_ICON, baseStyles, deviceStatus, moreInfo } from "./shared";
+import { baseStyles, deviceIcon, deviceStatus, moreInfo } from "./shared";
 import type { CmrDevice, CmrEntry, HassLike } from "./types";
 
 interface UpgradesConfig {
@@ -166,7 +166,7 @@ export class CmrUpgradesCard extends LitElement {
                 <div class="devs">
                   ${group.devices.map(
                     (d) => html`<button class="dev status-${deviceStatus(d)}" title="${d.identity} · ${d.version}"
-                      @click=${() => moreInfo(this, d.entities.update)}><ha-icon icon=${ROLE_ICON[d.role]}></ha-icon></button>`,
+                      @click=${() => moreInfo(this, d.entities.update)}><ha-icon icon=${deviceIcon(d)}></ha-icon></button>`,
                   )}
                   ${group.devices.length ? nothing : html`<span class="muted small">none</span>`}
                 </div>

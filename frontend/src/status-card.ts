@@ -1,7 +1,7 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
-import { ROLE_ICON, ROLE_LABEL, baseStyles, modelName, moreInfo } from "./shared";
-import type { CmrEntry, HassLike, Role } from "./types";
+import { baseStyles, modelName, moreInfo } from "./shared";
+import type { CmrEntry, HassLike } from "./types";
 
 interface StatusConfig {
   type: string;
@@ -107,9 +107,6 @@ export class CmrStatusCard extends LitElement {
     devices.forEach((d) => versions.set(d.version ?? "unknown", (versions.get(d.version ?? "unknown") ?? 0) + 1));
     const versionList = [...versions.entries()].sort((a, b) => b[1] - a[1]);
 
-    const roles = new Map<Role, number>();
-    devices.forEach((d) => roles.set(d.role, (roles.get(d.role) ?? 0) + 1));
-
     const fe = entry.fleet_entities;
     const R = 26;
     const C = 2 * Math.PI * R;
@@ -167,10 +164,6 @@ export class CmrStatusCard extends LitElement {
             ${versionList.map(
               ([version, count], i) => html`<span><i style="background:${VERSION_COLORS[i % VERSION_COLORS.length]}"></i>
                 <span class="mono">${version}</span> <span class="muted">×${count}</span></span>`,
-            )}
-            <span class="spacer"></span>
-            ${[...roles.entries()].map(
-              ([role, count]) => html`<span class="role" title=${ROLE_LABEL[role]}><ha-icon icon=${ROLE_ICON[role]}></ha-icon>${count}</span>`,
             )}
           </div>
         </div>
@@ -238,7 +231,6 @@ export class CmrStatusCard extends LitElement {
       .keys { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; align-items: center; }
       .keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
       .keys .spacer { flex: 1; }
-      .role { display: inline-flex; align-items: center; gap: 3px; color: var(--cmr-muted); --mdc-icon-size: 16px; }
       @container (max-width: 520px) {
         .stats { justify-content: stretch; }
         .stat { max-width: none; }

@@ -5,8 +5,6 @@ import importlib.util
 from pathlib import Path
 import sys
 
-import pytest
-
 _DIR = Path(__file__).parents[1] / "custom_components" / "cmr"
 
 
@@ -164,6 +162,18 @@ def test_device_offline_and_recovery():
     assert kind == "raised" and insight.kind == "device_offline"
     (kind, insight), = engine.check_devices([{"key": "D1", "name": "Switch", "connected": True}], T0)
     assert kind == "resolved" and insight.resolved == T0
+
+
+def test_offline_device_removed_from_controller_resolves():
+    engine = insights.InsightEngine()
+    down = [{"key": "D1", "name": "Switch", "connected": False, "disconnected_for": 1000}]
+    (kind, _), = engine.check_devices(down, T0)
+    assert kind == "raised"
+    # The device is deleted from the controller: it must not stay an issue forever.
+    (kind, insight), = engine.check_devices([], T0 + timedelta(hours=1))
+    assert kind == "resolved" and insight.key == "device_offline:D1"
+    assert engine.active == {}
+    assert engine.sweep(T0 + timedelta(days=1)) == []
 
 
 def test_state_round_trip():

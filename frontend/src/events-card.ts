@@ -5,6 +5,8 @@ import type { HassLike } from "./types";
 
 interface EventsConfig {
   type: string;
+  /** One controller's events; default: all controllers. */
+  entry_id?: string;
   title?: string;
   /** Categories to show (empty: all but `hide_categories`). */
   categories?: string[];
@@ -38,7 +40,8 @@ const CATEGORY: Record<string, { icon: string; label: string }> = {
 const OTHER = { icon: "mdi:text-box-outline", label: "Other" };
 
 function categoryInfo(category: string) {
-  return CATEGORY[category] ?? { ...OTHER, label: category[0].toUpperCase() + category.slice(1) };
+  if (CATEGORY[category]) return CATEGORY[category];
+  return category ? { ...OTHER, label: category[0].toUpperCase() + category.slice(1) } : OTHER;
 }
 
 /** A more specific icon for a few event kinds. */
@@ -108,7 +111,14 @@ export class CmrEventsCard extends LitElement {
   }
 
   setConfig(config: EventsConfig): void {
+    if (this._unsubscribe && config.entry_id !== this._config?.entry_id) {
+      // Another controller was picked in the editor: switch feeds.
+      this._unsubscribe();
+      this._unsubscribe = undefined;
+      this._loaded = false;
+    }
     this._config = { show_issues: true, show_filters: true, hide_categories: ["api"], max_items: 50, ...config };
+    if (!this._unsubscribe && this.hass && this.isConnected) this._subscribe();
     this._limit = this._config.max_items ?? 50;
     this._device = config.device ?? "";
     this._notable = !!config.notable;
@@ -122,6 +132,7 @@ export class CmrEventsCard extends LitElement {
     return {
       schema: [
         { name: "title", selector: { text: {} } },
+        { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
         { name: "device", selector: { text: {} } },
         { name: "max_items", selector: { number: { min: 5, max: 500, mode: "box" } } },
         { name: "notable", selector: { boolean: {} } },
@@ -131,6 +142,7 @@ export class CmrEventsCard extends LitElement {
       computeLabel: (s: { name: string }) =>
         ({
           title: "Title",
+          entry_id: "Controller (default: all)",
           device: "Only this device (identity)",
           max_items: "Rows to show",
           notable: "Start with notable events only",
@@ -164,7 +176,7 @@ export class CmrEventsCard extends LitElement {
   }
 
   private _subscribe(): void {
-    this._unsubscribe = cmrEvents.subscribe(this.hass, (events, issues) => {
+    this._unsubscribe = cmrEvents.subscribe(this.hass, this._config?.entry_id, (events, issues) => {
       this._events = events;
       this._issues = issues;
       this._loaded = true;

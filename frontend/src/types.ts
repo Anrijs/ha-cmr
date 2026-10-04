@@ -10,8 +10,6 @@ export interface AlertCounts {
   low: number;
 }
 
-export type Role = "gateway" | "router" | "switch" | "ap" | "lte" | "device";
-
 export interface CmrDevice {
   key: string;
   identity: string;
@@ -19,7 +17,6 @@ export interface CmrDevice {
   board: string | null;
   model_code: string | null;
   arch: string | null;
-  role: Role;
   version: string | null;
   prerelease: boolean;
   available_version: string | null;

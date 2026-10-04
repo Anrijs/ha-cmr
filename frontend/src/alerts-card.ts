@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
-import { baseStyles, moreInfo } from "./shared";
+import { baseStyles, copyText, moreInfo } from "./shared";
 import type { CmrAlertRule, CmrEntry, HassLike } from "./types";
 
 interface AlertsConfig {
@@ -111,7 +111,7 @@ export class CmrAlertsCard extends LitElement {
 
   private async _copy(): Promise<void> {
     if (!this._setup) return;
-    await navigator.clipboard.writeText(this._setup.script);
+    if (!(await copyText(this._setup.script))) return;
     this._copied = true;
     setTimeout(() => (this._copied = false), 1800);
   }

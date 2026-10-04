@@ -108,20 +108,19 @@ def test_device_from_rest():
     assert device.upgrade_flag and not device.update_available
     assert device.arch == "arm64"
     assert device.model_code is None
-    assert device.role == "gateway"
     assert device.alerts.critical == 1
+    # Upgrade job / rule selectors: identity, any label or auto-label, or "all".
+    assert device.matches_labels("Site-GW")
+    assert device.matches_labels("ap,gw")
+    assert device.matches_labels("arm64")
+    assert device.matches_labels("all")
+    assert not device.matches_labels("ap,switch")
+    assert not device.matches_labels("")
 
 
 def test_controller_counts_as_connected():
     device = models.CmrDevice.from_rest({".id": "*1", "identity": "ctl", "controller": "true"})
     assert device.connected
-
-
-def test_device_role_from_board():
-    assert models.device_role([], "CRS320-8P-8B-4S+") == "switch"
-    assert models.device_role([], "wAP ax") == "ap"
-    assert models.device_role([], "RB5009UPr+S+") == "router"
-    assert models.device_role([], "ATLGM") == "lte"
 
 
 def test_snapshot_nodes_and_links():

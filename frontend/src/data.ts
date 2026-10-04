@@ -97,13 +97,15 @@ export interface CmrIssue {
 
 type EventsListener = (events: CmrEvent[], issues: CmrIssue[]) => void;
 
-/** Shared `cmr/events/subscribe`: recent events plus new ones live. */
-class CmrEventsStore {
+/** One `cmr/events/subscribe` feed: recent events plus new ones live. */
+class EventsFeed {
   private listeners = new Set<EventsListener>();
   private unsubscribe?: Promise<() => Promise<void>>;
   private events: CmrEvent[] = [];
   private issues: CmrIssue[] = [];
   private loaded = false;
+
+  constructor(private readonly entryId?: string) {}
 
   subscribe(hass: HassLike, listener: EventsListener): () => void {
     this.listeners.add(listener);
@@ -116,7 +118,7 @@ class CmrEventsStore {
           this.loaded = true;
           this.listeners.forEach((fn) => fn(this.events, this.issues));
         },
-        { type: "cmr/events/subscribe", limit: 1000 },
+        { type: "cmr/events/subscribe", limit: 1000, ...(this.entryId ? { entry_id: this.entryId } : {}) },
       );
       this.unsubscribe.catch((err) => {
         console.error("cmr: events subscription failed", err);
@@ -133,6 +135,21 @@ class CmrEventsStore {
         pending.then((unsub) => unsub()).catch(() => undefined);
       }
     };
+  }
+}
+
+/** Feeds shared by every events card on the page, one per controller (or all). */
+class CmrEventsStore {
+  private feeds = new Map<string, EventsFeed>();
+
+  subscribe(hass: HassLike, entryId: string | undefined, listener: EventsListener): () => void {
+    const key = entryId ?? "";
+    let feed = this.feeds.get(key);
+    if (!feed) {
+      feed = new EventsFeed(entryId);
+      this.feeds.set(key, feed);
+    }
+    return feed.subscribe(hass, listener);
   }
 }
 

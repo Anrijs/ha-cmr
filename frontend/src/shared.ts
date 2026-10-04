@@ -1,23 +1,14 @@
 import { css, html, type TemplateResult } from "lit";
-import type { CmrDevice, Role } from "./types";
+import type { CmrDevice } from "./types";
 
-export const ROLE_ICON: Record<Role, string> = {
-  gateway: "mdi:web",
-  router: "mdi:router",
-  switch: "mdi:switch",
-  ap: "mdi:access-point",
-  lte: "mdi:signal-cellular-3",
-  device: "mdi:chip",
-};
-
-export const ROLE_LABEL: Record<Role, string> = {
-  gateway: "Gateway",
-  router: "Router",
-  switch: "Switch",
-  ap: "Access point",
-  lte: "LTE",
-  device: "Device",
-};
+/**
+ * Icon when there is no product photo. The controller reports no role for a
+ * device (one box can be the gateway, a switch and an AP at once), so the only
+ * distinction drawn is controller vs. managed device.
+ */
+export function deviceIcon(device: CmrDevice): string {
+  return device.controller ? "mdi:router-network" : "mdi:router";
+}
 
 export type Status = "ok" | "update" | "alert" | "pending" | "offline";
 
@@ -49,11 +40,37 @@ export function formatDuration(seconds: number | null | undefined): string {
   return `${Math.floor(seconds)}s`;
 }
 
+/** Controller first, then by identity. */
 export function compareDevices(a: CmrDevice, b: CmrDevice): number {
-  const order: Role[] = ["gateway", "router", "switch", "lte", "ap", "device"];
   if (a.controller !== b.controller) return a.controller ? -1 : 1;
-  const byRole = order.indexOf(a.role) - order.indexOf(b.role);
-  return byRole || a.identity.localeCompare(b.identity);
+  return a.identity.localeCompare(b.identity);
+}
+
+/** Copy text to the clipboard; the async API only exists on secure origins. */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the legacy path.
+  }
+  const area = document.createElement("textarea");
+  area.value = text;
+  area.setAttribute("readonly", "");
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+  document.body.appendChild(area);
+  area.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch {
+    ok = false;
+  }
+  area.remove();
+  return ok;
 }
 
 export function fireEvent(node: HTMLElement, type: string, detail: unknown): void {
@@ -171,22 +188,22 @@ export const baseStyles = css`
   }
 `;
 
-/** The device's product photo on a light tile, or its role icon. */
+/** The device's product photo on a light tile, or a generic icon. */
 export function deviceVisual(device: CmrDevice, extraClass = ""): TemplateResult {
   if (device.product?.image) {
     return html`<div class="badge photo ${extraClass}" title=${device.product.name}>
       <img src=${device.product.image} alt=${device.product.name} loading="lazy" referrerpolicy="no-referrer"
         @error=${(e: Event) => ((e.target as HTMLElement).parentElement!.classList.add("broken"))} />
-      <ha-icon icon=${ROLE_ICON[device.role]}></ha-icon>
+      <ha-icon icon=${deviceIcon(device)}></ha-icon>
     </div>`;
   }
-  return html`<div class="badge ${extraClass}"><ha-icon icon=${ROLE_ICON[device.role]}></ha-icon></div>`;
+  return html`<div class="badge ${extraClass}"><ha-icon icon=${deviceIcon(device)}></ha-icon></div>`;
 }
 
 /** Model line: the catalog's product name when known, else the board name. */
 export function modelName(device: CmrDevice): string {
   const product = device.product && !device.product.ambiguous ? device.product : undefined;
-  return product?.name ?? device.board ?? ROLE_LABEL[device.role];
+  return product?.name ?? device.board ?? "Device";
 }
 
 /** Product code when certain, else the code the controller reports. */

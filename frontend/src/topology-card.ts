@@ -1,8 +1,6 @@
 import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
 import {
-  ROLE_ICON,
-  ROLE_LABEL,
   deviceVisual,
   modelCode,
   modelName,
@@ -307,10 +305,9 @@ export class CmrTopologyCard extends LitElement {
     return { layout, nodes, links, width, height };
   }
 
-  /** No CMR layouts: tiers by role, everything tied to the controller. */
+  /** No CMR layouts: the controller on top, every other device in a row below. */
   private _autoLayout(entry: CmrEntry): { nodes: PlacedNode[]; links: CmrLink[] } {
-    const tierOf = (d: CmrDevice) =>
-      d.controller ? 1 : ({ gateway: 0, lte: 0, router: 1, switch: 2, ap: 3, device: 3 } as const)[d.role];
+    const tierOf = (d: CmrDevice) => (d.controller ? 0 : 1);
     const tiers = new Map<number, CmrDevice[]>();
     for (const device of entry.devices) {
       const tier = tierOf(device);
@@ -403,8 +400,8 @@ export class CmrTopologyCard extends LitElement {
   }
 
   private _onPointerUp(ev: PointerEvent): void {
-    if (this._drag?.moved) {
-      // Swallow the click that ends a drag.
+    if (this._drag?.moved && ev.type === "pointerup") {
+      // Swallow the click that ends a drag (a cancelled pointer fires no click).
       ev.currentTarget?.addEventListener("click", (e) => e.stopPropagation(), { capture: true, once: true });
     }
     this._drag = undefined;

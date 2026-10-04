@@ -71,7 +71,6 @@ class CmrConnectedSensor(CmrDeviceEntity, BinarySensorEntity):
         if device is None:
             return None
         return {
-            "role": device.role,
             "labels": device.labels,
             "controller": device.controller,
             "pairing_pending": device.pending,

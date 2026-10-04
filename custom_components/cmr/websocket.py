@@ -82,7 +82,6 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "board": d.board,
             "model_code": d.model_code,
             "arch": d.arch,
-            "role": d.role,
             "version": d.version,
             "prerelease": is_prerelease(d.version),
             "available_version": d.available_version,

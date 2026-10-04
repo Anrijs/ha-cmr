@@ -1,5 +1,5 @@
 import { cmrStore, pickEntry } from "./data";
-import { ROLE_ICON, compareDevices } from "./shared";
+import { compareDevices, deviceIcon } from "./shared";
 import type { CmrDevice, CmrEntry, HassLike } from "./types";
 
 interface StrategyConfig {
@@ -28,7 +28,7 @@ function deviceSection(device: CmrDevice, hass: HassLike, alertsPushed: boolean)
     !!id && !!hass.states[id] && hass.states[id].state !== "unavailable";
   const e = device.entities;
   const cards: Card[] = [
-    heading(device.identity, ROLE_ICON[device.role], {
+    heading(device.identity, deviceIcon(device), {
       heading_style: "subtitle",
       ...(device.device_id
         ? { tap_action: { action: "navigate", navigation_path: `/config/devices/device/${device.device_id}` } }
