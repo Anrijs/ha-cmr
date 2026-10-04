@@ -73,6 +73,7 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
         device = devices.async_get_device_by_identifier((DOMAIN, key), entry.entry_id)
         return device.id if device else None
 
+    catalog = coordinator.catalog
     out_devices = [
         {
             "key": d.key,
@@ -100,6 +101,7 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "stale": d.stale,
             "alerts": asdict(d.alerts) if d.alerts else None,
             "device_id": device_id(d.key),
+            "product": catalog.product_for(d) if catalog else None,
             "entities": {
                 name: entity_id(platform, f"{d.key}_{name}")
                 for name, platform in _DEVICE_ENTITIES.items()

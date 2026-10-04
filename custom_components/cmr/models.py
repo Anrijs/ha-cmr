@@ -257,6 +257,60 @@ def parse_links(value: Any) -> list[PortLink]:
 
 
 # ---------------------------------------------------------------------------
+# Product catalog (optional photos and names)
+# ---------------------------------------------------------------------------
+
+
+def _product_key(text: str | None) -> str:
+    """Compare names loosely: case, punctuation and ^2/³-style superscripts."""
+    text = (text or "").lower().replace("^", "").replace("³", "3").replace("²", "2")
+    return re.sub(r"[^a-z0-9+]", "", text)
+
+
+def compact_product(item: dict[str, Any]) -> dict[str, Any] | None:
+    images = item.get("images") or {}
+    small = [u for u in images.get("small") or [] if isinstance(u, str)]
+    large = [u for u in images.get("large") or [] if isinstance(u, str)]
+    code = item.get("product_code")
+    if not code or not (small or large):
+        return None
+    return {
+        "code": str(code),
+        "name": str(item.get("product_name") or code),
+        "status": item.get("product_status"),
+        "url": item.get("url"),
+        "image": (small or large)[0],
+        "image_large": (large or small)[0],
+    }
+
+
+def match_product(products: list[dict[str, Any]], board: str | None, model_code: str | None) -> dict[str, Any] | None:
+    """The catalog entry for a device: its product code, else its board name.
+
+    Board names are often the code without a variant suffix
+    ("RB5009UPr+S+" for "RB5009UPr+S+IN"), so they match as a prefix; the
+    shortest such code wins.
+    """
+    if model_code:
+        exact = [p for p in products if p["code"] == model_code]
+        if exact:
+            return exact[0]
+    key = _product_key(board)
+    if not key:
+        return None
+    by_name = [p for p in products if _product_key(p["name"]) == key]
+    if by_name:
+        return by_name[0]
+    prefixed = [p for p in products if _product_key(p["code"]).startswith(key)]
+    if not prefixed:
+        return None
+    best = min(prefixed, key=lambda p: len(p["code"]))
+    # Several variants (e.g. kits with different modems) share the board name:
+    # the photo fits, but the exact product name and code would be a guess.
+    return {**best, "ambiguous": True} if len(prefixed) > 1 else best
+
+
+# ---------------------------------------------------------------------------
 # Records
 # ---------------------------------------------------------------------------
 

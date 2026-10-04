@@ -40,7 +40,10 @@ function deviceSection(device: CmrDevice, hass: HassLike, alertsPushed: boolean)
     cards.push({ type: "tile", entity: e.connected, name: "Connection", state_content: ["state", "last_changed"] });
   }
   if (live(e.uptime)) cards.push({ type: "tile", entity: e.uptime, name: "Up since" });
-  if (live(e.update)) cards.push({ type: "tile", entity: e.update, name: "Firmware", grid_options: { columns: 12 } });
+  if (live(e.update)) {
+    // The update entity carries the product photo when a catalog is set.
+    cards.push({ type: "tile", entity: e.update, name: "Firmware", show_entity_picture: true, grid_options: { columns: 12 } });
+  }
   if (live(e.active_alerts)) cards.push({ type: "tile", entity: e.active_alerts, name: "Alerts" });
   // The alert event entity only ever fills when rules push to Home Assistant.
   if (alertsPushed && live(e.alert)) cards.push({ type: "tile", entity: e.alert, name: "Last alert" });

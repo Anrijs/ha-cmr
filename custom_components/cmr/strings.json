@@ -36,6 +36,9 @@
     "abort": {
       "already_configured": "This controller is already set up.",
       "reauth_successful": "Signed in again."
+    },
+    "create_entry": {
+      "default": "Reload this browser page (Ctrl+F5 / Cmd+Shift+R) so the CMR cards and the *CMR network* dashboard become available, then add it under Settings → Dashboards → Add dashboard."
     }
   },
   "options": {
@@ -47,11 +50,13 @@
           "scan_interval": "Polling interval",
           "webhook_base_url": "Home Assistant address, as the controller reaches it",
           "allow_upgrades": "Allow starting upgrades from Home Assistant",
-          "activity_log": "Home Assistant activity log"
+          "activity_log": "Home Assistant activity log",
+          "catalog_url": "Product catalog URL"
         },
         "data_description": {
           "allow_upgrades": "Adds Install to each firmware update and a button per upgrade rule. Needs the `write` policy on the router user.",
-          "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything."
+          "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything.",
+          "catalog_url": "Optional. A product catalog that adds photos and product names to devices; leave empty to turn it off. Photos then load from the catalog's image server."
         }
       }
     }

@@ -36,6 +36,9 @@
     "abort": {
       "already_configured": "Šis kontrolieris jau ir pievienots.",
       "reauth_successful": "Pieslēgšanās atjaunota."
+    },
+    "create_entry": {
+      "default": "Pārlādē šo pārlūka lapu (Ctrl+F5 / Cmd+Shift+R), lai parādītos CMR kartītes un *CMR network* panelis, tad pievieno to sadaļā Iestatījumi → Paneļi → Pievienot paneli."
     }
   },
   "options": {
@@ -47,11 +50,13 @@
           "scan_interval": "Aptaujas intervāls",
           "webhook_base_url": "Home Assistant adrese, kā to sasniedz kontrolieris",
           "allow_upgrades": "Ļaut sākt atjauninājumus no Home Assistant",
-          "activity_log": "Home Assistant aktivitāšu žurnāls"
+          "activity_log": "Home Assistant aktivitāšu žurnāls",
+          "catalog_url": "Produktu kataloga URL"
         },
         "data_description": {
           "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt un katram atjaunināšanas noteikumam pogu. Rūtera lietotājam vajag `write` politiku.",
-          "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss."
+          "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss.",
+          "catalog_url": "Neobligāts. Produktu katalogs, kas ierīcēm pievieno attēlus un produktu nosaukumus; atstāj tukšu, lai izslēgtu. Attēli tad ielādējas no kataloga attēlu servera."
         }
       }
     }

@@ -8,7 +8,7 @@ automatic detection of trouble.
 Nothing is tied to one network. Point the integration at a CMR controller and
 it discovers the fleet; the bundled dashboard builds itself from what it finds.
 
-> **Status:** 0.1, beta, tested with Home Assistant 2026.9. Issues and ideas
+> **Status:** 0.2, beta, tested with Home Assistant 2026.9. Issues and ideas
 > are welcome.
 
 ## Contents
@@ -226,6 +226,10 @@ Settings → Devices & services → Add integration → search **CMR**.
 If something is wrong, the form shows the router's own error text; see
 [Troubleshooting](#troubleshooting).
 
+**Then reload the browser page.** The cards and the dashboard are loaded when
+a page opens, so a page that was open before the integration was added doesn't
+have them yet.
+
 **Options** (the integration's *Configure* button):
 
 | Option | Default | What it does |
@@ -234,13 +238,14 @@ If something is wrong, the form shows the router's own error text; see
 | Home Assistant address | Home Assistant's internal URL | The address the controller uses for alert webhooks |
 | Allow starting upgrades | off | Adds *Install* to update entities and the upgrade buttons; needs `write` |
 | Home Assistant activity log | Notable events | Which timeline events also appear in the activity log: notable, all, or none |
+| Product catalog URL | empty (off) | Optional catalog that adds product photos and names to devices (map, device table, status card, update entities). Photos load from the catalog's image server |
 
 ## Using it
 
 ### The generated dashboard
 
-Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard. It
-has four views:
+Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard (under
+*Community dashboards*). It has four views:
 
 - **Network:** status, topology, devices, alerts, events (notable ones),
   upgrades.
@@ -427,7 +432,9 @@ names or comments.
 ## Data, storage and privacy
 
 - Everything stays on your network: the integration talks only to the
-  controller, and the controller only to Home Assistant (webhook).
+  controller, and the controller only to Home Assistant (webhook). The one
+  exception is the optional product catalog: Home Assistant fetches it once a
+  day, and browsers load the photos from its image server.
 - Each poll makes about ten small REST requests; the log is read from the last
   seen line on, filtered by the controller.
 - The timeline and issue state are stored in Home Assistant's `.storage`
@@ -447,6 +454,7 @@ names or comments.
 | No upgrade buttons | Turn on *Allow starting upgrades* in the options. |
 | "The controller refused to upgrade …" | The user lacks `write`, or the controller refused the job; the message carries its reason. |
 | The dashboard says it couldn't be built | Reload the page. If it stays, check that the integration is loaded. |
+| *CMR network* is missing under Add dashboard, or cards show "Custom element doesn't exist" | Add the integration first (the cards are served by it), then reload the browser page. |
 
 Debug logging:
 

@@ -68,6 +68,14 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
         )
 
     @property
+    def entity_picture(self) -> str | None:
+        """The product photo, when a catalog is set (no brand icon exists)."""
+        device = self.device
+        catalog = self.coordinator.catalog
+        product = catalog.product_for(device) if catalog and device else None
+        return product["image"] if product else None
+
+    @property
     def installed_version(self) -> str | None:
         device = self.device
         return device.version if device else None

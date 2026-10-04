@@ -25,6 +25,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrConnectionError, CmrNotFoundError
 from .const import (
     CONF_ACTIVITY_LOG,
+    CONF_CATALOG_URL,
     CONF_ALLOW_UPGRADES,
     CONF_WEBHOOK_BASE_URL,
     CONF_WEBHOOK_ID,
@@ -192,6 +193,10 @@ class CmrOptionsFlow(OptionsFlow):
                         CONF_ALLOW_UPGRADES,
                         default=options.get(CONF_ALLOW_UPGRADES, False),
                     ): bool,
+                    vol.Optional(
+                        CONF_CATALOG_URL,
+                        description={"suggested_value": options.get(CONF_CATALOG_URL, "")},
+                    ): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL)),
                     vol.Required(
                         CONF_ACTIVITY_LOG,
                         default=options.get(CONF_ACTIVITY_LOG, "notable"),

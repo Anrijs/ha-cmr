@@ -3,6 +3,9 @@ import { cmrStore, pickEntry } from "./data";
 import {
   ROLE_ICON,
   ROLE_LABEL,
+  deviceVisual,
+  modelCode,
+  modelName,
   STATUS_LABEL,
   baseStyles,
   deviceStatus,
@@ -456,10 +459,17 @@ export class CmrTopologyCard extends LitElement {
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (!viewport) return;
     const { x, y, k } = this._view;
+    // Beside the node (the map is wider than tall), kept inside the viewport.
+    const width = 300;
+    const height = node.device?.product?.image_large ? 340 : 230;
+    const right = (node.x + NODE_W / 2) * k + x + 12;
+    const left = (node.x - NODE_W / 2) * k + x - 12 - width;
+    const fitsRight = right + width <= viewport.clientWidth - 8;
+    const top = (node.y * k + y) - height / 2;
     this._hover = {
       node,
-      x: node.x * k + x,
-      y: (node.y + NODE_H / 2) * k + y + 8,
+      x: fitsRight || left < 8 ? Math.min(right, viewport.clientWidth - width - 8) : left,
+      y: Math.max(8, Math.min(top, viewport.clientHeight - height - 8)),
     };
     ev.stopPropagation();
   }
@@ -784,10 +794,10 @@ export class CmrTopologyCard extends LitElement {
       <div class="node device status-${status} ${device.controller ? "controller" : ""}" style=${style}
            @click=${() => this._open(node)} @mouseenter=${(e: MouseEvent) => this._showHover(node, e)}
            @mouseleave=${this._clearHover}>
-        <div class="badge"><ha-icon icon=${ROLE_ICON[device.role]}></ha-icon></div>
+        ${deviceVisual(device)}
         <div class="text">
           <div class="name">${device.identity}</div>
-          <div class="sub">${device.board ?? ROLE_LABEL[device.role]}</div>
+          <div class="sub">${modelName(device)}</div>
           <div class="ver mono">
             ${device.version ?? "–"}${device.update_available
               ? html`<span class="up"> → ${device.available_version}</span>`
@@ -817,7 +827,10 @@ export class CmrTopologyCard extends LitElement {
       const d = node.device;
       body = html`
         <div class="tt-title">${d.identity}${d.controller ? html` <span class="chip">controller</span>` : nothing}</div>
-        <div class="muted">${[d.board, d.model_code, d.arch].filter(Boolean).join(" · ")}</div>
+        ${d.product?.image_large
+          ? html`<div class="tt-photo"><img src=${d.product.image_large} alt="" referrerpolicy="no-referrer" /></div>`
+          : nothing}
+        <div class="muted">${[modelName(d), modelCode(d), d.arch].filter(Boolean).join(" · ")}</div>
         <table>
           <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}</td></tr>
           <tr><td>Version</td><td class="mono">${d.version ?? "–"}${d.prerelease ? " (pre-release)" : ""}</td></tr>
@@ -833,8 +846,7 @@ export class CmrTopologyCard extends LitElement {
     } else {
       return html``;
     }
-    const left = Math.max(8, hover.x - 150);
-    return html`<div class="tooltip" style="left:${left}px;top:${hover.y}px">${body}</div>`;
+    return html`<div class="tooltip" style="left:${Math.max(8, hover.x)}px;top:${hover.y}px">${body}</div>`;
   }
 
   static styles = [
@@ -913,11 +925,13 @@ export class CmrTopologyCard extends LitElement {
       }
       .node:hover { transform: translateY(-1px); border-color: var(--status, var(--primary-color)); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
       .node .badge {
-        position: relative; flex: none; width: 38px; height: 38px; border-radius: 11px;
+        position: relative; flex: none; width: 42px; height: 42px; border-radius: 11px;
         display: grid; place-items: center;
         background: color-mix(in srgb, var(--status, var(--cmr-muted)) 14%, transparent);
         color: var(--status, var(--cmr-muted));
       }
+      .node .badge.photo { overflow: visible; }
+      .node .badge.photo img { border-radius: 11px; }
       .node .badge::after {
         content: ""; position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px;
         border-radius: 50%; background: var(--status, var(--cmr-muted)); border: 2px solid var(--cmr-surface);
@@ -948,6 +962,11 @@ export class CmrTopologyCard extends LitElement {
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18); font-size: 12px; pointer-events: none;
       }
       .tooltip .tt-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+      .tt-photo {
+        height: 110px; margin: -2px -4px 8px; border-radius: 9px; display: grid; place-items: center;
+        background: linear-gradient(160deg, #fbfbfc, #e9ebef);
+      }
+      .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; mix-blend-mode: multiply; }
       .tooltip table { width: 100%; border-collapse: collapse; margin-top: 6px; }
       .tooltip td { padding: 2px 0; vertical-align: top; }
       .tooltip td:first-child { color: var(--cmr-muted); width: 1%; white-space: nowrap; padding-right: 12px; }

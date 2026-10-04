@@ -2,6 +2,9 @@ import { LitElement, css, html, nothing, type PropertyValues, type TemplateResul
 import { cmrStore, pickEntry } from "./data";
 import {
   ROLE_ICON,
+  deviceVisual,
+  modelCode,
+  modelName,
   STATUS_LABEL,
   baseStyles,
   compareDevices,
@@ -169,13 +172,13 @@ export class CmrFleetCard extends LitElement {
     return html`
       <div class="row status-${status}" role="row" @click=${() => moreInfo(this, d.entities.connected)}>
         <div class="c-device">
-          <div class="icon" title=${STATUS_LABEL[status]}><ha-icon icon=${ROLE_ICON[d.role]}></ha-icon><i class="dot"></i></div>
+          <div class="icon" title=${STATUS_LABEL[status]}>${deviceVisual(d, "thumb")}<i class="dot"></i></div>
           <div class="who">
             <div class="name">
               ${d.identity}
               ${d.controller ? html`<ha-icon class="crown" icon="mdi:crown-outline" title="CMR controller"></ha-icon>` : nothing}
             </div>
-            <div class="muted small">${d.board ?? "–"}${d.model_code ? html` · <span class="mono">${d.model_code}</span>` : nothing}</div>
+            <div class="muted small">${modelName(d)}${modelCode(d) ? html` · <span class="mono">${modelCode(d)}</span>` : nothing}</div>
           </div>
         </div>
         <div class="c-labels">${d.labels.map((l) => html`<span class="chip">${l}</span>`)}</div>
@@ -215,9 +218,10 @@ export class CmrFleetCard extends LitElement {
       .row.head button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
       .sort { --mdc-icon-size: 14px; }
       .c-device { display: flex; gap: 10px; align-items: center; min-width: 0; }
-      .icon { position: relative; width: 34px; height: 34px; border-radius: 10px; flex: none; display: grid; place-items: center;
+      .icon { position: relative; width: 40px; height: 40px; flex: none; }
+      .icon .badge { width: 100%; height: 100%; border-radius: 10px; display: grid; place-items: center;
         background: color-mix(in srgb, var(--status) 13%, transparent); color: var(--status); --mdc-icon-size: 20px; }
-      .icon .dot { position: absolute; right: -2px; bottom: -2px; border: 2px solid var(--cmr-surface); width: 9px; height: 9px; }
+      .icon .dot { position: absolute; right: -3px; bottom: -3px; border: 2px solid var(--cmr-surface); width: 9px; height: 9px; z-index: 1; }
       .who { min-width: 0; }
       .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
       .crown { --mdc-icon-size: 15px; color: var(--primary-color); }

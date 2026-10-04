@@ -39,6 +39,19 @@ export interface CmrDevice {
   alerts: AlertCounts | null;
   device_id: string | null;
   entities: Record<string, string | null>;
+  /** From the optional product catalog. */
+  product?: CmrProduct | null;
+}
+
+export interface CmrProduct {
+  code: string;
+  name: string;
+  status: string | null;
+  url: string | null;
+  image: string;
+  image_large: string;
+  /** Several catalog variants match: the photo fits, the name is a guess. */
+  ambiguous?: boolean;
 }
 
 export interface CmrAlertRule {

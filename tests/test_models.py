@@ -185,3 +185,29 @@ def test_parse_link_details_from_console():
     ports = models.parse_links(details["*7"])
     assert ports[0].a == models.PortEnd("ether2", True, "powered-on", "375.5KiB", "8.9MiB")
     assert ports[0].b == models.PortEnd("ether1", True, None, "8.9MiB", "369.9KiB")
+
+
+CATALOG = [
+    {"product_code": "RB5009UPr+S+OUT", "product_name": "RB5009UPr+S+OUT", "product_status": "Current", "url": "u1",
+     "images": {"small": ["s1.png"], "large": ["l1.jpg"]}},
+    {"product_code": "RB5009UPr+S+IN", "product_name": "RB5009UPr+S+IN", "product_status": "Current", "url": "u2",
+     "images": {"small": ["s2.png"], "large": ["l2.jpg"]}},
+    {"product_code": "C53UiG+5HPaxD2HPaxD", "product_name": "hAP ax³", "product_status": "Current", "url": "u3",
+     "images": {"small": ["s3.png"], "large": []}},
+    {"product_code": "NOIMAGE1", "product_name": "No image", "images": {}},
+]
+
+
+def test_product_matching():
+    products = [p for p in (models.compact_product(i) for i in CATALOG) if p]
+    assert len(products) == 3  # entries without images are dropped
+    # Exact product code from the device's auto-labels wins.
+    assert models.match_product(products, "hAP ax^3", "C53UiG+5HPaxD2HPaxD")["name"] == "hAP ax³"
+    # Without a code, the board name matches the product name loosely ...
+    assert models.match_product(products, "hAP ax^3", None)["code"] == "C53UiG+5HPaxD2HPaxD"
+    # ... or is a prefix of the code; the shortest code wins.
+    hit = models.match_product(products, "RB5009UPr+S+", None)
+    assert (hit["code"], hit["image"], hit["image_large"]) == ("RB5009UPr+S+IN", "s2.png", "l2.jpg")
+    assert hit["ambiguous"]  # IN and OUT both match: photo yes, name no
+    assert models.match_product(products, "CRS999", None) is None
+    assert models.match_product(products, None, None) is None

@@ -15,10 +15,11 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_CATALOG_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import CmrSnapshot, parse_link_details, parse_snapshot
 
 if TYPE_CHECKING:
+    from .catalog import ProductCatalog
     from .eventlog import CmrEventLog
 
 _LOGGER = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self.platform: str | None = None
         self._platform_read = False
         self.eventlog: CmrEventLog | None = None
+        self.catalog: ProductCatalog | None = None
         self._missing: set[str] = set()
         # Computed fields the controller turned out not to return over REST.
         self._no_computed: set[tuple[str, str]] = set()
@@ -110,6 +112,9 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self.raw = raw
         self.last_poll = dt_util.utcnow()
         snapshot = parse_snapshot(raw)
+        if self.catalog is not None:
+            # A no-op unless the catalog is a day old or its URL changed.
+            await self.catalog.async_refresh(self.config_entry.options.get(CONF_CATALOG_URL))
         if self.eventlog is not None:
             try:
                 await self.eventlog.async_process(self.api, self.data, snapshot)

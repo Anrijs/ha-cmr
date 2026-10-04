@@ -1,4 +1,4 @@
-import { css } from "lit";
+import { css, html, type TemplateResult } from "lit";
 import type { CmrDevice, Role } from "./types";
 
 export const ROLE_ICON: Record<Role, string> = {
@@ -142,4 +142,54 @@ export const baseStyles = css`
   .card-header .spacer {
     flex: 1;
   }
+  /* Product photos sit on a light "pedestal" in every theme: some photos have
+     opaque white backgrounds, and white devices need contrast on light cards. */
+  .badge.photo {
+    background: linear-gradient(160deg, #fbfbfc, #e9ebef) !important;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+  }
+  .badge.photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    padding: 9%;
+    box-sizing: border-box;
+    display: block;
+    /* White photo backgrounds (JPGs, some PNGs) take on the tile's colour. */
+    mix-blend-mode: multiply;
+  }
+  .badge.photo ha-icon {
+    display: none;
+  }
+  .badge.photo.broken img {
+    display: none;
+  }
+  .badge.photo.broken ha-icon {
+    display: inline-flex;
+    color: #5f6368;
+  }
 `;
+
+/** The device's product photo on a light tile, or its role icon. */
+export function deviceVisual(device: CmrDevice, extraClass = ""): TemplateResult {
+  if (device.product?.image) {
+    return html`<div class="badge photo ${extraClass}" title=${device.product.name}>
+      <img src=${device.product.image} alt=${device.product.name} loading="lazy" referrerpolicy="no-referrer"
+        @error=${(e: Event) => ((e.target as HTMLElement).parentElement!.classList.add("broken"))} />
+      <ha-icon icon=${ROLE_ICON[device.role]}></ha-icon>
+    </div>`;
+  }
+  return html`<div class="badge ${extraClass}"><ha-icon icon=${ROLE_ICON[device.role]}></ha-icon></div>`;
+}
+
+/** Model line: the catalog's product name when known, else the board name. */
+export function modelName(device: CmrDevice): string {
+  const product = device.product && !device.product.ambiguous ? device.product : undefined;
+  return product?.name ?? device.board ?? ROLE_LABEL[device.role];
+}
+
+/** Product code when certain, else the code the controller reports. */
+export function modelCode(device: CmrDevice): string | null {
+  return device.product && !device.product.ambiguous ? device.product.code : device.model_code;
+}

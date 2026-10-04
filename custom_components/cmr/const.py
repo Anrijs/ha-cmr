@@ -12,6 +12,8 @@ CONF_WEBHOOK_BASE_URL: Final = "webhook_base_url"
 CONF_ALLOW_UPGRADES: Final = "allow_upgrades"
 # Which events go to Home Assistant's activity log: notable, all or off.
 CONF_ACTIVITY_LOG: Final = "activity_log"
+# Optional product catalog with photos (empty: off).
+CONF_CATALOG_URL: Final = "catalog_url"
 
 DEFAULT_SCAN_INTERVAL: Final = 30
 MIN_SCAN_INTERVAL: Final = 10

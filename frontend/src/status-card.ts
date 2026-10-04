@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
 import { cmrStore, pickEntry } from "./data";
-import { ROLE_ICON, ROLE_LABEL, baseStyles, moreInfo } from "./shared";
+import { ROLE_ICON, ROLE_LABEL, baseStyles, modelName, moreInfo } from "./shared";
 import type { CmrEntry, HassLike, Role } from "./types";
 
 interface StatusConfig {
@@ -118,12 +118,14 @@ export class CmrStatusCard extends LitElement {
       <ha-card>
         <div class="hero">
           <div class="identity">
-            <div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>
+            ${controller?.product?.image
+              ? html`<div class="logo photo"><img src=${controller.product.image} alt=${controller.product.name} referrerpolicy="no-referrer" /></div>`
+              : html`<div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>`}
             <div class="who">
               <div class="eyebrow">CMR controller ${entry.available ? nothing : html`<span class="chip warn">unreachable</span>`}</div>
               <div class="name">${controller?.identity ?? entry.title}</div>
               <div class="meta">
-                ${controller?.board ?? ""} ·
+                ${controller ? modelName(controller) : ""} ·
                 <span class="mono">${controller?.version ?? "?"}</span>
                 ${controller?.prerelease ? html`<span class="chip">pre-release</span>` : nothing}
               </div>
@@ -198,6 +200,11 @@ export class CmrStatusCard extends LitElement {
         color: var(--text-primary-color, #fff); --mdc-icon-size: 28px;
         box-shadow: 0 6px 18px color-mix(in srgb, var(--primary-color) 35%, transparent);
       }
+      .logo.photo {
+        width: 64px; height: 64px; background: linear-gradient(160deg, #fbfbfc, #e9ebef);
+        box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+      }
+      .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; mix-blend-mode: multiply; }
       .who { min-width: 0; }
       .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cmr-muted); display: flex; gap: 6px; align-items: center; }
       .name { font-size: 22px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

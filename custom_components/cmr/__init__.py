@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
+from .catalog import ProductCatalog
 from .config_flow import build_api
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
@@ -31,12 +32,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the websocket API and the bundled dashboard cards once."""
     async_register_websocket(hass)
     await async_register_frontend(hass)
+    hass.data[f"{DOMAIN}_catalog"] = ProductCatalog(hass)
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
     coordinator = CmrCoordinator(hass, entry, build_api(hass, entry.data))
     entry.runtime_data = coordinator
+    coordinator.catalog = hass.data[f"{DOMAIN}_catalog"]
     coordinator.eventlog = CmrEventLog(hass, entry)
     await coordinator.eventlog.async_load()
     entry.async_on_unload(coordinator.eventlog.async_unload)
