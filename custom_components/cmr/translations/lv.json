@@ -234,7 +234,6 @@
     },
     "pairing_pending": {
       "title": "{identity} gaida pārošanu",
-      "description": "Kontrolierim ir pieslēgusies ierīce {board}, un tā gaida apstiprinājumu tur. Apstiprini to šeit vai palaid kontrolierī `/cmr/device/pair` šai ierīcei. Apstiprināšanai no Home Assistant integrācijas iestatījumos jābūt ieslēgtai opcijai *Ļaut darbības kontrolierī*.",
       "fix_flow": {
         "step": {
           "confirm": {
@@ -261,6 +260,10 @@
     "topology_tracking_off": {
       "title": "Kontrolierī izslēgta topoloģijas izsekošana",
       "description": "Kontroliera iestatījums `track-topology` ir `no`, tāpēc tas nenoskaidro, kuri porti savieno ierīces: kartē kabeļi ir bez portu nosaukumiem, PoE un datplūsmas, un `rebuild-links` neko neatrod. Iestati kontrolierī `/cmr set track-topology=yes`, lai tos atgūtu."
+    },
+    "pairing_pending_manual": {
+      "title": "{identity} gaida pārošanu",
+      "description": "Kontrolierim ir pieslēgusies ierīce {board}, un tā gaida apstiprinājumu tur. Palaid kontrolierī `/cmr/device/pair` šai ierīcei vai integrācijas iestatījumos ieslēdz *Ļaut darbības kontrolierī*, lai šādas ierīces apstiprinātu no šejienes."
     }
   }
 }

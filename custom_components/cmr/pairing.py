@@ -50,14 +50,21 @@ def async_sync_pairing_issues(hass: HomeAssistant, entry: CmrConfigEntry) -> Non
     for issue_id in coordinator.pairing_issues - set(wanted):
         ir.async_delete_issue(hass, DOMAIN, issue_id)
     for issue_id, device in wanted.items():
+        fixable = device.pending and coordinator.allow_upgrades
+        # An issue is either fixable (with a fix flow) or explained by a
+        # description, so each case has its own translation key.
+        if device.pending:
+            key = "pairing_pending" if fixable else "pairing_pending_manual"
+        else:
+            key = "pairing_remote"
         ir.async_create_issue(
             hass,
             DOMAIN,
             issue_id,
-            is_fixable=device.pending and coordinator.allow_upgrades,
+            is_fixable=fixable,
             is_persistent=False,
             severity=ir.IssueSeverity.WARNING,
-            translation_key="pairing_pending" if device.pending else "pairing_remote",
+            translation_key=key,
             translation_placeholders={"identity": device.identity, "board": device.board or "unknown model"},
             data={"entry_id": entry.entry_id, "device_key": device.key},
         )

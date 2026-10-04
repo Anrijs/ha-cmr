@@ -26,7 +26,7 @@ async def test_pending_device_becomes_a_repair_issue(hass: HomeAssistant, contro
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     issue = pairing_issue(hass, entry, "S0000000042")
-    assert issue and issue.translation_key == "pairing_pending" and issue.is_fixable is False
+    assert issue and issue.translation_key == "pairing_pending_manual" and issue.is_fixable is False
     assert issue.translation_placeholders == {"identity": "New-AP", "board": "wAP ax"}
 
     # The device-side variant is a reminder only.
@@ -50,7 +50,7 @@ async def test_fix_flow_pairs_the_device(hass: HomeAssistant, controller: FakeCo
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     issue = pairing_issue(hass, entry, "S0000000042")
-    assert issue and issue.is_fixable is True
+    assert issue and issue.is_fixable is True and issue.translation_key == "pairing_pending"
 
     client = await hass_client()
     response = await client.post("/api/repairs/issues/fix", json={"handler": DOMAIN, "issue_id": issue.issue_id})

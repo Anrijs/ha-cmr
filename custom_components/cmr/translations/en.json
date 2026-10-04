@@ -232,9 +232,12 @@
       "title": "{title}",
       "description": "{detail}\n\nThis was detected by the CMR integration and clears itself once things are quiet again."
     },
+    "pairing_pending_manual": {
+      "title": "{identity} is waiting to be paired",
+      "description": "A {board} has connected to the controller and waits for approval there. Run `/cmr/device/pair` for it on the controller, or turn on *Allow actions on the controller* in the integration's options to approve such devices from here."
+    },
     "pairing_pending": {
       "title": "{identity} is waiting to be paired",
-      "description": "A {board} has connected to the controller and waits for approval there. Approve it here, or run `/cmr/device/pair` for it on the controller. Approving from Home Assistant needs *Allow actions on the controller* in the integration's options.",
       "fix_flow": {
         "step": {
           "confirm": {

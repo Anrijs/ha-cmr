@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.2
+- Pairing Repair texts pass Home Assistant's translation validation.
+
 ## 0.5.1
 - Upgrade jobs show their real state and "starts in …" for scheduled ones.
 - A Repair hint when the controller's topology tracking is off.
