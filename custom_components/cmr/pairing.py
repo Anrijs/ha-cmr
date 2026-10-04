@@ -53,10 +53,7 @@ def async_sync_pairing_issues(hass: HomeAssistant, entry: CmrConfigEntry) -> Non
         fixable = device.pending and coordinator.allow_upgrades
         # An issue is either fixable (with a fix flow) or explained by a
         # description, so each case has its own translation key.
-        if device.pending:
-            key = "pairing_pending" if fixable else "pairing_pending_manual"
-        else:
-            key = "pairing_remote"
+        key = ("pairing_pending" if fixable else "pairing_pending_manual") if device.pending else "pairing_remote"
         ir.async_create_issue(
             hass,
             DOMAIN,
