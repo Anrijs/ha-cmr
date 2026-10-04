@@ -1,17 +1,19 @@
-import { LitElement, css, html, nothing, svg, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
+import { css, html, nothing, svg, type PropertyDeclarations, type TemplateResult } from "lit";
 import {
-  deviceVisual,
-  modelCode,
-  modelName,
+  CmrEntryCard,
+  ENTRY_FIELD,
   STATUS_LABEL,
   baseStyles,
   deviceStatus,
+  deviceVisual,
   formatDuration,
+  labelsFrom,
+  modelCode,
+  modelName,
   moreInfo,
   type Status,
 } from "./shared";
-import type { CmrDevice, CmrEntry, CmrLink, CmrNode, HassLike, PortEnd } from "./types";
+import type { CmrDevice, CmrEntry, CmrLink, CmrNode, PortEnd } from "./types";
 
 interface TopologyConfig {
   type: string;
@@ -51,26 +53,23 @@ interface Scene {
 
 const DEFAULT_SITE_ICON = "mdi:map-marker-radius-outline";
 
-const LEGEND_LABEL: Record<string, string> = {
-  copper: "Ethernet",
-  fiber: "SFP / fiber",
-  wireless: "Wireless",
-  unknown: "Not detected",
-};
-
 type Medium = "fiber" | "copper" | "wireless" | "logical";
 type LinkKind = Medium | "uplink" | "unknown";
 
-const MEDIUM_LABEL: Record<LinkKind, string> = {
+const KIND_LABEL: Record<LinkKind, string> = {
   fiber: "Fiber (SFP)",
-  copper: "Copper (Ethernet)",
+  copper: "Ethernet",
   wireless: "Wireless",
   logical: "Logical interface",
   uplink: "Link between layouts",
   unknown: "No ports detected",
 };
+const LEGEND_KINDS: LinkKind[] = ["copper", "fiber", "wireless", "unknown"];
 
-/** Medium of an interface, from the default interface names. */
+/**
+ * Medium of an interface, from the router's default interface names. A
+ * renamed port falls back to "logical" and is drawn dashed.
+ */
 function portMedium(name: string): Medium {
   if (/^q?sfp/i.test(name)) return "fiber";
   if (/^(ether|combo)/i.test(name)) return "copper";
@@ -78,15 +77,10 @@ function portMedium(name: string): Medium {
   return "logical";
 }
 
-const SIZE_UNITS: Record<string, number> = { "": 1, K: 1024, M: 1024 ** 2, G: 1024 ** 3, T: 1024 ** 4 };
-
-/** "375.5KiB" -> bytes. */
-function parseSize(value: string | null): number {
-  const m = /^([\d.]+)\s*([KMGT]?)i?B?$/i.exec(value ?? "");
-  return m ? parseFloat(m[1]) * (SIZE_UNITS[m[2].toUpperCase()] ?? 1) : 0;
-}
-
 type PortPair = { a: PortEnd; b: PortEnd };
+
+/** The device cable that joins two layouts, oriented from the first. */
+type Cable = { ports: PortPair[]; names: [string, string] };
 
 interface LinkInfo {
   link: CmrLink;
@@ -101,7 +95,16 @@ interface LinkInfo {
   endNames: [string, string];
   // PoE: the node whose port supplies power, and the node it powers.
   poe?: { from: PlacedNode; to: PlacedNode; port: string };
-  bytes: number;
+}
+
+/** Everything derived from one snapshot for one layout, reused until either changes. */
+interface SceneMemo {
+  entry: CmrEntry;
+  path: string;
+  byKey: Map<string, CmrDevice>;
+  devicesIn: Map<string, CmrDevice[]>;
+  cables: Map<string, Cable | undefined>;
+  scene?: Scene;
 }
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
@@ -122,26 +125,20 @@ function edgePoint(cx: number, cy: number, dx: number, dy: number, gap: number) 
   return { x: cx + ux * (t + gap), y: cy + uy * (t + gap), ux, uy };
 }
 
-export class CmrTopologyCard extends LitElement {
-  static properties = {
-    hass: { attribute: false },
-    _config: { state: true },
-    _entry: { state: true },
+export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
+  static properties: PropertyDeclarations = {
     _path: { state: true },
     _hover: { state: true },
     _hoverLink: { state: true },
     _view: { state: true },
   };
 
-  declare hass: HassLike;
-  declare _config: TopologyConfig;
-  declare _entry?: CmrEntry;
   declare _path: string[];
   declare _hover?: { node: PlacedNode; x: number; y: number };
   declare _hoverLink?: { info: LinkInfo; x: number; y: number };
   declare _view: { x: number; y: number; k: number };
 
-  private _unsubscribe?: () => void;
+  private _memo?: SceneMemo;
   private _userMoved = false;
   private _drag?: { id: number; x: number; y: number; vx: number; vy: number; moved: boolean };
   private _resize?: ResizeObserver;
@@ -159,14 +156,10 @@ export class CmrTopologyCard extends LitElement {
     this._userMoved = false;
   }
 
-  static getStubConfig(): Partial<TopologyConfig> {
-    return {};
-  }
-
   static getConfigForm() {
     return {
       schema: [
-        { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
+        ENTRY_FIELD,
         { name: "title", selector: { text: {} } },
         { name: "layout", selector: { text: {} } },
         {
@@ -176,15 +169,14 @@ export class CmrTopologyCard extends LitElement {
         { name: "show_ports", selector: { boolean: {} } },
         { name: "show_comments", selector: { boolean: {} } },
       ],
-      computeLabel: (schema: { name: string }) =>
-        ({
-          entry_id: "Controller",
-          title: "Title",
-          layout: "Start at layout (empty: the top layout)",
-          height: "Height",
-          show_ports: "Show port names on cables",
-          show_comments: "Show link comments",
-        })[schema.name],
+      computeLabel: labelsFrom({
+        entry_id: "Controller",
+        title: "Title",
+        layout: "Start at layout (empty: the top layout)",
+        height: "Height",
+        show_ports: "Show port names on cables",
+        show_comments: "Show link comments",
+      }),
     };
   }
 
@@ -200,30 +192,32 @@ export class CmrTopologyCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    if (this.hass && !this._unsubscribe) this._subscribe();
     window.addEventListener("keydown", this._onKey);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this._onKey);
-    this._unsubscribe?.();
-    this._unsubscribe = undefined;
     this._resize?.disconnect();
     this._resize = undefined;
   }
 
-  protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") && this.hass && !this._unsubscribe && this.isConnected) this._subscribe();
-  }
-
-  private _subscribe(): void {
-    this._unsubscribe = cmrStore.subscribe(this.hass, (entries) => {
-      this._entry = pickEntry(entries, this._config?.entry_id);
-    });
-  }
-
   // ---------------------------------------------------------------- scene
+
+  /** The memo for the current snapshot and layout path, built on first use. */
+  private _memoFor(entry: CmrEntry): SceneMemo {
+    const path = this._path.join("/");
+    if (this._memo?.entry !== entry || this._memo.path !== path) {
+      this._memo = {
+        entry,
+        path,
+        byKey: new Map(entry.devices.map((d) => [d.key, d])),
+        devicesIn: new Map(),
+        cables: new Map(),
+      };
+    }
+    return this._memo;
+  }
 
   private _rootLayouts(entry: CmrEntry): string[] {
     const targets = new Set(entry.nodes.map((n) => n.target_layout).filter(Boolean));
@@ -237,21 +231,33 @@ export class CmrTopologyCard extends LitElement {
     return this._rootLayouts(entry)[0] ?? AUTO;
   }
 
+  /** Devices on a layout, including those on the layouts it links to. */
   private _devicesIn(entry: CmrEntry, layout: string, seen = new Set<string>()): CmrDevice[] {
+    const memo = this._memoFor(entry);
+    const cached = memo.devicesIn.get(layout);
+    if (cached) return cached;
     if (seen.has(layout)) return [];
     seen.add(layout);
-    const byKey = new Map(entry.devices.map((d) => [d.key, d]));
     const out = new Map<string, CmrDevice>();
-    for (const node of entry.nodes.filter((n) => n.layout === layout)) {
-      if (node.device_key && byKey.has(node.device_key)) out.set(node.device_key, byKey.get(node.device_key)!);
+    for (const node of entry.nodes) {
+      if (node.layout !== layout) continue;
+      const device = node.device_key ? memo.byKey.get(node.device_key) : undefined;
+      if (device) out.set(device.key, device);
       if (node.target_layout) this._devicesIn(entry, node.target_layout, seen).forEach((d) => out.set(d.key, d));
     }
-    return [...out.values()];
+    const devices = [...out.values()];
+    memo.devicesIn.set(layout, devices);
+    return devices;
   }
 
   private _scene(entry: CmrEntry): Scene {
+    const memo = this._memoFor(entry);
+    if (!memo.scene) memo.scene = this._buildScene(entry, memo.byKey);
+    return memo.scene;
+  }
+
+  private _buildScene(entry: CmrEntry, byKey: Map<string, CmrDevice>): Scene {
     const layout = this._currentLayout(entry);
-    const byKey = new Map(entry.devices.map((d) => [d.key, d]));
     let nodes: PlacedNode[];
     let links: CmrLink[];
 
@@ -371,13 +377,16 @@ export class CmrTopologyCard extends LitElement {
     if (!ev.ctrlKey && !ev.metaKey) return;
     ev.preventDefault();
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
-    const px = ev.clientX - rect.left;
-    const py = ev.clientY - rect.top;
+    this._zoomAt(ev.clientX - rect.left, ev.clientY - rect.top, Math.exp(-ev.deltaY * 0.0018));
+  }
+
+  /** Scale the view by `factor`, keeping the viewport point (px, py) fixed. */
+  private _zoomAt(px: number, py: number, factor: number): void {
     const { x, y, k } = this._view;
-    const nk = Math.min(2.5, Math.max(0.25, k * Math.exp(-ev.deltaY * 0.0018)));
+    const nk = Math.min(2.5, Math.max(0.25, k * factor));
     this._view = { k: nk, x: px - ((px - x) * nk) / k, y: py - ((py - y) * nk) / k };
     this._userMoved = true;
-    this._hover = undefined;
+    this._clearHover();
   }
 
   private _onPointerDown(ev: PointerEvent): void {
@@ -409,13 +418,7 @@ export class CmrTopologyCard extends LitElement {
 
   private _zoom(factor: number): void {
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
-    if (!viewport) return;
-    const px = viewport.clientWidth / 2;
-    const py = viewport.clientHeight / 2;
-    const { x, y, k } = this._view;
-    const nk = Math.min(2.5, Math.max(0.25, k * factor));
-    this._view = { k: nk, x: px - ((px - x) * nk) / k, y: py - ((py - y) * nk) / k };
-    this._userMoved = true;
+    if (viewport) this._zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, factor);
   }
 
   private _resetView(): void {
@@ -478,9 +481,7 @@ export class CmrTopologyCard extends LitElement {
   protected render(): TemplateResult {
     const entry = this._entry;
     const height = this._config?.height ?? 440;
-    if (!entry) {
-      return html`<ha-card><div class="empty" style="height:${height}px">Waiting for the CMR controller…</div></ha-card>`;
-    }
+    if (!entry) return this.renderWaiting(`height:${height}px`);
     const scene = this._scene(entry);
     const roots = this._rootLayouts(entry);
     const crumbs = this._path.length ? this._path : [scene.layout];
@@ -488,9 +489,7 @@ export class CmrTopologyCard extends LitElement {
     const links = scene.links
       .map((link) => this._linkInfo(link, nodeById))
       .filter((info): info is LinkInfo => info !== undefined);
-    const legendKinds = (["copper", "fiber", "wireless", "unknown"] as LinkKind[]).filter((kind) =>
-      links.some((l) => l.kind === kind),
-    );
+    const legendKinds = LEGEND_KINDS.filter((kind) => links.some((l) => l.kind === kind));
     const { x, y, k } = this._view;
     const layoutInfo = entry.layouts.find((l) => l.name === scene.layout);
 
@@ -513,12 +512,13 @@ export class CmrTopologyCard extends LitElement {
           ${roots.length > 1
             ? html`<div class="roots">
                 ${roots.map(
-                  (name) => html`<button class="root ${crumbs[0] === name ? "active" : ""}" @click=${() => this._selectRoot(name)}>${name}</button>`,
+                  (name) => html`<button class="pill ${crumbs[0] === name ? "on" : ""}" @click=${() => this._selectRoot(name)}>${name}</button>`,
                 )}
               </div>`
             : nothing}
         </div>
         ${layoutInfo?.comment ? html`<div class="subtitle">${layoutInfo.comment}</div>` : nothing}
+        ${this.renderStale(entry)}
         <div
           class="viewport"
           style="min-height:${height}px"
@@ -528,10 +528,7 @@ export class CmrTopologyCard extends LitElement {
           @pointerup=${this._onPointerUp}
           @pointercancel=${this._onPointerUp}
           @dblclick=${this._resetView}
-          @mouseleave=${() => {
-            this._hover = undefined;
-            this._hoverLink = undefined;
-          }}
+          @mouseleave=${this._clearHover}
         >
           <div
             class="world"
@@ -544,6 +541,9 @@ export class CmrTopologyCard extends LitElement {
             ${this._config.show_comments ? links.map((info) => this._renderComment(info)) : nothing}
             ${scene.nodes.map((node) => this._renderNode(node))}
           </div>
+          ${scene.nodes.length
+            ? nothing
+            : html`<div class="nothing">${scene.layout === AUTO ? "No devices on the controller yet." : "This layout has no nodes yet."}</div>`}
           ${this._hover ? this._renderTooltip(this._hover) : nothing}
           ${this._hoverLink && !this._hover ? this._renderLinkTooltip(this._hoverLink) : nothing}
           <div class="controls">
@@ -556,7 +556,7 @@ export class CmrTopologyCard extends LitElement {
               (s) => html`<span class="status-${s}"><i class="dot"></i>${STATUS_LABEL[s]}</span>`,
             )}
             ${legendKinds.map(
-              (kind) => html`<span><i class="wire-sample k-${kind}"></i>${LEGEND_LABEL[kind]}</span>`,
+              (kind) => html`<span><i class="wire-sample k-${kind}"></i>${KIND_LABEL[kind]}</span>`,
             )}
             ${links.some((l) => l.poe) ? html`<span><i class="poe-sample"></i>PoE power</span>` : nothing}
           </div>
@@ -582,10 +582,11 @@ export class CmrTopologyCard extends LitElement {
     let ports: PortPair[] = link.ports;
     let endNames: [string, string] = [a.name, b.name];
     let siteLink = false;
+    let via: Cable | undefined;
     if (!ports.length && a.kind === "site" && b.kind === "site") {
       // A link between two layouts: use the device cable that joins them.
       siteLink = true;
-      const via = this._cableBetween(a.target!, b.target!);
+      via = this._cableBetween(a.target!, b.target!);
       if (via) {
         ports = via.ports;
         endNames = via.names;
@@ -603,26 +604,25 @@ export class CmrTopologyCard extends LitElement {
             ? "copper"
             : "logical";
     } else {
-      kind = siteLink && !this._cableBetween(a.target!, b.target!) ? "uplink" : "unknown";
+      kind = siteLink && !via ? "uplink" : "unknown";
     }
     let poe: LinkInfo["poe"];
     if (pair?.a.poe === "powered-on") poe = { from: a, to: b, port: pair.a.interface };
     else if (pair?.b.poe === "powered-on") poe = { from: b, to: a, port: pair.b.interface };
-    const bytes = ports.reduce((sum, p) => sum + parseSize(p.a.tx) + parseSize(p.a.rx), 0);
-    return { link, a, b, state: this._linkState(a, b), kind, ports, endNames, poe, bytes };
+    return { link, a, b, state: this._linkState(a, b), kind, ports, endNames, poe };
   }
 
   /** The device-to-device link joining two layouts, oriented from the first. */
-  private _cableBetween(
-    layoutA: string,
-    layoutB: string,
-  ): { ports: PortPair[]; names: [string, string] } | undefined {
+  private _cableBetween(layoutA: string, layoutB: string): Cable | undefined {
     const entry = this._entry!;
+    const memo = this._memoFor(entry);
+    const cacheKey = `${layoutA}\u0000${layoutB}`;
+    if (memo.cables.has(cacheKey)) return memo.cables.get(cacheKey);
     const inA = new Set(this._devicesIn(entry, layoutA).map((d) => d.key));
     const inB = new Set(this._devicesIn(entry, layoutB).map((d) => d.key));
     const nodeKey = new Map(entry.nodes.map((n) => [`${n.layout}\u0000${n.name}`, n.device_key]));
-    const byKey = new Map(entry.devices.map((d) => [d.key, d]));
-    let best: { ports: PortPair[]; names: [string, string] } | undefined;
+    const byKey = memo.byKey;
+    let best: Cable | undefined;
     for (const link of entry.links) {
       const k1 = nodeKey.get(`${link.layout}\u0000${link.node1}`);
       const k2 = nodeKey.get(`${link.layout}\u0000${link.node2}`);
@@ -637,15 +637,16 @@ export class CmrTopologyCard extends LitElement {
       };
       if (!best || (ports.length && !best.ports.length)) best = candidate;
     }
+    memo.cables.set(cacheKey, best);
     return best;
   }
 
   private _renderLink(info: LinkInfo) {
     const { a, b, state, kind, poe } = info;
     const d = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+    // A steady flow marks a live, detected cable; the counters the controller
+    // reports are totals since boot, not rates, so they don't set the speed.
     const moving = state === "up" && kind !== "unknown" && kind !== "logical";
-    // More traffic, faster flow: ~2.4 s per cycle when idle down to 0.6 s.
-    const speed = Math.min(2.4, Math.max(0.6, 2.4 - 0.3 * Math.log10(info.bytes + 1)));
     return svg`
       <g class="link ${state} k-${kind}"
          @mouseenter=${(e: MouseEvent) => this._showLinkHover(info, e)}
@@ -653,7 +654,7 @@ export class CmrTopologyCard extends LitElement {
         <path class="hit" d=${d}></path>
         <path class="wire" d=${d}></path>
         ${kind === "fiber" ? svg`<path class="core" d=${d}></path>` : nothing}
-        ${moving ? svg`<path class="flow" d=${d} style="animation-duration:${speed}s"></path>` : nothing}
+        ${moving ? svg`<path class="flow" d=${d}></path>` : nothing}
         ${poe && state === "up"
           ? svg`<circle class="power" r="3.6">
               <animateMotion dur="2.2s" repeatCount="indefinite"
@@ -744,7 +745,7 @@ export class CmrTopologyCard extends LitElement {
       <div class="tt-title">${a.name} ↔ ${b.name}</div>
       ${link.comment ? html`<div class="muted">${link.comment}</div>` : nothing}
       <table>
-        <tr><td>Medium</td><td>${MEDIUM_LABEL[info.kind]}</td></tr>
+        <tr><td>Medium</td><td>${KIND_LABEL[info.kind]}</td></tr>
         ${ports.map(
           (pair) => html`
             <tr><td>${endNames[0]}</td><td class="mono">${pair.a.interface}</td></tr>
@@ -862,12 +863,8 @@ export class CmrTopologyCard extends LitElement {
       .crumb.current { color: var(--primary-text-color); font-weight: 500; }
       .sep { --mdc-icon-size: 16px; color: var(--cmr-muted); }
       .roots { display: flex; gap: 4px; flex-wrap: wrap; }
-      .root {
-        all: unset; cursor: pointer; font-size: 12px; padding: 3px 10px; border-radius: 999px;
-        border: 1px solid var(--cmr-line); color: var(--cmr-muted);
-      }
-      .root.active { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
       .subtitle { padding: 0 16px 6px; font-size: 12px; color: var(--cmr-muted); }
+      .nothing { position: absolute; inset: 0; display: grid; place-items: center; color: var(--cmr-muted); pointer-events: none; }
 
       ha-card { display: flex; flex-direction: column; }
       .viewport {
@@ -965,7 +962,7 @@ export class CmrTopologyCard extends LitElement {
       .tooltip .tt-title { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
       .tt-photo {
         height: 110px; margin: -2px -4px 8px; border-radius: 9px; display: grid; place-items: center;
-        background: linear-gradient(160deg, #fbfbfc, #e9ebef);
+        background: var(--cmr-pedestal);
       }
       .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; mix-blend-mode: multiply; }
       .tooltip table { width: 100%; border-collapse: collapse; margin-top: 6px; }

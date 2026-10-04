@@ -1,6 +1,11 @@
 import type { CmrEntry, HassLike } from "./types";
 
-type Listener = (entries: CmrEntry[]) => void;
+// `error` is set once, with no entries, when the subscription itself failed.
+type Listener = (entries: CmrEntry[], error?: string) => void;
+
+function errorText(err: unknown): string {
+  return (err as { message?: string })?.message ?? String(err);
+}
 
 /**
  * One shared `cmr/subscribe` subscription for all cards on a page.
@@ -25,6 +30,7 @@ class CmrStore {
       this.unsubscribe.catch((err) => {
         console.error("cmr: subscription failed", err);
         this.unsubscribe = undefined;
+        this.listeners.forEach((fn) => fn([], errorText(err)));
       });
     }
     return () => {
@@ -42,15 +48,16 @@ class CmrStore {
   /** Resolve with the first snapshot (used by the dashboard strategy). */
   once(hass: HassLike): Promise<CmrEntry[]> {
     if (this.latest) return Promise.resolve(this.latest);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // The listener can fire synchronously, before subscribe() returns.
       let unsubscribe: (() => void) | undefined;
       let done = false;
-      unsubscribe = this.subscribe(hass, (entries) => {
+      unsubscribe = this.subscribe(hass, (entries, error) => {
         if (done) return;
         done = true;
         queueMicrotask(() => unsubscribe?.());
-        resolve(entries);
+        if (error) reject(new Error(error));
+        else resolve(entries);
       });
     });
   }
@@ -92,10 +99,11 @@ export interface CmrIssue {
   updated: string;
   count: number;
   device_key: string | null;
+  device_name: string | null;
   device_id: string | null;
 }
 
-type EventsListener = (events: CmrEvent[], issues: CmrIssue[]) => void;
+type EventsListener = (events: CmrEvent[], issues: CmrIssue[], error?: string) => void;
 
 /** One `cmr/events/subscribe` feed: recent events plus new ones live. */
 class EventsFeed {
@@ -123,6 +131,7 @@ class EventsFeed {
       this.unsubscribe.catch((err) => {
         console.error("cmr: events subscription failed", err);
         this.unsubscribe = undefined;
+        this.listeners.forEach((fn) => fn([], [], errorText(err)));
       });
     }
     return () => {

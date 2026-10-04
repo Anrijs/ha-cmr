@@ -1,7 +1,6 @@
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
-import { baseStyles, copyText, moreInfo } from "./shared";
-import type { CmrAlertRule, CmrEntry, HassLike } from "./types";
+import { css, html, nothing, type PropertyDeclarations, type TemplateResult } from "lit";
+import { CmrEntryCard, ENTRY_FIELD, baseStyles, copyText, labelsFrom, moreInfo, relativeTime } from "./shared";
+import type { CmrAlertRule } from "./types";
 
 interface AlertsConfig {
   type: string;
@@ -18,48 +17,23 @@ const SEVERITY_ICON: Record<string, string> = {
   low: "mdi:information-outline",
 };
 
-function ago(iso: string | undefined): string {
-  if (!iso) return "";
-  const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.round(s / 60)} min ago`;
-  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
-  return `${Math.round(s / 86400)} d ago`;
-}
-
-export class CmrAlertsCard extends LitElement {
-  static properties = {
-    hass: { attribute: false },
-    _config: { state: true },
-    _entry: { state: true },
+export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
+  static properties: PropertyDeclarations = {
     _setup: { state: true },
     _copied: { state: true },
   };
 
-  declare hass: HassLike;
-  declare _config: AlertsConfig;
-  declare _entry?: CmrEntry;
   declare _setup?: { url: string; script: string } | null;
   declare _copied: boolean;
-  private _unsubscribe?: () => void;
-
-  setConfig(config: AlertsConfig): void {
-    this._config = config;
-  }
-
-  static getStubConfig(): Partial<AlertsConfig> {
-    return {};
-  }
 
   static getConfigForm() {
     return {
       schema: [
-        { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
+        ENTRY_FIELD,
         { name: "title", selector: { text: {} } },
         { name: "hide_disabled", selector: { boolean: {} } },
       ],
-      computeLabel: (s: { name: string }) =>
-        ({ entry_id: "Controller", title: "Title", hide_disabled: "Hide disabled rules" })[s.name],
+      computeLabel: labelsFrom({ entry_id: "Controller", title: "Title", hide_disabled: "Hide disabled rules" }),
     };
   }
 
@@ -69,27 +43,6 @@ export class CmrAlertsCard extends LitElement {
 
   getCardSize(): number {
     return 2 + (this._entry?.alerts.length ?? 4);
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    if (this.hass && !this._unsubscribe) this._subscribe();
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this._unsubscribe?.();
-    this._unsubscribe = undefined;
-  }
-
-  protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") && this.hass && !this._unsubscribe && this.isConnected) this._subscribe();
-  }
-
-  private _subscribe(): void {
-    this._unsubscribe = cmrStore.subscribe(this.hass, (entries) => {
-      this._entry = pickEntry(entries, this._config?.entry_id);
-    });
   }
 
   private async _toggleSetup(): Promise<void> {
@@ -118,7 +71,7 @@ export class CmrAlertsCard extends LitElement {
 
   protected render(): TemplateResult {
     const entry = this._entry;
-    if (!entry) return html`<ha-card><div class="empty">Waiting for the CMR controller…</div></ha-card>`;
+    if (!entry) return this.renderWaiting();
 
     const rules = entry.alerts
       .filter((r) => !(this._config.hide_disabled && r.disabled))
@@ -140,16 +93,17 @@ export class CmrAlertsCard extends LitElement {
         <div class="card-header">
           <ha-icon icon=${firing ? "mdi:bell-alert" : "mdi:bell-check-outline"}></ha-icon>
           <span>${this._config.title ?? "Alerts"}</span>
-          ${firing ? html`<span class="chip firing">${firing} firing</span>` : html`<span class="chip">all quiet</span>`}
+          ${firing ? html`<span class="chip alert">${firing} firing</span>` : html`<span class="chip">all quiet</span>`}
           <div class="spacer"></div>
         </div>
+        ${this.renderStale(entry)}
 
         ${last && last.state !== "unknown" && last.state !== "unavailable"
           ? html`<button class="last sev-${lastAttrs.event_type}" @click=${() => moreInfo(this, lastId)}>
               <ha-icon icon=${SEVERITY_ICON[lastAttrs.event_type] ?? "mdi:bell"}></ha-icon>
               <div>
                 <div><b>${lastAttrs.alert}</b>${lastAttrs.device ? html` · ${lastAttrs.device}` : nothing}</div>
-                <div class="muted small">Last pushed alert · ${ago(last.state)}</div>
+                <div class="muted small">Last pushed alert · ${relativeTime(last.state, "")}</div>
               </div>
             </button>`
           : nothing}
@@ -212,7 +166,6 @@ export class CmrAlertsCard extends LitElement {
   static styles = [
     baseStyles,
     css`
-      .chip.firing { background: var(--cmr-alert); color: #fff; }
       .last {
         all: unset; cursor: pointer; box-sizing: border-box; display: flex; gap: 10px; align-items: center;
         margin: 0 12px 8px; padding: 8px 12px; border-radius: 12px; width: calc(100% - 24px);
@@ -238,7 +191,6 @@ export class CmrAlertsCard extends LitElement {
       .title { display: flex; align-items: center; gap: 6px; }
       .name { font-weight: 500; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .hook { --mdc-icon-size: 14px; color: var(--cmr-muted); }
-      .small { font-size: 11.5px; }
       .nums { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
       .hot { color: var(--cmr-alert); font-weight: 700; }
       .footer { border-top: 1px solid var(--cmr-line); padding: 8px 12px 12px; }

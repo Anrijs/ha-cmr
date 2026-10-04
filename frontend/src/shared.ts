@@ -1,5 +1,6 @@
-import { css, html, type TemplateResult } from "lit";
-import type { CmrDevice } from "./types";
+import { LitElement, css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
+import { cmrStore, pickEntry } from "./data";
+import type { CmrDevice, CmrEntry, HassLike } from "./types";
 
 /**
  * Icon when there is no product photo. The controller reports no role for a
@@ -86,6 +87,111 @@ export function navigate(path: string): void {
   window.dispatchEvent(new CustomEvent("location-changed", { detail: { replace: false } }));
 }
 
+/** "just now", "3 min ago", "2 h ago", "5 d ago". */
+export function relativeTime(iso: string | null | undefined, never = "never"): string {
+  if (!iso) return never;
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 10) return "just now";
+  if (s < 60) return `${Math.round(s)} s ago`;
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+}
+
+/** A device's web interface; IPv6 literals need brackets. */
+export function deviceUrl(address: string): string {
+  return address.includes(":") && !address.startsWith("[") ? `http://[${address}]` : `http://${address}`;
+}
+
+/** The "which controller" row every entry-bound card's editor starts with. */
+export const ENTRY_FIELD = { name: "entry_id", selector: { config_entry: { integration: "cmr" } } };
+
+export function labelsFrom(labels: Record<string, string>) {
+  return (schema: { name: string }) => labels[schema.name];
+}
+
+interface EntryConfig {
+  type: string;
+  entry_id?: string;
+}
+
+/**
+ * A card bound to one controller. It follows the shared snapshot store while
+ * connected, picks the configured (or first) controller, and renders the
+ * waiting, error and unreachable states the same way as every other card.
+ */
+export class CmrEntryCard<C extends EntryConfig = EntryConfig> extends LitElement {
+  // Lit merges a subclass's own `static properties` with these.
+  static properties: PropertyDeclarations = {
+    hass: { attribute: false },
+    _config: { state: true },
+    _entry: { state: true },
+    _error: { state: true },
+  };
+
+  declare hass: HassLike;
+  declare _config: C;
+  declare _entry?: CmrEntry;
+  declare _error?: string;
+  private _unsubscribeStore?: () => void;
+  private _staleTicker?: number;
+
+  setConfig(config: C): void {
+    this._config = config;
+  }
+
+  static getStubConfig(): Record<string, never> {
+    return {};
+  }
+
+  connectedCallback(): void {
+    super.connectedCallback();
+    if (this.hass && !this._unsubscribeStore) this._subscribeStore();
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._unsubscribeStore?.();
+    this._unsubscribeStore = undefined;
+    window.clearInterval(this._staleTicker);
+    this._staleTicker = undefined;
+  }
+
+  protected willUpdate(changed: PropertyValues): void {
+    if (changed.has("hass") && this.hass && !this._unsubscribeStore && this.isConnected) this._subscribeStore();
+  }
+
+  private _subscribeStore(): void {
+    this._unsubscribeStore = cmrStore.subscribe(this.hass, (entries, error) => {
+      this._error = error;
+      this._entry = pickEntry(entries, this._config?.entry_id);
+      // Keep "data from … ago" moving while the controller is unreachable.
+      const stale = !!this._entry && !this._entry.available;
+      if (stale && !this._staleTicker) this._staleTicker = window.setInterval(() => this.requestUpdate(), 30000);
+      if (!stale && this._staleTicker) {
+        window.clearInterval(this._staleTicker);
+        this._staleTicker = undefined;
+      }
+    });
+  }
+
+  /** Placeholder until the first snapshot arrives, or when the subscription failed. */
+  protected renderWaiting(style = ""): TemplateResult {
+    const text = this._error
+      ? `Can't read CMR data from Home Assistant (${this._error}). Reload the page.`
+      : "Waiting for the CMR controller…";
+    return html`<ha-card><div class="empty" style=${style}>${text}</div></ha-card>`;
+  }
+
+  /** A strip under the header while the controller can't be polled. */
+  protected renderStale(entry: CmrEntry): TemplateResult | typeof nothing {
+    if (entry.available) return nothing;
+    return html`<div class="stale">
+      <ha-icon icon="mdi:lan-disconnect"></ha-icon>Controller unreachable · showing data from ${relativeTime(entry.last_update)}
+    </div>`;
+  }
+}
+
 /** Theme tokens shared by every card; all colors come from the HA theme. */
 export const baseStyles = css`
   :host {
@@ -103,6 +209,8 @@ export const baseStyles = css`
     --cmr-surface-2: var(--secondary-background-color, rgba(127, 127, 127, 0.08));
     --cmr-radius: var(--ha-card-border-radius, 12px);
     --cmr-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+    /* Light "pedestal" behind product photos, in every theme. */
+    --cmr-pedestal: linear-gradient(160deg, #fbfbfc, #e9ebef);
   }
   ha-card {
     height: 100%;
@@ -159,10 +267,61 @@ export const baseStyles = css`
   .card-header .spacer {
     flex: 1;
   }
+  .small {
+    font-size: 12px;
+  }
+  .section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--cmr-muted);
+  }
+  .chip.alert {
+    background: var(--cmr-alert);
+    color: #fff;
+  }
+  .chip.update {
+    background: var(--cmr-update);
+    color: #fff;
+  }
+  /* Toggle buttons: label filters, event categories, layout roots. */
+  .pill {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--cmr-line);
+    color: var(--cmr-muted);
+    --mdc-icon-size: 14px;
+  }
+  .pill.on {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-primary-color, #fff);
+  }
+  .stale {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 12px 8px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    background: color-mix(in srgb, var(--cmr-pending) 14%, transparent);
+    color: var(--primary-text-color);
+    --mdc-icon-size: 16px;
+  }
+  .stale ha-icon {
+    color: var(--cmr-pending);
+  }
   /* Product photos sit on a light "pedestal" in every theme: some photos have
      opaque white backgrounds, and white devices need contrast on light cards. */
   .badge.photo {
-    background: linear-gradient(160deg, #fbfbfc, #e9ebef) !important;
+    background: var(--cmr-pedestal) !important;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
     overflow: hidden;
   }

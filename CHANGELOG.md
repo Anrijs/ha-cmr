@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+- Every card shows when the controller is unreachable, and how old its data is.
+- Cards share one base; the map reuses its scene between renders (smoother dragging).
+
 ## 0.2.4
 - Per-device alert counters now work (they were never returned over REST).
 - Home Assistant integration test suite and GitHub Actions CI.

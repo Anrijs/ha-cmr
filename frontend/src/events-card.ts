@@ -98,6 +98,7 @@ export class CmrEventsCard extends LitElement {
   declare _notable: boolean;
   private _unsubscribe?: () => void;
   private _loaded = false;
+  private _error?: string;
 
   constructor() {
     super();
@@ -176,9 +177,10 @@ export class CmrEventsCard extends LitElement {
   }
 
   private _subscribe(): void {
-    this._unsubscribe = cmrEvents.subscribe(this.hass, this._config?.entry_id, (events, issues) => {
+    this._unsubscribe = cmrEvents.subscribe(this.hass, this._config?.entry_id, (events, issues, error) => {
       this._events = events;
       this._issues = issues;
+      this._error = error;
       this._loaded = true;
     });
   }
@@ -229,6 +231,9 @@ export class CmrEventsCard extends LitElement {
 
   protected render(): TemplateResult {
     if (!this._loaded) return html`<ha-card><div class="empty">Loading network events…</div></ha-card>`;
+    if (this._error) {
+      return html`<ha-card><div class="empty">Can't read CMR events from Home Assistant (${this._error}). Reload the page.</div></ha-card>`;
+    }
     const cfg = this._config;
     const visible = this._visible();
     const rows = this._rows(visible);
@@ -237,7 +242,7 @@ export class CmrEventsCard extends LitElement {
       (a, b) => Object.keys(CATEGORY).indexOf(a) - Object.keys(CATEGORY).indexOf(b),
     );
     const devices = [...new Set(this._events.map((e) => e.device_name).filter(Boolean) as string[])].sort();
-    const issues = this._device ? this._issues.filter((i) => this._issueDevice(i) === this._device) : this._issues;
+    const issues = this._device ? this._issues.filter((i) => i.device_name === this._device) : this._issues;
 
     return html`
       <ha-card>
@@ -245,7 +250,7 @@ export class CmrEventsCard extends LitElement {
           <ha-icon icon="mdi:timeline-text-outline"></ha-icon>
           <span>${cfg.title ?? "Network events"}</span>
           ${issues.length
-            ? html`<span class="chip hot">${issues.length} issue${issues.length > 1 ? "s" : ""}</span>`
+            ? html`<span class="chip alert">${issues.length} issue${issues.length > 1 ? "s" : ""}</span>`
             : html`<span class="chip">no issues</span>`}
         </div>
 
@@ -256,14 +261,14 @@ export class CmrEventsCard extends LitElement {
         ${cfg.show_filters
           ? html`<div class="filters">
               <div class="cats">
-                <button class="cat ${!this._category && this._notable ? "on" : ""}"
+                <button class="pill ${!this._category && this._notable ? "on" : ""}"
                   @click=${() => { this._category = ""; this._notable = true; }}>
                   <ha-icon icon="mdi:star-four-points-outline"></ha-icon>Notable</button>
-                <button class="cat ${!this._category && !this._notable ? "on" : ""}"
+                <button class="pill ${!this._category && !this._notable ? "on" : ""}"
                   @click=${() => { this._category = ""; this._notable = false; }}>All</button>
                 ${categories.map((c) => {
                   const info = categoryInfo(c);
-                  return html`<button class="cat ${this._category === c ? "on" : ""}" @click=${() => (this._category = this._category === c ? "" : c)}>
+                  return html`<button class="pill ${this._category === c ? "on" : ""}" @click=${() => (this._category = this._category === c ? "" : c)}>
                     <ha-icon icon=${info.icon}></ha-icon>${info.label}
                   </button>`;
                 })}
@@ -284,7 +289,7 @@ export class CmrEventsCard extends LitElement {
             const day = new Date(row.events[0].time);
             const prev = i ? new Date(shown[i - 1].events[0].time) : undefined;
             const header = !prev || prev.toDateString() !== day.toDateString();
-            return html`${header ? html`<div class="day">${this._dayLabel(day)}</div>` : nothing}${this._row(row)}`;
+            return html`${header ? html`<div class="day section-label">${this._dayLabel(day)}</div>` : nothing}${this._row(row)}`;
           })}
           ${shown.length ? nothing : html`<div class="empty">No events${this._search || this._category || this._device ? " match these filters" : " yet"}.</div>`}
           ${rows.length > this._limit
@@ -295,12 +300,8 @@ export class CmrEventsCard extends LitElement {
     `;
   }
 
-  private _issueDevice(issue: CmrIssue): string | undefined {
-    return this._events.find((e) => e.device_key === issue.device_key)?.device_name ?? undefined;
-  }
-
   private _issue(issue: CmrIssue): TemplateResult {
-    const device = this._issueDevice(issue);
+    const device = issue.device_name;
     return html`<div class="issue sev-${issue.severity}">
       <ha-icon icon=${issue.severity === "error" ? "mdi:alert-octagon-outline" : "mdi:alert-outline"}></ha-icon>
       <div class="body">
@@ -389,7 +390,6 @@ export class CmrEventsCard extends LitElement {
     baseStyles,
     css`
       ha-card { container-type: inline-size; }
-      .chip.hot { background: var(--cmr-alert); color: #fff; }
       .issues { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 10px; }
       .issue {
         display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px;
@@ -408,12 +408,6 @@ export class CmrEventsCard extends LitElement {
 
       .filters { padding: 0 12px 6px; display: flex; flex-direction: column; gap: 8px; }
       .cats { display: flex; flex-wrap: wrap; gap: 6px; }
-      .cat {
-        all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-        font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--cmr-line);
-        color: var(--cmr-muted); --mdc-icon-size: 14px;
-      }
-      .cat.on { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
       .find { display: flex; gap: 8px; }
       .find select, .find input {
         font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; min-width: 0;
@@ -422,7 +416,7 @@ export class CmrEventsCard extends LitElement {
       .find input { flex: 1; }
 
       .timeline { padding: 0 8px 10px; }
-      .day { padding: 10px 8px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cmr-muted); }
+      .day { padding: 10px 8px 4px; }
       .row { border-radius: 10px; }
       .row.open { background: var(--cmr-surface-2); }
       .line {

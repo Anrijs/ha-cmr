@@ -1,7 +1,6 @@
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
-import { baseStyles, deviceIcon, deviceStatus, moreInfo } from "./shared";
-import type { CmrDevice, CmrEntry, HassLike } from "./types";
+import { css, html, nothing, type TemplateResult } from "lit";
+import { CmrEntryCard, ENTRY_FIELD, baseStyles, deviceIcon, deviceStatus, labelsFrom, moreInfo } from "./shared";
+import type { CmrDevice, CmrEntry } from "./types";
 
 interface UpgradesConfig {
   type: string;
@@ -22,41 +21,26 @@ function split(value: string | undefined): string[] {
   return (value ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+/** A finished job with `success` below "n/n" failed on some device. */
 function jobStatus(job: Record<string, string>): string {
   const [ok, total] = (job.success ?? "").split("/").map(Number);
   if (job.state === "done" && total && ok < total) return "failed";
   return job.state ?? "waiting";
 }
 
-export class CmrUpgradesCard extends LitElement {
-  static properties = {
-    hass: { attribute: false },
-    _config: { state: true },
-    _entry: { state: true },
-  };
-
-  declare hass: HassLike;
-  declare _config: UpgradesConfig;
-  declare _entry?: CmrEntry;
-  private _unsubscribe?: () => void;
-
+export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
   setConfig(config: UpgradesConfig): void {
     this._config = { jobs: 5, ...config };
-  }
-
-  static getStubConfig(): Partial<UpgradesConfig> {
-    return {};
   }
 
   static getConfigForm() {
     return {
       schema: [
-        { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
+        ENTRY_FIELD,
         { name: "title", selector: { text: {} } },
         { name: "jobs", selector: { number: { min: 0, max: 30, mode: "box" } } },
       ],
-      computeLabel: (s: { name: string }) =>
-        ({ entry_id: "Controller", title: "Title", jobs: "Recent jobs to show" })[s.name],
+      computeLabel: labelsFrom({ entry_id: "Controller", title: "Title", jobs: "Recent jobs to show" }),
     };
   }
 
@@ -68,36 +52,16 @@ export class CmrUpgradesCard extends LitElement {
     return 6;
   }
 
-  connectedCallback(): void {
-    super.connectedCallback();
-    if (this.hass && !this._unsubscribe) this._subscribe();
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this._unsubscribe?.();
-    this._unsubscribe = undefined;
-  }
-
-  protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") && this.hass && !this._unsubscribe && this.isConnected) this._subscribe();
-  }
-
-  private _subscribe(): void {
-    this._unsubscribe = cmrStore.subscribe(this.hass, (entries) => {
-      this._entry = pickEntry(entries, this._config?.entry_id);
-    });
-  }
-
   protected render(): TemplateResult {
     const entry = this._entry;
-    if (!entry) return html`<ha-card><div class="empty">Waiting for the CMR controller…</div></ha-card>`;
+    if (!entry) return this.renderWaiting();
 
     const updates = entry.devices.filter((d) => d.update_available).length;
     // The controller's built-in "default" rule only matters while it covers a device.
     const rules = entry.upgrade_rules.filter(
       (rule) => rule.dynamic !== "true" || entry.devices.some((d) => d.upgrade_rule === rule.name),
     );
+    // Schedule times are "YYYY-MM-DD HH:MM:SS", so they sort as text.
     const jobs = [...entry.upgrade_jobs]
       .sort((a, b) => (b.schedule_time ?? "").localeCompare(a.schedule_time ?? ""))
       .slice(0, this._config.jobs ?? 5);
@@ -108,16 +72,17 @@ export class CmrUpgradesCard extends LitElement {
           <ha-icon icon="mdi:update"></ha-icon>
           <span>${this._config.title ?? "Upgrades"}</span>
           ${updates
-            ? html`<span class="chip upd">${updates} available</span>`
+            ? html`<span class="chip update">${updates} available</span>`
             : html`<span class="chip">up to date</span>`}
         </div>
+        ${this.renderStale(entry)}
 
         ${rules.length
           ? rules.map((rule) => this._rule(entry, rule))
           : html`<div class="empty small">No upgrade rules. Devices are checked against their channel only.</div>`}
 
         ${jobs.length
-          ? html`<div class="section">Recent jobs</div>
+          ? html`<div class="section section-label">Recent jobs</div>
               <div class="jobs">
                 ${jobs.map((job) => {
                   const status = jobStatus(job);
@@ -181,8 +146,6 @@ export class CmrUpgradesCard extends LitElement {
   static styles = [
     baseStyles,
     css`
-      .chip.upd { background: var(--cmr-update); color: #fff; }
-      .small { font-size: 12px; }
       .rule { margin: 0 12px 10px; padding: 10px 12px; border-radius: 12px; background: var(--cmr-surface-2); }
       .rule-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
       .comment { margin-top: 2px; }
@@ -196,7 +159,7 @@ export class CmrUpgradesCard extends LitElement {
         all: unset; cursor: pointer; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
         background: color-mix(in srgb, var(--status) 14%, transparent); color: var(--status); --mdc-icon-size: 16px;
       }
-      .section { padding: 4px 16px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cmr-muted); }
+      .section { padding: 4px 16px 4px; }
       .jobs { padding: 0 8px 10px; }
       .job { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-size: 13px; }
       .job ha-icon { --mdc-icon-size: 20px; }

@@ -422,6 +422,7 @@ class CmrEventLog:
                     "updated": insight.updated.isoformat(),
                     "count": insight.count,
                     "device_key": insight.device_key,
+                    "device_name": self._device_name(insight.device_key),
                     "device_id": self._device_id(insight.device_key),
                 }
             )

@@ -1,7 +1,5 @@
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
-import { baseStyles, modelName, moreInfo } from "./shared";
-import type { CmrEntry, HassLike } from "./types";
+import { css, html, nothing, type TemplateResult } from "lit";
+import { CmrEntryCard, ENTRY_FIELD, baseStyles, modelName, moreInfo, relativeTime } from "./shared";
 
 interface StatusConfig {
   type: string;
@@ -18,41 +16,11 @@ const VERSION_COLORS = [
   "var(--cmr-muted)",
 ];
 
-function relativeTime(iso: string | null): string {
-  if (!iso) return "never";
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 10) return "just now";
-  if (seconds < 60) return `${Math.round(seconds)} s ago`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
-  return `${Math.round(seconds / 3600)} h ago`;
-}
-
-export class CmrStatusCard extends LitElement {
-  static properties = {
-    hass: { attribute: false },
-    _config: { state: true },
-    _entry: { state: true },
-  };
-
-  declare hass: HassLike;
-  declare _config: StatusConfig;
-  declare _entry?: CmrEntry;
-  private _unsubscribe?: () => void;
+export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
   private _ticker?: number;
 
-  setConfig(config: StatusConfig): void {
-    this._config = config;
-  }
-
-  static getStubConfig(): Partial<StatusConfig> {
-    return {};
-  }
-
   static getConfigForm() {
-    return {
-      schema: [{ name: "entry_id", selector: { config_entry: { integration: "cmr" } } }],
-      computeLabel: () => "Controller",
-    };
+    return { schema: [ENTRY_FIELD], computeLabel: () => "Controller" };
   }
 
   getGridOptions() {
@@ -65,31 +33,18 @@ export class CmrStatusCard extends LitElement {
 
   connectedCallback(): void {
     super.connectedCallback();
-    if (this.hass && !this._unsubscribe) this._subscribe();
     // Keep "updated x s ago" fresh between polls.
     this._ticker = window.setInterval(() => this.requestUpdate(), 15000);
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
-    this._unsubscribe?.();
-    this._unsubscribe = undefined;
     window.clearInterval(this._ticker);
-  }
-
-  protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") && this.hass && !this._unsubscribe && this.isConnected) this._subscribe();
-  }
-
-  private _subscribe(): void {
-    this._unsubscribe = cmrStore.subscribe(this.hass, (entries) => {
-      this._entry = pickEntry(entries, this._config?.entry_id);
-    });
   }
 
   protected render(): TemplateResult {
     const entry = this._entry;
-    if (!entry) return html`<ha-card><div class="empty">Waiting for the CMR controller…</div></ha-card>`;
+    if (!entry) return this.renderWaiting();
 
     const devices = entry.devices;
     const controller = devices.find((d) => d.controller);
@@ -119,7 +74,7 @@ export class CmrStatusCard extends LitElement {
               ? html`<div class="logo photo"><img src=${controller.product.image} alt=${controller.product.name} referrerpolicy="no-referrer" /></div>`
               : html`<div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>`}
             <div class="who">
-              <div class="eyebrow">CMR controller ${entry.available ? nothing : html`<span class="chip warn">unreachable</span>`}</div>
+              <div class="eyebrow">CMR controller</div>
               <div class="name">${controller?.identity ?? entry.title}</div>
               <div class="meta">
                 ${controller ? modelName(controller) : ""} ·
@@ -148,6 +103,7 @@ export class CmrStatusCard extends LitElement {
             ${this._stat("mdi:link-variant-plus", pending, "to pair", fe.devices_online, pending ? "pending" : "ok")}
           </div>
         </div>
+        ${this.renderStale(entry)}
 
         <div class="bars">
           <div class="bar-title">
@@ -194,15 +150,14 @@ export class CmrStatusCard extends LitElement {
         box-shadow: 0 6px 18px color-mix(in srgb, var(--primary-color) 35%, transparent);
       }
       .logo.photo {
-        width: 64px; height: 64px; background: linear-gradient(160deg, #fbfbfc, #e9ebef);
+        width: 64px; height: 64px; background: var(--cmr-pedestal);
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
       }
       .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; mix-blend-mode: multiply; }
       .who { min-width: 0; }
-      .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cmr-muted); display: flex; gap: 6px; align-items: center; }
+      .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cmr-muted); }
       .name { font-size: 22px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .meta { font-size: 13px; color: var(--cmr-muted); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-      .chip.warn { background: var(--cmr-alert); color: #fff; }
       .open { color: var(--cmr-muted); align-self: flex-start; --mdc-icon-size: 18px; }
       .open:hover { color: var(--primary-color); }
 
@@ -230,7 +185,6 @@ export class CmrStatusCard extends LitElement {
       .seg { min-width: 6px; }
       .keys { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; font-size: 12px; align-items: center; }
       .keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; }
-      .keys .spacer { flex: 1; }
       @container (max-width: 520px) {
         .stats { justify-content: stretch; }
         .stat { max-width: none; }

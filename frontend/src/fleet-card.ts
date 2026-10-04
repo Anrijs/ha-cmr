@@ -1,17 +1,20 @@
-import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
+import { css, html, nothing, type PropertyDeclarations, type TemplateResult } from "lit";
 import {
-  deviceVisual,
-  modelCode,
-  modelName,
+  CmrEntryCard,
+  ENTRY_FIELD,
   STATUS_LABEL,
   baseStyles,
   compareDevices,
   deviceStatus,
+  deviceUrl,
+  deviceVisual,
   formatDuration,
+  labelsFrom,
+  modelCode,
+  modelName,
   moreInfo,
 } from "./shared";
-import type { CmrDevice, CmrEntry, HassLike } from "./types";
+import type { CmrDevice } from "./types";
 
 interface FleetConfig {
   type: string;
@@ -23,21 +26,14 @@ interface FleetConfig {
 
 type SortKey = "device" | "version" | "uptime" | "address";
 
-export class CmrFleetCard extends LitElement {
-  static properties = {
-    hass: { attribute: false },
-    _config: { state: true },
-    _entry: { state: true },
+export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
+  static properties: PropertyDeclarations = {
     _filter: { state: true },
     _sort: { state: true },
   };
 
-  declare hass: HassLike;
-  declare _config: FleetConfig;
-  declare _entry?: CmrEntry;
   declare _filter: Set<string>;
   declare _sort: { key: SortKey; desc: boolean };
-  private _unsubscribe?: () => void;
 
   constructor() {
     super();
@@ -50,20 +46,20 @@ export class CmrFleetCard extends LitElement {
     this._filter = new Set(config.labels ?? []);
   }
 
-  static getStubConfig(): Partial<FleetConfig> {
-    return {};
-  }
-
   static getConfigForm() {
     return {
       schema: [
-        { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
+        ENTRY_FIELD,
         { name: "title", selector: { text: {} } },
         { name: "labels", selector: { text: { multiple: true } } },
         { name: "show_filters", selector: { boolean: {} } },
       ],
-      computeLabel: (s: { name: string }) =>
-        ({ entry_id: "Controller", title: "Title", labels: "Only devices with these labels", show_filters: "Show label filters" })[s.name],
+      computeLabel: labelsFrom({
+        entry_id: "Controller",
+        title: "Title",
+        labels: "Only devices with these labels",
+        show_filters: "Show label filters",
+      }),
     };
   }
 
@@ -73,27 +69,6 @@ export class CmrFleetCard extends LitElement {
 
   getCardSize(): number {
     return 2 + (this._entry?.devices.length ?? 4);
-  }
-
-  connectedCallback(): void {
-    super.connectedCallback();
-    if (this.hass && !this._unsubscribe) this._subscribe();
-  }
-
-  disconnectedCallback(): void {
-    super.disconnectedCallback();
-    this._unsubscribe?.();
-    this._unsubscribe = undefined;
-  }
-
-  protected willUpdate(changed: PropertyValues): void {
-    if (changed.has("hass") && this.hass && !this._unsubscribe && this.isConnected) this._subscribe();
-  }
-
-  private _subscribe(): void {
-    this._unsubscribe = cmrStore.subscribe(this.hass, (entries) => {
-      this._entry = pickEntry(entries, this._config?.entry_id);
-    });
   }
 
   private _toggle(label: string): void {
@@ -125,7 +100,7 @@ export class CmrFleetCard extends LitElement {
 
   protected render(): TemplateResult {
     const entry = this._entry;
-    if (!entry) return html`<ha-card><div class="empty">Waiting for the CMR controller…</div></ha-card>`;
+    if (!entry) return this.renderWaiting();
 
     const labels = [...new Set(entry.devices.flatMap((d) => d.labels))].sort();
     const devices = this._sorted(
@@ -142,17 +117,18 @@ export class CmrFleetCard extends LitElement {
           <span class="chip">${devices.length}</span>
           <div class="spacer"></div>
         </div>
+        ${this.renderStale(entry)}
         ${this._config.show_filters && labels.length
           ? html`<div class="filters">
               ${labels.map(
-                (label) => html`<button class="filter ${this._filter.has(label) ? "on" : ""}" @click=${() => this._toggle(label)}>
+                (label) => html`<button class="pill ${this._filter.has(label) ? "on" : ""}" @click=${() => this._toggle(label)}>
                   ${label}
                 </button>`,
               )}
             </div>`
           : nothing}
         <div class="table" role="table">
-          <div class="row head" role="row">
+          <div class="row head section-label" role="row">
             <button class="c-device" @click=${() => this._setSort("device")}>Device ${arrow("device")}</button>
             <span class="c-labels">Labels</span>
             <button class="c-version" @click=${() => this._setSort("version")}>Version ${arrow("version")}</button>
@@ -190,7 +166,7 @@ export class CmrFleetCard extends LitElement {
         <div class="c-uptime">${d.connected ? formatDuration(d.uptime) : html`<span class="offline">${STATUS_LABEL[status]}</span>`}</div>
         <div class="c-address">
           ${d.address
-            ? html`<a class="mono" href="http://${d.address}" target="_blank" rel="noreferrer" @click=${(e: Event) => e.stopPropagation()}>${d.address}</a>`
+            ? html`<a class="mono" href=${deviceUrl(d.address)} target="_blank" rel="noreferrer" @click=${(e: Event) => e.stopPropagation()}>${d.address}</a>`
             : html`<span class="muted">${d.controller ? "local" : "–"}</span>`}
         </div>
       </div>
@@ -202,18 +178,13 @@ export class CmrFleetCard extends LitElement {
     css`
       ha-card { container-type: inline-size; }
       .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
-      .filter {
-        all: unset; cursor: pointer; font-size: 12px; padding: 3px 10px; border-radius: 999px;
-        border: 1px solid var(--cmr-line); color: var(--cmr-muted);
-      }
-      .filter.on { background: var(--primary-color); border-color: var(--primary-color); color: var(--text-primary-color, #fff); }
       .table { padding: 0 8px 8px; }
       .row {
         display: grid; grid-template-columns: minmax(180px, 2.2fr) minmax(90px, 1.4fr) minmax(120px, 1.4fr) 80px 120px;
         gap: 10px; align-items: center; padding: 8px; border-radius: 10px; cursor: pointer;
       }
       .row:not(.head):hover { background: var(--cmr-surface-2); }
-      .row.head { cursor: default; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--cmr-muted); padding-bottom: 4px; }
+      .row.head { cursor: default; padding-bottom: 4px; }
       .row.head button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
       .sort { --mdc-icon-size: 14px; }
       .c-device { display: flex; gap: 10px; align-items: center; min-width: 0; }
@@ -224,7 +195,7 @@ export class CmrFleetCard extends LitElement {
       .who { min-width: 0; }
       .name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 4px; }
       .crown { --mdc-icon-size: 15px; color: var(--primary-color); }
-      .small { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .c-labels { display: flex; flex-wrap: wrap; gap: 4px; }
       .c-version { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 13px; }
       .update { display: inline-flex; align-items: center; gap: 3px; color: var(--cmr-update); font-weight: 600; --mdc-icon-size: 15px; }
