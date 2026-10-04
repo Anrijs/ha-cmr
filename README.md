@@ -197,20 +197,63 @@ you use for the web interface).
 
 ## 2. Install
 
-**With HACS** (recommended):
+The cards need no separate install: the integration serves them and loads them
+on every Home Assistant page.
+
+### With HACS (recommended)
+
+Works on every installation type, including Home Assistant OS (Green, Yellow
+and others); HACS itself is installed once, see [hacs.xyz](https://hacs.xyz).
 
 1. HACS → ⋮ → **Custom repositories**.
 2. Repository `https://github.com/trakais/ha-cmr`, type **Integration**, *Add*.
 3. Search HACS for **CMR**, open it and **Download**.
-4. Restart Home Assistant.
+4. Restart Home Assistant (Settings → System → ⋮ → *Restart Home
+   Assistant*).
 
 HACS then offers new versions like any other integration.
 
-**Manually:** copy `custom_components/cmr` from this repository into
-Home Assistant's `config/custom_components/` folder and restart Home Assistant.
+### Without HACS on Home Assistant OS (Green, Yellow and others)
 
-The cards need no separate install: the integration serves them and loads them
-on every Home Assistant page.
+The integration is one folder, `custom_components/cmr`, that has to end up in
+Home Assistant's `config` folder. On Home Assistant OS you reach that folder
+through an add-on (Settings → Add-ons → **Add-on store**). Pick one:
+
+**Terminal** (*Terminal & SSH* add-on). Open the add-on's terminal and paste:
+
+```
+mkdir -p /config/custom_components
+curl -sL https://github.com/trakais/ha-cmr/archive/refs/heads/main.tar.gz | tar -xz -C /tmp
+rm -rf /config/custom_components/cmr
+cp -r /tmp/ha-cmr-main/custom_components/cmr /config/custom_components/
+rm -rf /tmp/ha-cmr-main
+```
+
+**Network share** (*Samba share* add-on; set a username and password in its
+configuration and start it):
+
+1. On your computer, download this repository: **Code → Download ZIP**, and
+   extract it.
+2. Open the share `\\homeassistant.local\config` (Windows) or
+   `smb://homeassistant.local/config` (macOS Finder → Go → Connect to Server).
+3. Copy the extracted `custom_components/cmr` folder into the share's
+   `custom_components` folder (create it if it's missing).
+
+**In the browser** (*Studio Code Server* add-on): open it, and drag the
+extracted `custom_components/cmr` folder from your computer onto the
+`custom_components` folder in its file explorer (create it if it's missing).
+
+Then restart Home Assistant (Settings → System → ⋮ → *Restart Home
+Assistant*).
+
+**Updating without HACS:** repeat the same steps (they replace the folder),
+restart Home Assistant, then reload the browser page.
+
+### Other installations (Container, Core)
+
+There are no add-ons: copy `custom_components/cmr` into the `custom_components`
+folder of your Home Assistant configuration directory (the terminal commands
+above work with your config path instead of `/config`) and restart.
 
 ## 3. Add the integration
 
