@@ -28,6 +28,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError
+from .changes import ALERT_SEVERITY, diff_snapshots
 from .const import CONF_ACTIVITY_LOG, DOMAIN, EVENT_CMR, EVENT_ISSUE
 from .insights import RULES, Insight, InsightEngine, describe
 from .logparse import (
@@ -38,7 +39,7 @@ from .logparse import (
     log_id_value,
     parse_router_time,
 )
-from .models import CmrSnapshot, is_newer, split_list
+from .models import CmrSnapshot, split_list
 
 if TYPE_CHECKING:
     from .coordinator import CmrConfigEntry
@@ -49,7 +50,6 @@ STORE_VERSION = 1
 MAX_EVENTS = 1000
 # Categories always worth a line in Home Assistant's activity log.
 NOTABLE_CATEGORIES = {"device", "upgrade", "alert", "security", "config", "insight"}
-ALERT_SEVERITY = {"critical": "error", "high": "warning", "medium": "notice", "low": "info"}
 CLOCK_REFRESH = timedelta(minutes=10)
 
 type Listener = Callable[[list[dict[str, Any]]], None]
@@ -132,7 +132,7 @@ class CmrEventLog:
         replay = self.last_log_id is None and not self.events
         events = await self._read_log(api, snapshot, now)
         if previous is not None:
-            events += self._diff(previous, snapshot, now)
+            events += diff_snapshots(previous, snapshot, now)
         self._ingest(events, snapshot, now, replay=replay)
 
     async def _read_log(self, api: CmrApi, snapshot: CmrSnapshot, now: datetime) -> list[dict[str, Any]]:
@@ -234,94 +234,6 @@ class CmrEventLog:
         return self._mac_hosts.get(mac)
 
     # ---------------------------------------------------- snapshot changes
-
-    def _diff(self, old: CmrSnapshot, new: CmrSnapshot, now: datetime) -> list[dict[str, Any]]:
-        events: list[dict[str, Any]] = []
-
-        def add(category: str, severity: str, title: str, device=None, **data: Any) -> None:
-            events.append(
-                {
-                    "time": now,
-                    "source": "fleet",
-                    "category": category,
-                    "severity": severity,
-                    "title": title,
-                    "message": "",
-                    "data": data,
-                    "device_key": device.key if device else (new.controller.key if new.controller else None),
-                    "device_name": device.identity if device else None,
-                }
-            )
-
-        for key, device in new.devices.items():
-            before = old.devices.get(key)
-            label = device.identity
-            if before is None:
-                if device.pending:
-                    add("device", "notice", f"{label} is waiting to be paired", device, event="pending")
-                else:
-                    add("device", "notice", f"New device {label} ({device.board or 'unknown model'})", device, event="added")
-                continue
-            if before.pending and not device.pending:
-                add("device", "notice", f"{label} was paired", device, event="paired")
-            if before.connected and not device.connected:
-                add("device", "warning", f"{label} disconnected from the controller", device, event="disconnected")
-            elif not before.connected and device.connected:
-                add("device", "info", f"{label} is back online", device, event="connected")
-            if (
-                device.uptime is not None
-                and before.uptime is not None
-                and device.uptime + 60 < before.uptime
-            ):
-                add("device", "notice", f"{label} rebooted", device, event="rebooted", uptime=device.uptime)
-            if device.version and before.version and device.version != before.version:
-                verb = "upgraded" if is_newer(device.version, before.version) else "changed"
-                add(
-                    "upgrade", "notice", f"{label} {verb} from {before.version} to {device.version}",
-                    device, event="version", old=before.version, new=device.version,
-                )
-        for key, device in old.devices.items():
-            if key not in new.devices:
-                add("device", "warning", f"{device.identity} removed from the controller", device, event="removed")
-
-        for rule_id, rule in new.alerts.items():
-            before = old.alerts.get(rule_id)
-            if before is None:
-                continue
-            severity = ALERT_SEVERITY.get(rule.severity, "notice")
-            if not before.devices_on and rule.devices_on:
-                add(
-                    "alert", severity, f"Alert {rule.name} fired on {rule.devices_on} device(s)",
-                    event="fired", rule=rule.name, rule_id=rule_id, severity=rule.severity,
-                )
-            elif before.devices_on and not rule.devices_on:
-                add("alert", "info", f"Alert {rule.name} cleared", event="cleared", rule=rule.name, rule_id=rule_id)
-            if rule.action_failures > before.action_failures:
-                add(
-                    "alert", "warning", f"Alert {rule.name}: action failed", event="action_failed",
-                    rule=rule.name, rule_id=rule_id, failures=rule.action_failures,
-                )
-
-        old_jobs = {str(job.get(".id")): job for job in old.upgrade_jobs}
-        for job in new.upgrade_jobs:
-            job_id = str(job.get(".id"))
-            target = job.get("channel") or "?"
-            labels = job.get("labels") or "all"
-            before = old_jobs.get(job_id)
-            if before is None:
-                add("upgrade", "notice", f"Upgrade job to {target} for {labels}: {job.get('state', 'created')}",
-                    event="job", job_id=job_id, state=job.get("state"))
-            elif before.get("state") != job.get("state"):
-                success = job.get("success") or ""
-                ok, _, total = success.partition("/")
-                failed = ok.isdigit() and total.isdigit() and int(ok) < int(total)
-                add(
-                    "upgrade", "warning" if failed else "notice",
-                    f"Upgrade job to {target} for {labels}: {job.get('state')}"
-                    + (f" ({success} succeeded)" if success else ""),
-                    event="job", job_id=job_id, state=job.get("state"), success=success,
-                )
-        return events
 
     # ------------------------------------------------------------- output
 
