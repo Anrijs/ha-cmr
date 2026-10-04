@@ -1,0 +1,84 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "default": "mdi:lan-connect",
+        "state": {
+          "off": "mdi:lan-disconnect"
+        }
+      },
+      "network_trouble": {
+        "default": "mdi:check-network-outline",
+        "state": {
+          "on": "mdi:alert-network-outline"
+        }
+      }
+    },
+    "event": {
+      "alert": {
+        "default": "mdi:bell-ring-outline"
+      },
+      "fleet_alert": {
+        "default": "mdi:bell-ring"
+      }
+    },
+    "sensor": {
+      "uptime": {
+        "default": "mdi:timer-outline"
+      },
+      "version": {
+        "default": "mdi:package-variant-closed"
+      },
+      "active_alerts": {
+        "default": "mdi:bell-outline"
+      },
+      "connected_since": {
+        "default": "mdi:link-variant"
+      },
+      "available_version": {
+        "default": "mdi:package-down"
+      },
+      "channel": {
+        "default": "mdi:source-branch"
+      },
+      "upgrade_rule": {
+        "default": "mdi:format-list-numbered"
+      },
+      "address": {
+        "default": "mdi:ip-network-outline"
+      },
+      "packages": {
+        "default": "mdi:package-variant"
+      },
+      "labels": {
+        "default": "mdi:label-multiple-outline"
+      },
+      "devices": {
+        "default": "mdi:router-network"
+      },
+      "devices_online": {
+        "default": "mdi:lan-check"
+      },
+      "updates_available": {
+        "default": "mdi:update"
+      },
+      "alerts_firing": {
+        "default": "mdi:bell-alert-outline"
+      },
+      "last_upgrade_job": {
+        "default": "mdi:progress-upload"
+      },
+      "network_issues": {
+        "default": "mdi:stethoscope"
+      }
+    },
+    "button": {
+      "check_versions": {
+        "default": "mdi:cloud-search-outline"
+      },
+      "run_rule": {
+        "default": "mdi:play-circle-outline"
+      }
+    }
+  }
+}

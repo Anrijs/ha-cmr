@@ -1,0 +1,195 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pievienot CMR kontrolieri",
+        "description": "Home Assistant nolasa kontroliera CMR izvēlnes caur rūtera REST API. Izveido lietotāju grupu ar `read`, `api` un `rest-api` politikām (pievieno `write`, lai atjauninājumus varētu sākt no Home Assistant) un ieslēdz `www-ssl` (vai `www`, ja HTTPS izslēgts).",
+        "data": {
+          "host": "Kontroliera adrese",
+          "username": "Lietotājvārds",
+          "password": "Parole",
+          "ssl": "Lietot HTTPS",
+          "verify_ssl": "Pārbaudīt HTTPS sertifikātu"
+        },
+        "data_description": {
+          "host": "Rūtera, kurā darbojas CMR kontrolieris, IP adrese vai nosaukums, pēc vajadzības ar :portu.",
+          "verify_ssl": "Rūtera pašparakstītam sertifikātam atstāj izslēgtu."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Pieslēgties {host} vēlreiz",
+        "description": "Kontrolieris noraidīja saglabātos pieslēgšanās datus.",
+        "data": {
+          "username": "Lietotājvārds",
+          "password": "Parole"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "REST API nav sasniedzams. Pārbaudi adresi, vai ieslēgts www-ssl (vai www) serviss un HTTPS iestatījumu. {detail}",
+      "invalid_auth": "Kontrolieris noraidīja pieslēgšanos, vai lietotāja grupai nav read, api un rest-api politiku. {detail}",
+      "no_cmr": "Šim rūterim nav /cmr izvēlnes. Uzinstalē cmr pakotni un ieslēdz kontrolieri. Rūteris atbildēja: {detail}",
+      "not_controller": "Rūterim ir /cmr izvēlne, bet tas nedarbojas kā CMR kontrolieris.",
+      "unknown": "Neparedzēta kļūda; skati žurnālu.",
+      "router_error": "Rūteris noraidīja pieprasījumu: {detail}"
+    },
+    "abort": {
+      "already_configured": "Šis kontrolieris jau ir pievienots.",
+      "reauth_successful": "Pieslēgšanās atjaunota."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "CMR iestatījumi",
+        "description": "Lai brīdinājumi parādītos Home Assistant uzreiz, palaid šo kontrolierī. Tas visiem brīdinājumu noteikumiem iestata HTTP darbību uz Home Assistant; lai ierobežotu noteikumus, labo `find`.\n\n```\n{script}\n```",
+        "data": {
+          "scan_interval": "Aptaujas intervāls",
+          "webhook_base_url": "Home Assistant adrese, kā to sasniedz kontrolieris",
+          "allow_upgrades": "Ļaut sākt atjauninājumus no Home Assistant",
+          "activity_log": "Home Assistant aktivitāšu žurnāls"
+        },
+        "data_description": {
+          "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt un katram atjaunināšanas noteikumam pogu. Rūtera lietotājam vajag `write` politiku.",
+          "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Pieslēgts"
+      },
+      "network_trouble": {
+        "name": "Tīkla traucējumi"
+      }
+    },
+    "event": {
+      "alert": {
+        "name": "Brīdinājums",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "critical": "Kritisks",
+              "high": "Augsts",
+              "medium": "Vidējs",
+              "low": "Zems"
+            }
+          }
+        }
+      },
+      "fleet_alert": {
+        "name": "Tīkla brīdinājums",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "critical": "Kritisks",
+              "high": "Augsts",
+              "medium": "Vidējs",
+              "low": "Zems"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "uptime": {
+        "name": "Ieslēgts kopš"
+      },
+      "version": {
+        "name": "Programmatūras versija"
+      },
+      "active_alerts": {
+        "name": "Aktīvie brīdinājumi"
+      },
+      "connected_since": {
+        "name": "Pieslēgts kopš"
+      },
+      "available_version": {
+        "name": "Kanāla versija"
+      },
+      "channel": {
+        "name": "Atjauninājumu kanāls"
+      },
+      "upgrade_rule": {
+        "name": "Atjaunināšanas noteikums"
+      },
+      "address": {
+        "name": "Adrese"
+      },
+      "packages": {
+        "name": "Pakotnes"
+      },
+      "labels": {
+        "name": "Birkas"
+      },
+      "devices": {
+        "name": "Pārvaldītās ierīces"
+      },
+      "devices_online": {
+        "name": "Ierīces tiešsaistē"
+      },
+      "updates_available": {
+        "name": "Pieejami atjauninājumi"
+      },
+      "alerts_firing": {
+        "name": "Aktīvie brīdinājumu noteikumi"
+      },
+      "last_upgrade_job": {
+        "name": "Pēdējais atjaunināšanas darbs"
+      },
+      "network_issues": {
+        "name": "Tīkla problēmas"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Programmatūra"
+      }
+    },
+    "button": {
+      "check_versions": {
+        "name": "Pārbaudīt jaunas versijas"
+      },
+      "run_rule": {
+        "name": "Palaist atjaunināšanas noteikumu"
+      }
+    }
+  },
+  "exceptions": {
+    "device_gone": {
+      "message": "Kontrolieris šo vairs nepārvalda."
+    },
+    "no_newer_version": {
+      "message": "{device} ir {version}; kanālā nav nekā jaunāka."
+    },
+    "upgrade_failed": {
+      "message": "Kontrolieris atteicās atjaunināt {device}: {detail}"
+    },
+    "command_failed": {
+      "message": "Kontrolieris noraidīja komandu: {detail}"
+    },
+    "rule_would_downgrade": {
+      "message": "{rule} netiek palaists: kanāls pārvietotu {devices} uz vecāku versiju."
+    },
+    "rule_nothing_to_do": {
+      "message": "Visas {rule} ierīces jau ir atjauninātas."
+    }
+  },
+  "selector": {
+    "activity_log": {
+      "options": {
+        "notable": "Svarīgie notikumi (ierīces, atjauninājumi, brīdinājumi, drošība, konfigurācijas izmaiņas, problēmas)",
+        "all": "Visi notikumi, arī katra Wi-Fi pieslēgšanās un saites izmaiņa",
+        "off": "Neviens"
+      }
+    }
+  },
+  "issues": {
+    "network_issue": {
+      "title": "{title}",
+      "description": "{detail}\n\nTo atklāja CMR integrācija; tas pazudīs pats, kad viss nomierināsies."
+    }
+  }
+}

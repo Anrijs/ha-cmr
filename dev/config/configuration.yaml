@@ -1,0 +1,19 @@
+# Development instance for the CMR integration. Not for production:
+# trusted_networks lets local browsers in without a password.
+default_config:
+
+homeassistant:
+  name: CMR dev
+  auth_providers:
+    - type: homeassistant
+    - type: trusted_networks
+      trusted_networks:
+        - 127.0.0.1
+        - 172.16.0.0/12
+        - 192.168.5.0/24
+      allow_bypass_login: true
+
+logger:
+  default: info
+  logs:
+    custom_components.cmr: debug

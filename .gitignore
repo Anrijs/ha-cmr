@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+node_modules/
+.DS_Store
+
+# Dev Home Assistant runtime state; only the config template is tracked
+dev/config/*
+!dev/config/configuration.yaml
+
+# Local Home Assistant dashboard backups (not part of the project)
+*-backup-*.json
+
+# Design-hook caches
+.impeccable/hook.cache.json
+frontend/.impeccable/

@@ -1,0 +1,176 @@
+"""Tests for log classification and trouble detection (no Home Assistant needed)."""
+
+from datetime import datetime, timedelta
+import importlib.util
+from pathlib import Path
+import sys
+
+import pytest
+
+_DIR = Path(__file__).parents[1] / "custom_components" / "cmr"
+
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location(f"cmr_{name}", _DIR / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+logparse = _load("logparse")
+insights = _load("insights")
+
+T0 = datetime(2026, 10, 4, 12, 0, 0)
+
+
+# --------------------------------------------------------------- logparse
+
+
+def test_wifi_disconnect():
+    e = logparse.classify(
+        ["wireless", "info"],
+        "02:00:5e:10:00:01@2ghz-AP-2(IoT) disconnected, connection lost, signal strength -40, channel 2437/n",
+    )
+    assert e.category == "wifi"
+    assert e.data == {
+        "mac": "02:00:5E:10:00:01", "interface": "2ghz-AP-2", "ssid": "IoT", "event": "disconnected",
+        "reason": "connection lost", "signal": -40, "channel": "2437/n",
+    }
+    assert e.title == "Wi-Fi client 02:00:5E:10:00:01 disconnected from IoT (connection lost)"
+
+
+def test_wifi_connect_without_ssid():
+    e = logparse.classify(["wireless", "info"], "AA:BB:CC:DD:EE:FF@wifi1 connected, signal strength -61")
+    assert (e.category, e.data["event"], e.data["ssid"], e.data["signal"], e.data["reason"]) == (
+        "wifi", "connected", None, -61, None,
+    )
+
+
+def test_link_and_login_and_config():
+    up = logparse.classify(["interface", "info"], "ether6 link up (speed 1G, full duplex)")
+    assert (up.category, up.data["state"], up.data["detail"], up.severity) == ("link", "up", "speed 1G, full duplex", "info")
+    down = logparse.classify(["interface", "info"], "ether6 link down")
+    assert (down.data["state"], down.severity) == ("down", "notice")
+
+    ok = logparse.classify(["system", "info", "account"], "user admin logged in from 10.0.0.2 via ssh")
+    assert (ok.category, ok.data["address"], ok.data["service"]) == ("login", "10.0.0.2", "ssh")
+    tool = logparse.classify(["system", "info", "account"], "user ha logged out from 10.0.0.9 via rest-api")
+    assert (tool.category, tool.data["event"]) == ("api", "out")
+    fail = logparse.classify(["system", "error", "critical"], "login failure for user admin via api")
+    assert (fail.category, fail.severity, fail.data["address"], fail.data["event"]) == ("security", "error", None, "failure")
+
+    cfg = logparse.classify(
+        ["system", "info"],
+        "ip service changed by ssh-cmd:admin@10.0.0.2/action:136 (/ip service set www-ssl disabled=no)",
+    )
+    assert (cfg.category, cfg.data["action"], cfg.data["who"]) == ("config", "changed", "ssh-cmd:admin@10.0.0.2")
+    assert cfg.title.startswith("Ip service changed by")
+
+
+def test_ssh_auth_lines():
+    ok = logparse.classify(["ssh", "info"], "4d2e0 publickey accepted for user: vibe, fingerprint: SHA256:abc=")
+    assert (ok.category, ok.data["user"], ok.data["event"]) == ("login", "vibe", "auth")
+    bad = logparse.classify(["ssh", "info"], "4d2e0 password failed for user: root")
+    assert (bad.category, bad.severity, bad.data["event"]) == ("security", "warning", "failure")
+
+
+def test_dhcp_and_fallback():
+    e = logparse.classify(["dhcp", "info"], "defconf assigned 192.168.88.10 for AA:BB:CC:DD:EE:FF phone")
+    assert (e.category, e.data["mac"], e.data["host"]) == ("dhcp", "AA:BB:CC:DD:EE:FF", "phone")
+    other = logparse.classify(["certificate", "info"], "generated CA certificate: rest-ca")
+    assert (other.category, other.title) == ("certificate", "generated CA certificate: rest-ca")
+
+
+def test_find_identity_is_token_based():
+    ids = ["hAP", "Site-hAPax3", "GW"]
+    assert logparse.find_identity("2ghz-Site-hAPax3-2", ids) == "Site-hAPax3"
+    assert logparse.find_identity("5ghz-hAP", ids) == "hAP"
+    assert logparse.find_identity("wifi1", ids) is None
+
+
+def test_router_time_formats():
+    now = datetime(2026, 10, 4, 0, 2, 0)
+    assert logparse.parse_router_time("2026-10-03 17:25:13", now) == datetime(2026, 10, 3, 17, 25, 13)
+    assert logparse.parse_router_time("23:59:00", now) == datetime(2026, 10, 3, 23, 59, 0)
+    assert logparse.parse_router_time("00:01:00", now) == datetime(2026, 10, 4, 0, 1, 0)
+    assert logparse.parse_router_time("dec/31 10:00:00", now) == datetime(2025, 12, 31, 10, 0, 0)
+    assert logparse.parse_router_time("garbage", now) is None
+    assert logparse.gmt_offset_seconds("+03:00") == 10800
+    assert logparse.gmt_offset_seconds("-05:30") == -19800
+    assert logparse.gmt_offset_seconds("10800") == 10800
+    assert logparse.log_id_value("*12AD") == 0x12AD
+
+
+# --------------------------------------------------------------- insights
+
+
+def wifi_drop(minute, signal=-38):
+    return {
+        "time": T0 + timedelta(minutes=minute),
+        "category": "wifi",
+        "device_key": "AP1",
+        "device_name": "AP1",
+        "data": {"event": "disconnected", "mac": "AA:BB:CC:DD:EE:FF", "signal": signal, "reason": "connection lost"},
+    }
+
+
+def test_wifi_flapping_raises_updates_and_resolves():
+    engine = insights.InsightEngine()
+    changes = [c for m in range(4) for c in engine.observe(wifi_drop(m))]
+    assert changes == []  # below the threshold of 5
+    (kind, insight), = engine.observe(wifi_drop(4))
+    assert kind == "raised" and insight.kind == "wifi_flapping" and insight.count == 5
+    title, detail = insights.describe(insight)
+    assert "keeps dropping" in title and "strong" in detail and "connection lost" in detail
+    (kind, insight), = engine.observe(wifi_drop(6))
+    assert kind == "updated" and insight.count == 6
+    assert engine.sweep(T0 + timedelta(minutes=20)) == []  # still within the quiet period
+    resolved = engine.sweep(T0 + timedelta(minutes=37))
+    assert [i.key for i in resolved] == ["wifi_flapping:AA:BB:CC:DD:EE:FF"] and not engine.active
+
+
+def test_spread_out_drops_do_not_raise():
+    engine = insights.InsightEngine()
+    changes = [c for m in range(0, 100, 20) for c in engine.observe(wifi_drop(m))]
+    assert changes == []
+
+
+def test_weak_signal_diagnosis():
+    engine = insights.InsightEngine()
+    for m in range(5):
+        changes = engine.observe(wifi_drop(m, signal=-80))
+    assert "weak" in insights.describe(changes[0][1])[1]
+
+
+def test_login_failures_group_by_source():
+    engine = insights.InsightEngine()
+    raised = []
+    for i in range(5):
+        raised += engine.observe({
+            "time": T0 + timedelta(seconds=30 * i), "category": "security",
+            "data": {"event": "failure", "address": "203.0.113.9", "user": "admin" if i % 2 else "root"},
+        })
+    (kind, insight), = raised
+    assert insight.subject == "203.0.113.9" and insight.data["users"] == ["admin", "root"]
+
+
+def test_device_offline_and_recovery():
+    engine = insights.InsightEngine()
+    down = [{"key": "D1", "name": "Switch", "connected": False, "disconnected_for": 600}]
+    assert engine.check_devices(down, T0) == []  # 10 min: not yet
+    down[0]["disconnected_for"] = 1000
+    (kind, insight), = engine.check_devices(down, T0)
+    assert kind == "raised" and insight.kind == "device_offline"
+    (kind, insight), = engine.check_devices([{"key": "D1", "name": "Switch", "connected": True}], T0)
+    assert kind == "resolved" and insight.resolved == T0
+
+
+def test_state_round_trip():
+    engine = insights.InsightEngine()
+    for m in range(5):
+        engine.observe(wifi_drop(m))
+    restored = insights.InsightEngine(engine.as_dict())
+    assert restored.active.keys() == engine.active.keys()
+    (kind, _), = restored.observe(wifi_drop(5))
+    assert kind == "updated"

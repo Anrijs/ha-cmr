@@ -1,0 +1,16 @@
+{
+  "name": "cmr-frontend",
+  "private": true,
+  "description": "Dashboard cards and strategy bundled with the CMR integration",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --target=es2022 --minify --legal-comments=none --outfile=../custom_components/cmr/www/cmr.js",
+    "watch": "esbuild src/index.ts --bundle --format=esm --target=es2022 --sourcemap=inline --outfile=../custom_components/cmr/www/cmr.js --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "lit": "^3.3.3",
+    "typescript": "^7.0.2"
+  }
+}

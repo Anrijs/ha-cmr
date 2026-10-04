@@ -1,0 +1,195 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a CMR controller",
+        "description": "Home Assistant reads the controller's CMR menus over the router's REST API. Create a user group with the `read`, `api` and `rest-api` policies (add `write` to start upgrades from Home Assistant) and enable `www-ssl` (or `www` with HTTPS off).",
+        "data": {
+          "host": "Controller address",
+          "username": "Username",
+          "password": "Password",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate"
+        },
+        "data_description": {
+          "host": "IP address or host name of the router running the CMR controller, optionally with :port.",
+          "verify_ssl": "Leave off for the router's self-signed certificate."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to {host} again",
+        "description": "The controller rejected the saved credentials.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Can't reach the REST API. Check the address, that the www-ssl (or www) service is enabled, and the HTTPS setting. {detail}",
+      "invalid_auth": "The controller rejected the login, or the user's group lacks the read, api and rest-api policies. {detail}",
+      "no_cmr": "This router has no /cmr menu. Install the cmr package and enable the controller. Router said: {detail}",
+      "not_controller": "The router has a /cmr menu but isn't acting as a CMR controller.",
+      "unknown": "Unexpected error; see the logs.",
+      "router_error": "The router refused the request: {detail}"
+    },
+    "abort": {
+      "already_configured": "This controller is already set up.",
+      "reauth_successful": "Signed in again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "CMR options",
+        "description": "To get alerts in Home Assistant the moment they fire, run this on the controller. It points every alert rule's HTTP action at Home Assistant; edit `find` to limit it to some rules.\n\n```\n{script}\n```",
+        "data": {
+          "scan_interval": "Polling interval",
+          "webhook_base_url": "Home Assistant address, as the controller reaches it",
+          "allow_upgrades": "Allow starting upgrades from Home Assistant",
+          "activity_log": "Home Assistant activity log"
+        },
+        "data_description": {
+          "allow_upgrades": "Adds Install to each firmware update and a button per upgrade rule. Needs the `write` policy on the router user.",
+          "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "network_trouble": {
+        "name": "Network trouble"
+      }
+    },
+    "event": {
+      "alert": {
+        "name": "Alert",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "critical": "Critical",
+              "high": "High",
+              "medium": "Medium",
+              "low": "Low"
+            }
+          }
+        }
+      },
+      "fleet_alert": {
+        "name": "Fleet alert",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "critical": "Critical",
+              "high": "High",
+              "medium": "Medium",
+              "low": "Low"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "uptime": {
+        "name": "Up since"
+      },
+      "version": {
+        "name": "Firmware version"
+      },
+      "active_alerts": {
+        "name": "Active alerts"
+      },
+      "connected_since": {
+        "name": "Connected since"
+      },
+      "available_version": {
+        "name": "Channel version"
+      },
+      "channel": {
+        "name": "Update channel"
+      },
+      "upgrade_rule": {
+        "name": "Upgrade rule"
+      },
+      "address": {
+        "name": "Address"
+      },
+      "packages": {
+        "name": "Packages"
+      },
+      "labels": {
+        "name": "Labels"
+      },
+      "devices": {
+        "name": "Managed devices"
+      },
+      "devices_online": {
+        "name": "Devices online"
+      },
+      "updates_available": {
+        "name": "Updates available"
+      },
+      "alerts_firing": {
+        "name": "Alert rules firing"
+      },
+      "last_upgrade_job": {
+        "name": "Last upgrade job"
+      },
+      "network_issues": {
+        "name": "Network issues"
+      }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    },
+    "button": {
+      "check_versions": {
+        "name": "Check for new versions"
+      },
+      "run_rule": {
+        "name": "Run upgrade rule"
+      }
+    }
+  },
+  "exceptions": {
+    "device_gone": {
+      "message": "The controller no longer manages this item."
+    },
+    "no_newer_version": {
+      "message": "{device} is on {version}; its channel offers nothing newer."
+    },
+    "upgrade_failed": {
+      "message": "The controller refused to upgrade {device}: {detail}"
+    },
+    "command_failed": {
+      "message": "The controller refused the command: {detail}"
+    },
+    "rule_would_downgrade": {
+      "message": "Not running {rule}: its channel would move {devices} to an older version."
+    },
+    "rule_nothing_to_do": {
+      "message": "Every device in {rule} is already up to date."
+    }
+  },
+  "selector": {
+    "activity_log": {
+      "options": {
+        "notable": "Notable events (devices, upgrades, alerts, security, config changes, issues)",
+        "all": "All events, including every Wi-Fi join and link change",
+        "off": "None"
+      }
+    }
+  },
+  "issues": {
+    "network_issue": {
+      "title": "{title}",
+      "description": "{detail}\n\nThis was detected by the CMR integration and clears itself once things are quiet again."
+    }
+  }
+}
