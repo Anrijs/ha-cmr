@@ -87,6 +87,8 @@ export interface CmrEvent {
   device_name: string | null;
   device_id: string | null;
   subject_name?: string;
+  /** Set by the integration; older stored events lack it. */
+  notable?: boolean;
 }
 
 export interface CmrIssue {

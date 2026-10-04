@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from homeassistant.const import Platform
+from datetime import timedelta
+
+from homeassistant.const import CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import ProductCatalog
 from .config_flow import build_api
-from .const import DOMAIN
+from .const import CONF_ALLOW_UPGRADES, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
 from .entity import registry_device_info
 from .eventlog import CmrEventLog
@@ -61,7 +63,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: CmrConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
+    """Apply changed options in place; only the upgrade controls need a reload."""
+    coordinator = entry.runtime_data
+    if bool(entry.options.get(CONF_ALLOW_UPGRADES)) != coordinator.allow_upgrades:
+        await hass.config_entries.async_reload(entry.entry_id)
+        return
+    coordinator.update_interval = timedelta(seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    if coordinator.eventlog is not None:
+        coordinator.eventlog.configure()
+    # The webhook address, catalog URL and activity-log mode are read from the
+    # options whenever they are used.
 
 
 async def async_remove_config_entry_device(

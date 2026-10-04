@@ -281,7 +281,13 @@ have them yet.
 | Home Assistant address | Home Assistant's internal URL | The address the controller uses for alert webhooks |
 | Allow starting upgrades | off | Adds *Install* to update entities and the upgrade buttons; needs `write` |
 | Home Assistant activity log | Notable events | Which timeline events also appear in the activity log: notable, all, or none |
-| Product catalog URL | empty (off) | Optional catalog that adds product photos and names to devices (map, device table, status card, update entities). Photos load from the catalog's image server |
+| Product catalog URL | empty (off) | Optional catalog that adds product photos and names to devices (map, device table, status card, update entities). Photos load from the catalog's image server. A new URL is checked when you save |
+| Issue detection (collapsed section) | 5 Wi-Fi drops / 15 min, 3 link flaps / 30 min, 3 disconnects / 1 h, 2 reboots / 24 h, 5 login failures / 10 min, 1 failed alert action / 1 h, offline after 15 min | How many occurrences inside each rule's window raise an issue; 0 turns a rule off |
+
+Options apply immediately, except *Allow starting upgrades*, which reloads
+the integration. To move to a new address, user or HTTPS setting, use
+*Reconfigure* on the entry (⋮ menu) instead of deleting it; the entry keeps
+its entities and history.
 
 ## Using it
 

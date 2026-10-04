@@ -23,6 +23,21 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "reconfigure": {
+        "title": "Change the controller connection",
+        "description": "New address, user or HTTPS settings for the same controller. To connect a different controller, add a new entry instead.",
+        "data": {
+          "host": "Controller address",
+          "username": "Username",
+          "password": "Password",
+          "ssl": "Use HTTPS",
+          "verify_ssl": "Verify the HTTPS certificate"
+        },
+        "data_description": {
+          "host": "IP address or host name, optionally with :port.",
+          "password": "Leave empty to keep the saved password."
+        }
       }
     },
     "error": {
@@ -35,7 +50,9 @@
     },
     "abort": {
       "already_configured": "This controller is already set up.",
-      "reauth_successful": "Signed in again."
+      "reauth_successful": "Signed in again.",
+      "reconfigure_successful": "Connection updated.",
+      "wrong_controller": "That address answers as a different controller. Add it as a new entry; this one stays with its controller."
     },
     "create_entry": {
       "default": "Reload this browser page (Ctrl+F5 / Cmd+Shift+R) so the CMR cards and the *CMR network* dashboard become available, then add it under Settings → Dashboards → Add dashboard."
@@ -57,8 +74,27 @@
           "allow_upgrades": "Adds Install to each firmware update and a button per upgrade rule. Needs the `write` policy on the router user.",
           "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything.",
           "catalog_url": "Optional. A product catalog that adds photos and product names to devices; leave empty to turn it off. Photos then load from the catalog's image server."
+        },
+        "sections": {
+          "detection": {
+            "name": "Issue detection",
+            "description": "How many occurrences inside a rule's time window raise an issue. 0 turns a rule off.",
+            "data": {
+              "wifi_flapping": "Wi-Fi client drops within 15 minutes",
+              "link_flapping": "Link down events within 30 minutes",
+              "device_flapping": "Device disconnects within 1 hour",
+              "device_reboots": "Device reboots within 24 hours",
+              "login_failures": "Login failures within 10 minutes",
+              "alert_action_failing": "Alert action failures within 1 hour",
+              "offline_minutes": "Device counts as offline after"
+            }
+          }
         }
       }
+    },
+    "error": {
+      "catalog_unreachable": "Can't load the product catalog: {detail}",
+      "catalog_empty": "The product catalog returned no products with photos."
     }
   },
   "entity": {

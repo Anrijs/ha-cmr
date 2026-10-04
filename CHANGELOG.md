@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+- Reconfigure: change the controller's address, user or HTTPS settings without re-adding it.
+- Options: issue-detection thresholds, catalog URL checked on save, changes apply without a reload.
+- Map nodes work with the keyboard; legend stays on small screens.
+
 ## 0.3.0
 - Every card shows when the controller is unreachable, and how old its data is.
 - Cards share one base; the map reuses its scene between renders (smoother dragging).

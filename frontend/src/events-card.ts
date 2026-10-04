@@ -20,8 +20,11 @@ interface EventsConfig {
   notable?: boolean;
 }
 
+// The integration marks notable events; the fallback mirrors its rule for
+// events stored before it did.
 const NOTABLE = new Set(["insight", "device", "alert", "upgrade", "security", "config"]);
-const isNotable = (e: CmrEvent) => NOTABLE.has(e.category) || e.severity === "warning" || e.severity === "error";
+const isNotable = (e: CmrEvent) =>
+  e.notable ?? (NOTABLE.has(e.category) || e.severity === "warning" || e.severity === "error");
 
 const CATEGORY: Record<string, { icon: string; label: string }> = {
   insight: { icon: "mdi:stethoscope", label: "Issues" },

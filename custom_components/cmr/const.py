@@ -14,6 +14,10 @@ CONF_ALLOW_UPGRADES: Final = "allow_upgrades"
 CONF_ACTIVITY_LOG: Final = "activity_log"
 # Optional product catalog with photos (empty: off).
 CONF_CATALOG_URL: Final = "catalog_url"
+# Options section with the issue-detection thresholds (keys: insights.RULES
+# kinds, plus the offline delay).
+CONF_DETECTION: Final = "detection"
+CONF_OFFLINE_MINUTES: Final = "offline_minutes"
 
 DEFAULT_SCAN_INTERVAL: Final = 30
 MIN_SCAN_INTERVAL: Final = 10

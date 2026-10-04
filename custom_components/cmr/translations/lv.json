@@ -23,6 +23,21 @@
           "username": "Lietotājvārds",
           "password": "Parole"
         }
+      },
+      "reconfigure": {
+        "title": "Mainīt savienojumu ar kontrolieri",
+        "description": "Jauna adrese, lietotājs vai HTTPS iestatījumi tam pašam kontrolierim. Lai pievienotu citu kontrolieri, izveido jaunu ierakstu.",
+        "data": {
+          "host": "Kontroliera adrese",
+          "username": "Lietotājvārds",
+          "password": "Parole",
+          "ssl": "Lietot HTTPS",
+          "verify_ssl": "Pārbaudīt HTTPS sertifikātu"
+        },
+        "data_description": {
+          "host": "IP adrese vai nosaukums, pēc vajadzības ar :portu.",
+          "password": "Atstāj tukšu, lai paturētu saglabāto paroli."
+        }
       }
     },
     "error": {
@@ -35,7 +50,9 @@
     },
     "abort": {
       "already_configured": "Šis kontrolieris jau ir pievienots.",
-      "reauth_successful": "Pieslēgšanās atjaunota."
+      "reauth_successful": "Pieslēgšanās atjaunota.",
+      "reconfigure_successful": "Savienojums atjaunināts.",
+      "wrong_controller": "Šī adrese atbild kā cits kontrolieris. Pievieno to kā jaunu ierakstu; šis paliek pie sava kontroliera."
     },
     "create_entry": {
       "default": "Pārlādē šo pārlūka lapu (Ctrl+F5 / Cmd+Shift+R), lai parādītos CMR kartītes un *CMR network* panelis, tad pievieno to sadaļā Iestatījumi → Paneļi → Pievienot paneli."
@@ -57,8 +74,27 @@
           "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt un katram atjaunināšanas noteikumam pogu. Rūtera lietotājam vajag `write` politiku.",
           "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss.",
           "catalog_url": "Neobligāts. Produktu katalogs, kas ierīcēm pievieno attēlus un produktu nosaukumus; atstāj tukšu, lai izslēgtu. Attēli tad ielādējas no kataloga attēlu servera."
+        },
+        "sections": {
+          "detection": {
+            "name": "Problēmu noteikšana",
+            "description": "Cik gadījumu noteikuma laika logā rada problēmu. 0 noteikumu izslēdz.",
+            "data": {
+              "wifi_flapping": "Wi-Fi klienta atvienošanās 15 minūtēs",
+              "link_flapping": "Saites pārrāvumi 30 minūtēs",
+              "device_flapping": "Ierīces atvienošanās 1 stundā",
+              "device_reboots": "Ierīces pārstartēšanās 24 stundās",
+              "login_failures": "Neveiksmīgas pieslēgšanās 10 minūtēs",
+              "alert_action_failing": "Brīdinājuma darbības kļūmes 1 stundā",
+              "offline_minutes": "Ierīce skaitās bezsaistē pēc"
+            }
+          }
         }
       }
+    },
+    "error": {
+      "catalog_unreachable": "Nevar ielādēt produktu katalogu: {detail}",
+      "catalog_empty": "Produktu katalogs neatgrieza nevienu produktu ar attēlu."
     }
   },
   "entity": {

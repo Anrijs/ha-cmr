@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
-from .const import CONF_CATALOG_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_ALLOW_UPGRADES, CONF_CATALOG_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import CmrSnapshot, parse_device_alerts, parse_link_details, parse_snapshot
 
 if TYPE_CHECKING:
@@ -61,6 +61,9 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
             ),
         )
         self.api = api
+        # The upgrade controls are entities, so this option only takes effect
+        # on a reload; remembered to tell that change from the live ones.
+        self.allow_upgrades = bool(entry.options.get(CONF_ALLOW_UPGRADES))
         # Last raw responses, kept for diagnostics and as a fallback when an
         # optional menu fails transiently.
         self.raw: dict[str, Any] = {}

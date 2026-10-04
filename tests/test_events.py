@@ -176,6 +176,26 @@ def test_offline_device_removed_from_controller_resolves():
     assert engine.sweep(T0 + timedelta(days=1)) == []
 
 
+def test_thresholds_are_configurable():
+    engine = insights.InsightEngine(thresholds={"wifi_flapping": 2, "link_flapping": 0})
+    assert engine.observe(wifi_drop(0)) == []
+    (kind, insight), = engine.observe(wifi_drop(1))
+    assert kind == "raised" and insight.count == 2
+    # 0 turns a rule off entirely.
+    for i in range(5):
+        assert engine.observe({
+            "time": T0 + timedelta(seconds=i), "category": "link", "device_key": "D1", "device_name": "Switch",
+            "data": {"interface": "ether1", "state": "down"},
+        }) == []
+    # Reconfiguring keeps the state and applies the new numbers.
+    engine.configure({"link_flapping": 1}, timedelta(minutes=5))
+    assert engine.rules["link_flapping"].threshold == 1 and engine.rules["wifi_flapping"].threshold == 5
+    assert engine.offline_after == timedelta(minutes=5)
+    down = [{"key": "D2", "name": "AP", "connected": False, "disconnected_for": 400}]
+    (kind, insight), = engine.check_devices(down, T0)
+    assert kind == "raised" and "5 minutes" in insights.describe(insight, engine.offline_after)[1]
+
+
 def test_state_round_trip():
     engine = insights.InsightEngine()
     for m in range(5):

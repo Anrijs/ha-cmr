@@ -28,6 +28,22 @@ REFRESH = timedelta(days=1)
 STORE_VERSION = 1
 
 
+class CatalogError(Exception):
+    """The catalog could not be fetched or decoded."""
+
+
+async def async_fetch_products(session: aiohttp.ClientSession, url: str) -> list[dict[str, Any]]:
+    """Download a catalog and keep the products that have a photo."""
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
+            resp.raise_for_status()
+            body = await resp.json(content_type=None)
+    except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+        raise CatalogError(str(err) or type(err).__name__) from err
+    items = body.get("data") if isinstance(body, dict) else body
+    return [p for p in (compact_product(i) for i in items or [] if isinstance(i, dict)) if p]
+
+
 class ProductCatalog:
     """Fetches and caches the catalog; one instance per Home Assistant."""
 
@@ -55,16 +71,11 @@ class ProductCatalog:
         if self._url == url and self._fetched and now - self._fetched < REFRESH:
             return
         try:
-            session = async_get_clientsession(self.hass)
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
-                resp.raise_for_status()
-                body = await resp.json(content_type=None)
-        except (aiohttp.ClientError, TimeoutError, ValueError) as err:
+            products = await async_fetch_products(async_get_clientsession(self.hass), url)
+        except CatalogError as err:
             _LOGGER.warning("Product catalog unavailable, keeping %d cached products: %s", len(self.products), err)
             self._fetched = now  # don't retry every poll
             return
-        items = body.get("data") if isinstance(body, dict) else body
-        products = [p for p in (compact_product(i) for i in items or [] if isinstance(i, dict)) if p]
         if not products:
             _LOGGER.warning("Product catalog at %s returned no products", url)
             self._fetched = now

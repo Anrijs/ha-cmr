@@ -8,7 +8,8 @@ raises an insight past a threshold, and resolves it after a quiet period.
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import asdict, dataclass, field
+from collections.abc import Mapping
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -43,6 +44,9 @@ RULES: dict[str, Rule] = {
 # A managed device disconnected for longer than this is an issue on its own.
 OFFLINE_AFTER = timedelta(minutes=15)
 
+# The thresholds users may change (0 turns a rule off); the windows are fixed.
+DEFAULT_THRESHOLDS: dict[str, int] = {rule.kind: rule.threshold for rule in RULES.values()}
+
 
 @dataclass
 class Insight:
@@ -71,7 +75,7 @@ class Insight:
         return cls(**values)
 
 
-def describe(insight: Insight) -> tuple[str, str]:
+def describe(insight: Insight, offline_after: timedelta = OFFLINE_AFTER) -> tuple[str, str]:
     """Title and explanation for an insight, from its data only."""
     d = insight.data
     name = d.get("name") or insight.subject
@@ -134,7 +138,7 @@ def describe(insight: Insight) -> tuple[str, str]:
         return (
             f"{name} is offline",
             "Disconnected from the CMR controller for more than "
-            f"{_human(OFFLINE_AFTER)}.",
+            f"{_human(offline_after)}.",
         )
     return (insight.kind, "")
 
@@ -153,8 +157,16 @@ def _human(delta: timedelta) -> str:
 class InsightEngine:
     """Tracks recent occurrences per subject and the insights they raise."""
 
-    def __init__(self, state: dict[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        state: dict[str, Any] | None = None,
+        thresholds: Mapping[str, int] | None = None,
+        offline_after: timedelta | None = None,
+    ) -> None:
         state = state or {}
+        self.rules: dict[str, Rule] = dict(RULES)
+        self.offline_after = OFFLINE_AFTER
+        self.configure(thresholds, offline_after)
         # key -> list of [iso time, extra] occurrences inside the window
         self._seen: dict[str, list[tuple[datetime, dict[str, Any]]]] = {
             key: [(datetime.fromisoformat(t), extra) for t, extra in items]
@@ -163,6 +175,14 @@ class InsightEngine:
         self.active: dict[str, Insight] = {
             key: Insight.from_dict(item) for key, item in state.get("active", {}).items()
         }
+
+    def configure(self, thresholds: Mapping[str, int] | None = None, offline_after: timedelta | None = None) -> None:
+        """Apply per-rule thresholds (0 turns a rule off) and the offline delay."""
+        given = thresholds or {}
+        self.rules = {
+            kind: replace(rule, threshold=max(0, int(given.get(kind, rule.threshold)))) for kind, rule in RULES.items()
+        }
+        self.offline_after = offline_after or OFFLINE_AFTER
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -192,7 +212,7 @@ class InsightEngine:
             key = f"device_offline:{device['key']}"
             down_for = device.get("disconnected_for")
             offline = not device["connected"] and not device.get("pending")
-            if offline and down_for is not None and down_for >= OFFLINE_AFTER.total_seconds():
+            if offline and down_for is not None and down_for >= self.offline_after.total_seconds():
                 if key not in self.active:
                     since = now - timedelta(seconds=down_for)
                     insight = Insight(
@@ -217,13 +237,13 @@ class InsightEngine:
         """Resolve insights that have been quiet long enough; drop old counts."""
         resolved = []
         for key, insight in list(self.active.items()):
-            rule = RULES.get(insight.kind)
+            rule = self.rules.get(insight.kind)
             if rule and now - insight.updated >= rule.quiet:
                 insight.resolved = now
                 resolved.append(self.active.pop(key))
         for key, items in list(self._seen.items()):
             kind = key.split(":", 1)[0]
-            rule = RULES.get(kind)
+            rule = self.rules.get(kind)
             keep = [(t, x) for t, x in items if rule and now - t < rule.window]
             if keep:
                 self._seen[key] = keep
@@ -236,7 +256,9 @@ class InsightEngine:
     def _count(
         self, kind: str, subject: str, when: datetime, device_key: str | None, extra: dict[str, Any]
     ) -> list[tuple[str, Insight]]:
-        rule = RULES[kind]
+        rule = self.rules[kind]
+        if rule.threshold <= 0:
+            return []  # turned off in the options; anything active resolves on the next sweep
         key = f"{kind}:{subject}"
         items = [(t, x) for t, x in self._seen.get(key, []) if when - t < rule.window]
         items.append((when, extra))

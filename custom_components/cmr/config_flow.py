@@ -1,4 +1,4 @@
-"""Config flow for CMR."""
+"""Config, reauth, reconfigure and options flows for CMR."""
 
 from __future__ import annotations
 
@@ -19,14 +19,18 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrConnectionError, CmrNotFoundError
+from .catalog import CatalogError, async_fetch_products
 from .const import (
     CONF_ACTIVITY_LOG,
-    CONF_CATALOG_URL,
     CONF_ALLOW_UPGRADES,
+    CONF_CATALOG_URL,
+    CONF_DETECTION,
+    CONF_OFFLINE_MINUTES,
     CONF_WEBHOOK_BASE_URL,
     CONF_WEBHOOK_ID,
     DEFAULT_SCAN_INTERVAL,
@@ -35,6 +39,7 @@ from .const import (
     MIN_SCAN_INTERVAL,
 )
 from .coordinator import CmrConfigEntry
+from .insights import DEFAULT_THRESHOLDS, OFFLINE_AFTER
 from .models import CmrDevice
 from .webhook import alert_setup_script, default_base_url
 
@@ -156,62 +161,144 @@ class CmrConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the address, user or HTTPS settings of the same controller."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        placeholders = {"detail": ""}
+        if user_input is not None:
+            changes = {k: v for k, v in user_input.items() if k != CONF_PASSWORD or v}
+            data = {**entry.data, **changes}
+            try:
+                controller = await validate_input(self.hass, data)
+            except CmrApiError as err:
+                placeholders["detail"] = err.detail
+                errors["base"] = _error_key(err)
+            except Exception:
+                _LOGGER.exception("Unexpected error validating the controller")
+                errors["base"] = "unknown"
+            else:
+                if controller is None:
+                    errors["base"] = "not_controller"
+                else:
+                    # The entry stays bound to its controller; another one is a new entry.
+                    await self.async_set_unique_id(controller.key)
+                    self._abort_if_unique_id_mismatch(reason="wrong_controller")
+                    return self.async_update_reload_and_abort(entry, data_updates=changes)
+        current = entry.data
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_HOST, default=current[CONF_HOST]): str,
+                vol.Required(CONF_USERNAME, default=current[CONF_USERNAME]): str,
+                vol.Optional(CONF_PASSWORD): _PASSWORD,
+                vol.Required(CONF_SSL, default=current.get(CONF_SSL, True)): bool,
+                vol.Required(CONF_VERIFY_SSL, default=current.get(CONF_VERIFY_SSL, False)): bool,
+            }
+        )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(schema, user_input),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: CmrConfigEntry) -> OptionsFlow:
         return CmrOptionsFlow()
 
 
+_COUNT = selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=100, mode=selector.NumberSelectorMode.BOX))
+
+
 class CmrOptionsFlow(OptionsFlow):
-    """Polling interval and the alert webhook address."""
+    """Polling, upgrades, the alert webhook, the catalog and issue detection."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        if user_input is not None:
-            return self.async_create_entry(data=user_input)
-
+        errors: dict[str, str] = {}
         options = self.config_entry.options
         base_url = options.get(CONF_WEBHOOK_BASE_URL) or default_base_url(self.hass)
+        placeholders = {
+            "script": alert_setup_script(base_url, self.config_entry.data[CONF_WEBHOOK_ID]),
+            "detail": "",
+        }
+        if user_input is not None:
+            url = user_input.get(CONF_CATALOG_URL)
+            # Only a new or changed URL is checked, so a catalog that is down
+            # for the moment never blocks saving the other options.
+            if url and url != options.get(CONF_CATALOG_URL):
+                try:
+                    products = await async_fetch_products(async_get_clientsession(self.hass), url)
+                except CatalogError as err:
+                    errors[CONF_CATALOG_URL] = "catalog_unreachable"
+                    placeholders["detail"] = str(err)
+                else:
+                    if not products:
+                        errors[CONF_CATALOG_URL] = "catalog_empty"
+            if not errors:
+                return self.async_create_entry(data=user_input)
+
+        detection = options.get(CONF_DETECTION) or {}
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_SCAN_INTERVAL,
+                    default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=MIN_SCAN_INTERVAL,
+                        max=MAX_SCAN_INTERVAL,
+                        unit_of_measurement="s",
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(CONF_WEBHOOK_BASE_URL, default=base_url or ""): str,
+                vol.Required(
+                    CONF_ALLOW_UPGRADES,
+                    default=options.get(CONF_ALLOW_UPGRADES, False),
+                ): bool,
+                vol.Optional(
+                    CONF_CATALOG_URL,
+                    description={"suggested_value": options.get(CONF_CATALOG_URL, "")},
+                ): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL)),
+                vol.Required(
+                    CONF_ACTIVITY_LOG,
+                    default=options.get(CONF_ACTIVITY_LOG, "notable"),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=["notable", "all", "off"],
+                        translation_key="activity_log",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Required(CONF_DETECTION): section(
+                    vol.Schema(
+                        {
+                            **{
+                                vol.Required(kind, default=detection.get(kind, default)): _COUNT
+                                for kind, default in DEFAULT_THRESHOLDS.items()
+                            },
+                            vol.Required(
+                                CONF_OFFLINE_MINUTES,
+                                default=detection.get(CONF_OFFLINE_MINUTES, int(OFFLINE_AFTER.total_seconds() // 60)),
+                            ): selector.NumberSelector(
+                                selector.NumberSelectorConfig(
+                                    min=1, max=1440, unit_of_measurement="min", mode=selector.NumberSelectorMode.BOX
+                                )
+                            ),
+                        }
+                    ),
+                    {"collapsed": True},
+                ),
+            }
+        )
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_SCAN_INTERVAL,
-                        default=options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=MIN_SCAN_INTERVAL,
-                            max=MAX_SCAN_INTERVAL,
-                            unit_of_measurement="s",
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Optional(CONF_WEBHOOK_BASE_URL, default=base_url or ""): str,
-                    vol.Required(
-                        CONF_ALLOW_UPGRADES,
-                        default=options.get(CONF_ALLOW_UPGRADES, False),
-                    ): bool,
-                    vol.Optional(
-                        CONF_CATALOG_URL,
-                        description={"suggested_value": options.get(CONF_CATALOG_URL, "")},
-                    ): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL)),
-                    vol.Required(
-                        CONF_ACTIVITY_LOG,
-                        default=options.get(CONF_ACTIVITY_LOG, "notable"),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=["notable", "all", "off"],
-                            translation_key="activity_log",
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                }
-            ),
-            description_placeholders={
-                "script": alert_setup_script(
-                    base_url, self.config_entry.data[CONF_WEBHOOK_ID]
-                )
-            },
+            data_schema=self.add_suggested_values_to_schema(schema, user_input),
+            errors=errors,
+            description_placeholders=placeholders,
         )

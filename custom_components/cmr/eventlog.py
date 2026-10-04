@@ -15,7 +15,7 @@ sensor, and `cmr_issue` events. Notable events are also fired as
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
 import itertools
 import logging
@@ -29,8 +29,8 @@ from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError
 from .changes import ALERT_SEVERITY, diff_snapshots
-from .const import CONF_ACTIVITY_LOG, DOMAIN, EVENT_CMR, EVENT_ISSUE
-from .insights import RULES, Insight, InsightEngine, describe
+from .const import CONF_ACTIVITY_LOG, CONF_DETECTION, CONF_OFFLINE_MINUTES, DOMAIN, EVENT_CMR, EVENT_ISSUE
+from .insights import DEFAULT_THRESHOLDS, OFFLINE_AFTER, Insight, InsightEngine, describe
 from .logparse import (
     SEVERITIES,
     classify,
@@ -55,6 +55,19 @@ CLOCK_REFRESH = timedelta(minutes=10)
 type Listener = Callable[[list[dict[str, Any]]], None]
 
 
+def detection_settings(options: Mapping[str, Any]) -> tuple[dict[str, int], timedelta]:
+    """Issue-detection thresholds and the offline delay from the entry options."""
+    section = options.get(CONF_DETECTION) or {}
+    thresholds = {kind: int(section.get(kind, default)) for kind, default in DEFAULT_THRESHOLDS.items()}
+    minutes = section.get(CONF_OFFLINE_MINUTES)
+    return thresholds, timedelta(minutes=int(minutes)) if minutes else OFFLINE_AFTER
+
+
+def is_notable(event: Mapping[str, Any]) -> bool:
+    """Worth a line in the activity log: a category people act on, or a warning."""
+    return event["category"] in NOTABLE_CATEGORIES or SEVERITIES.index(event["severity"]) >= 2
+
+
 class CmrEventLog:
     """Timeline, insights and their side effects for one config entry."""
 
@@ -63,7 +76,7 @@ class CmrEventLog:
         self.entry = entry
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.events")
         self.events: deque[dict[str, Any]] = deque(maxlen=MAX_EVENTS)
-        self.engine = InsightEngine()
+        self.engine = InsightEngine(None, *detection_settings(entry.options))
         self.last_log_id: str | None = None
         self._mac_hosts: dict[str, str] = {}
         self._listeners: set[Listener] = set()
@@ -82,7 +95,7 @@ class CmrEventLog:
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.events.extend(data.get("events", []))
-        self.engine = InsightEngine(data.get("engine"))
+        self.engine = InsightEngine(data.get("engine"), *detection_settings(self.entry.options))
         self.last_log_id = data.get("last_log_id")
         self._mac_hosts = data.get("mac_hosts", {})
         # Repairs aren't kept across restarts; show the still-active ones again.
@@ -93,6 +106,11 @@ class CmrEventLog:
     def async_unload(self) -> None:
         for insight in self.engine.active.values():
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id(insight))
+
+    @callback
+    def configure(self) -> None:
+        """Apply changed detection options without a reload."""
+        self.engine.configure(*detection_settings(self.entry.options))
 
     def _save(self) -> None:
         self._store.async_delay_save(
@@ -247,7 +265,7 @@ class CmrEventLog:
             added += self._on_insight(change, insight, now, replay=False)
         for insight in self.engine.sweep(now):
             # It ended when the quiet period after its last occurrence ran out.
-            rule = RULES.get(insight.kind)
+            rule = self.engine.rules.get(insight.kind)
             ended = min(now, insight.updated + rule.quiet) if rule else now
             insight.resolved = ended
             added += self._on_insight("resolved", insight, ended, replay=replay)
@@ -288,6 +306,7 @@ class CmrEventLog:
             "id": f"{int(event['time'].timestamp())}-{next(self._seq)}",
             "time": event["time"].isoformat(),
             "device_id": self._device_id(event.get("device_key")),
+            "notable": is_notable(event),
         }
         self.events.append(stored)
         if not replay and self._notable(stored):
@@ -312,7 +331,7 @@ class CmrEventLog:
             return False
         if mode == "all":
             return True
-        return event["category"] in NOTABLE_CATEGORIES or SEVERITIES.index(event["severity"]) >= 2
+        return is_notable(event)
 
     def _on_insight(
         self, change: str, insight: Insight, when: datetime, *, replay: bool
@@ -321,7 +340,7 @@ class CmrEventLog:
             if not replay:
                 self._repair(insight, active=True)
             return []
-        title, detail = describe(insight)
+        title, detail = describe(insight, self.engine.offline_after)
         resolved = change == "resolved"
         event = self._add(
             {
@@ -357,7 +376,7 @@ class CmrEventLog:
         if not active:
             ir.async_delete_issue(self.hass, DOMAIN, issue_id)
             return
-        title, detail = describe(insight)
+        title, detail = describe(insight, self.engine.offline_after)
         ir.async_create_issue(
             self.hass,
             DOMAIN,
@@ -410,7 +429,7 @@ class CmrEventLog:
     def insight_list(self) -> list[dict[str, Any]]:
         out = []
         for insight in sorted(self.engine.active.values(), key=lambda i: i.since):
-            title, detail = describe(insight)
+            title, detail = describe(insight, self.engine.offline_after)
             out.append(
                 {
                     "key": insight.key,

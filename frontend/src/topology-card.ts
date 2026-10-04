@@ -456,7 +456,14 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._hoverLink = undefined;
   };
 
-  private _showHover(node: PlacedNode, ev: MouseEvent): void {
+  private _onNodeKey(ev: KeyboardEvent, node: PlacedNode): void {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      this._open(node);
+    }
+  }
+
+  private _showHover(node: PlacedNode, ev: Event): void {
     if (this._drag?.moved) return;
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (!viewport) return;
@@ -769,8 +776,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (node.kind === "site") {
       const site = node.site!;
       return html`
-        <div class="node site status-${site.status}" style=${style} @click=${() => this._open(node)}
-             @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}>
+        <div class="node site status-${site.status}" style=${style} role="button" tabindex="0"
+             aria-label="${node.name}, ${site.online} of ${site.total} online, open layout"
+             @click=${() => this._open(node)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
+             @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
+             @focus=${(e: Event) => this._showHover(node, e)} @blur=${this._clearHover}>
           <div class="badge"><ha-icon icon=${this._config.icons?.[node.name] ?? DEFAULT_SITE_ICON}></ha-icon></div>
           <div class="text">
             <div class="name">${node.name}</div>
@@ -792,8 +802,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const status = deviceStatus(device);
     return html`
       <div class="node device status-${status} ${device.controller ? "controller" : ""}" style=${style}
-           @click=${() => this._open(node)} @mouseenter=${(e: MouseEvent) => this._showHover(node, e)}
-           @mouseleave=${this._clearHover}>
+           role="button" tabindex="0" aria-label="${device.identity}, ${STATUS_LABEL[status]}"
+           @click=${() => this._open(node)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
+           @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
+           @focus=${(e: Event) => this._showHover(node, e)} @blur=${this._clearHover}>
         ${deviceVisual(device)}
         <div class="text">
           <div class="name">${device.identity}</div>
@@ -832,7 +844,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           : nothing}
         <div class="muted">${[modelName(d), modelCode(d), d.arch].filter(Boolean).join(" · ")}</div>
         <table>
-          <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}</td></tr>
+          <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}${d.stale ? " · stale data" : ""}</td></tr>
+          ${d.connected && d.connected_time != null ? html`<tr><td>Connected</td><td>for ${formatDuration(d.connected_time)}</td></tr>` : nothing}
           <tr><td>Version</td><td class="mono">${d.version ?? "–"}${d.prerelease ? " (pre-release)" : ""}</td></tr>
           <tr><td>Channel</td><td>${d.channel ?? "–"}${d.available_version && d.available_version !== d.version
             ? html` <span class="muted">(${d.update_available ? "update to" : "offers"} <span class="mono">${d.available_version}</span>)</span>`
@@ -922,6 +935,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
       }
       .node:hover { transform: translateY(-1px); border-color: var(--status, var(--primary-color)); box-shadow: 0 6px 20px rgba(0,0,0,0.12); }
+      .node:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
       .node .badge {
         position: relative; flex: none; width: 42px; height: 42px; border-radius: 11px;
         display: grid; place-items: center;
@@ -987,7 +1001,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .wire-sample.k-wireless { border-top: 3px dotted var(--cmr-update); }
       .wire-sample.k-unknown { border-top: 2.5px dashed var(--cmr-muted); }
       .poe-sample { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--cmr-poe); box-shadow: 0 0 4px var(--cmr-poe); }
-      @media (max-width: 600px) { .legend { display: none; } }
+      @media (max-width: 600px) { .legend { font-size: 10px; gap: 2px 8px; max-width: calc(100% - 64px); } }
     `,
   ];
 }
