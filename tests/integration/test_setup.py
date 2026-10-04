@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -123,6 +125,53 @@ async def test_unload(hass: HomeAssistant, entry) -> None:
     await hass.async_block_till_done()
     assert entry.state is ConfigEntryState.NOT_LOADED
     assert hass.states.get(entity_id(hass, "update", f"{CONTROLLER}_update")).state == "unavailable"
+
+
+async def test_scheduled_job_is_not_an_install_in_progress(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    ap = controller.device("Site-AP1")
+    controller.data["cmr/upgrade/job"].append(
+        {".id": "*20", "labels": "ap", "channel": "stable", "state": "scheduled", "schedule-time": "2026-12-01 00:00:00", "starts-in": "6d"}
+    )
+    # Home Assistant only reports an entity's own `in_progress` when it supports progress.
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    update = entity_id(hass, "update", f"{ap['serial']}_update")
+    assert hass.states.get(update).attributes["in_progress"] is False
+
+    controller.data["cmr/upgrade/job"][-1]["state"] = "processing"
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(update).attributes["in_progress"] is True
+    # A device outside the selector is untouched.
+    gw = entity_id(hass, "update", f"{GATEWAY}_update")
+    assert hass.states.get(gw).attributes["in_progress"] is False
+
+
+async def test_shared_nat_address_gets_no_device_link(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    controller.device("Site-AP1")["address"] = "198.51.100.216"  # same as Remote-AP: both behind one NAT
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = dr.async_get(hass)
+    for identity in ("Site-AP1", "Remote-AP"):
+        device = registry.async_get_device_by_identifier((DOMAIN, controller.device(identity)["serial"]), entry.entry_id)
+        assert device and device.configuration_url is None
+    gateway = registry.async_get_device_by_identifier((DOMAIN, GATEWAY), entry.entry_id)
+    assert gateway and gateway.configuration_url == "http://192.0.2.1"
+
+
+async def test_offline_issue_uses_the_controllers_timestamp(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    ap = controller.device("Site-AP2")
+    ap["connected"] = "false"
+    ap["disconnected-since"] = "2026-10-01 10:00:00"  # the fake clock runs at UTC
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    engine = entry.runtime_data.eventlog.engine
+    (insight,) = [i for i in engine.active.values() if i.kind == "device_offline"]
+    assert insight.device_key == ap["serial"]
+    assert insight.since == datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
 
 
 async def test_console_not_allowed_still_loads(hass: HomeAssistant, controller: FakeController, make_entry) -> None:

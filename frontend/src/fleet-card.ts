@@ -13,6 +13,7 @@ import {
   modelCode,
   modelName,
   moreInfo,
+  pairingHint,
 } from "./shared";
 import type { CmrDevice } from "./types";
 
@@ -163,7 +164,9 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
             ? html`<span class="update" title="Update available"><ha-icon icon="mdi:arrow-up-circle"></ha-icon><span class="mono">${d.available_version}</span></span>`
             : nothing}
         </div>
-        <div class="c-uptime">${d.connected ? formatDuration(d.uptime) : html`<span class="offline">${STATUS_LABEL[status]}</span>`}</div>
+        <div class="c-uptime">${d.connected && status !== "pending"
+          ? formatDuration(d.uptime)
+          : html`<span class="offline" title=${pairingHint(d)}>${STATUS_LABEL[status]}</span>`}</div>
         <div class="c-address">
           ${d.address
             ? html`<a class="mono" href=${deviceUrl(d.address)} target="_blank" rel="noreferrer" @click=${(e: Event) => e.stopPropagation()}>${d.address}</a>`

@@ -41,12 +41,16 @@ def diff_snapshots(old: CmrSnapshot, new: CmrSnapshot, now: datetime) -> list[di
         before = old.devices.get(key)
         label = device.identity
         if before is None:
-            if device.pending:
-                add("device", "notice", f"{label} is waiting to be paired", device, event="pending")
+            if device.unpaired:
+                where = "on the controller" if device.pending else "on the device"
+                add(
+                    "device", "notice", f"{label} is waiting to be paired (approve {where})", device,
+                    event="pending", approve=where,
+                )
             else:
                 add("device", "notice", f"New device {label} ({device.board or 'unknown model'})", device, event="added")
             continue
-        if before.pending and not device.pending:
+        if before.unpaired and not device.unpaired:
             add("device", "notice", f"{label} was paired", device, event="paired")
         if before.connected and not device.connected:
             add("device", "warning", f"{label} disconnected from the controller", device, event="disconnected")

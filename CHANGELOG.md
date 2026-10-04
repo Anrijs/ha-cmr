@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1
+- Scheduled upgrade jobs no longer show as "installing" for days.
+- Label selectors follow the controller's grammar (`+and`, `-not`, `all`).
+- Pairing shows where to approve (controller or device); offline time comes from the controller.
+
 ## 0.4.0
 - Reconfigure: change the controller's address, user or HTTPS settings without re-adding it.
 - Options: issue-detection thresholds, catalog URL checked on save, changes apply without a reload.

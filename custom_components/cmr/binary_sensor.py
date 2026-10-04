@@ -74,6 +74,9 @@ class CmrConnectedSensor(CmrDeviceEntity, BinarySensorEntity):
             "labels": device.labels,
             "controller": device.controller,
             "pairing_pending": device.pending,
+            "remote_pairing_pending": device.remote_pending,
+            "inactive": device.inactive,
+            "stale": device.stale,
             "disconnected_since": device.disconnected_since,
         }
 

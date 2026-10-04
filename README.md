@@ -517,9 +517,12 @@ logger:
 
 Handled by the integration:
 
-- **Older versions offered as upgrades.** The controller flags any *different*
-  version as available; the update entity compares firmware versions (dev
-  builds < beta < rc < release) and only offers newer ones.
+- **Older versions offered as upgrades.** By design, the controller's
+  "upgrade available" flag means the device's channel offers a *different*
+  version, which can be older (a device on a testing build whose rule uses
+  `stable`). The update entity compares firmware versions (dev builds < beta
+  < rc < release) and only offers newer ones; an explicit version pin is the
+  user's call.
 - **Negative layout coordinates** come back as unsigned 32-bit numbers
   (`4294967294` for −2) and are converted back.
 - **REST omits computed fields**: a link's detected ports (`links`) and a

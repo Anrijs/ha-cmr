@@ -406,19 +406,24 @@ class CmrEventLog:
         states = []
         for key in set(self._offline_since) - set(snapshot.devices):
             del self._offline_since[key]
+        offset = timedelta(seconds=self._gmt_offset or 0)
+        now_local = (now + offset).replace(tzinfo=None)
         for device in snapshot.devices.values():
             if device.connected:
                 self._offline_since.pop(device.key, None)
                 down_for = None
             else:
-                since = self._offline_since.setdefault(device.key, now)
-                down_for = (now - since).total_seconds()
+                # The controller remembers when the device dropped; our own
+                # timer only covers controllers that don't report it.
+                local = parse_router_time(device.disconnected_since or "", now_local)
+                since = (local - offset).replace(tzinfo=UTC) if local else self._offline_since.setdefault(device.key, now)
+                down_for = max(0.0, (now - since).total_seconds())
             states.append(
                 {
                     "key": device.key,
                     "name": device.identity,
                     "connected": device.connected,
-                    "pending": device.pending,
+                    "pending": device.unpaired,
                     "disconnected_for": down_for,
                 }
             )

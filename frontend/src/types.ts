@@ -31,7 +31,11 @@ export interface CmrDevice {
   connected_time: number | null;
   controller: boolean;
   connected: boolean;
+  /** Pairing waits for approval on the controller (P flag). */
   pending: boolean;
+  /** Pairing waits for approval on the device itself (p flag). */
+  remote_pending: boolean;
+  inactive: boolean;
   stale: boolean;
   alerts: AlertCounts | null;
   device_id: string | null;

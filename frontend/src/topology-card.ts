@@ -11,6 +11,7 @@ import {
   modelCode,
   modelName,
   moreInfo,
+  pairingHint,
   type Status,
 } from "./shared";
 import type { CmrDevice, CmrEntry, CmrLink, CmrNode, PortEnd } from "./types";
@@ -844,7 +845,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           : nothing}
         <div class="muted">${[modelName(d), modelCode(d), d.arch].filter(Boolean).join(" · ")}</div>
         <table>
-          <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}${d.stale ? " · stale data" : ""}</td></tr>
+          <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}${pairingHint(d) ? ` (${pairingHint(d)})` : ""}${d.stale ? " · stale data" : ""}</td></tr>
           ${d.connected && d.connected_time != null ? html`<tr><td>Connected</td><td>for ${formatDuration(d.connected_time)}</td></tr>` : nothing}
           <tr><td>Version</td><td class="mono">${d.version ?? "–"}${d.prerelease ? " (pre-release)" : ""}</td></tr>
           <tr><td>Channel</td><td>${d.channel ?? "–"}${d.available_version && d.available_version !== d.version

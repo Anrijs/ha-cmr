@@ -97,6 +97,8 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "controller": d.controller,
             "connected": d.connected,
             "pending": d.pending,
+            "remote_pending": d.remote_pending,
+            "inactive": d.inactive,
             "stale": d.stale,
             "alerts": asdict(d.alerts) if d.alerts else None,
             "device_id": device_id(d.key),

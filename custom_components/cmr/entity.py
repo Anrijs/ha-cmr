@@ -34,7 +34,9 @@ def registry_device_info(
     )
     if device.controller:
         info["configuration_url"] = controller_url
-    elif device.address:
+    elif device.address and sum(d.address == device.address for d in snapshot.devices.values()) == 1:
+        # Clients behind NAT share the translated address; a link there would
+        # open the wrong box, so only an address that is unique gets one.
         info["configuration_url"] = f"http://{device.address}"
     if controller and not device.controller:
         info["via_device"] = (DOMAIN, controller.key)

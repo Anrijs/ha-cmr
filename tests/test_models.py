@@ -116,6 +116,39 @@ def test_device_from_rest():
     assert device.matches_labels("all")
     assert not device.matches_labels("ap,switch")
     assert not device.matches_labels("")
+    assert not device.pending and not device.remote_pending and not device.inactive
+
+
+def test_pairing_flags():
+    waiting_here = models.CmrDevice.from_rest({".id": "*1", "identity": "new", "pending": "true"})
+    waiting_there = models.CmrDevice.from_rest({".id": "*2", "identity": "new2", "remote-pending": "true"})
+    assert waiting_here.pending and not waiting_here.remote_pending and waiting_here.unpaired
+    assert waiting_there.remote_pending and not waiting_there.pending and waiting_there.unpaired
+    assert models.CmrDevice.from_rest({".id": "*3", "identity": "x", "inactive": "true", "stale": "yes"}).inactive
+
+
+@pytest.mark.parametrize(
+    ("selector", "labels", "expected"),
+    [
+        ("office,lab", {"office"}, True),
+        ("office,lab", {"core"}, False),
+        ("office,+ap", {"office", "ap"}, True),
+        ("office,+ap", {"office"}, False),
+        ("office,-ap", {"office", "ap"}, False),
+        ("office,-ap", {"office"}, True),
+        ("all,-core", {"core"}, False),
+        ("all,-core", {"ap"}, True),
+        ("-core", {"ap"}, True),
+        ("-core", {"core"}, False),
+        ("+ap", {"ap", "house"}, True),
+        ("+ap", {"house"}, False),
+        ("all", set(), True),
+        ("", {"ap"}, False),
+        ("office+ap", {"office", "ap"}, False),  # one odd label name, not AND
+    ],
+)
+def test_selector_grammar(selector, labels, expected):
+    assert models.selector_matches(selector, labels) is expected
 
 
 def test_controller_counts_as_connected():

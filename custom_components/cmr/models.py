@@ -132,6 +132,31 @@ def is_prerelease(version: Any) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Label selectors
+# ---------------------------------------------------------------------------
+
+
+def selector_matches(selector: Any, labels: set[str]) -> bool:
+    """Whether a CMR label selector covers a device with these labels.
+
+    A selector is a comma-separated list: plain labels are combined with OR,
+    `+label` must also match (AND), `-label` excludes (AND NOT), and `all`
+    covers every device. `-core` alone means everyone except `core`.
+    """
+    items = split_list(selector)
+    if not items:
+        return False
+    plain = {item for item in items if item[0] not in "+-"}
+    required = {item[1:] for item in items if item.startswith("+")}
+    excluded = {item[1:] for item in items if item.startswith("-")}
+    if excluded & labels or required - labels:
+        return False
+    if not plain:
+        return True
+    return "all" in plain or bool(plain & labels)
+
+
+# ---------------------------------------------------------------------------
 # Alert counters and link details
 # ---------------------------------------------------------------------------
 
@@ -339,7 +364,10 @@ class CmrDevice:
     controller: bool
     connected: bool
     upgrade_flag: bool
+    # P: the controller must approve the pairing; p: the device must.
     pending: bool
+    remote_pending: bool
+    inactive: bool
     stale: bool
     alerts: AlertSummary | None
     raw: dict[str, Any] = field(repr=False)
@@ -370,8 +398,10 @@ class CmrDevice:
             controller=controller,
             connected=controller or _flag(raw, "connected", "C"),
             upgrade_flag=_flag(raw, "upgrade-available", "U"),
-            pending=_flag(raw, "remote-pending", "pending", "p"),
-            stale=_flag(raw, "stale"),
+            pending=_flag(raw, "pending", "P"),
+            remote_pending=_flag(raw, "remote-pending", "p"),
+            inactive=_flag(raw, "inactive", "I"),
+            stale=_flag(raw, "stale", "S"),
             alerts=parse_alert_summary(raw.get("alerts")),
             raw=raw,
         )
@@ -391,18 +421,18 @@ class CmrDevice:
         known = {self.identity, self.board, self.address, self.arch}
         return next((label for label in self.auto_labels if label not in known), None)
 
-    def matches_labels(self, selector: Any) -> bool:
-        """Whether a label selector (an upgrade rule's or job's `labels`) covers this device.
+    @property
+    def unpaired(self) -> bool:
+        """Not yet managed: someone still has to approve the pairing."""
+        return self.pending or self.remote_pending
 
-        `all` means every device; otherwise any user label, auto-label or the
-        identity (a single-device job's selector) counts.
+    def matches_labels(self, selector: Any) -> bool:
+        """Whether a rule's or job's `labels` selector covers this device.
+
+        User labels, auto-labels and the identity (a single-device job's
+        selector) all count, with the controller's `+`/`-`/`all` grammar.
         """
-        wanted = set(split_list(selector))
-        if not wanted:
-            return False
-        if "all" in wanted:
-            return True
-        return bool(wanted & ({self.identity, *self.labels, *self.auto_labels} - {None}))
+        return selector_matches(selector, {self.identity, *self.labels, *self.auto_labels} - {None})
 
     @property
     def update_available(self) -> bool:

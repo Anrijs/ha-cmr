@@ -50,7 +50,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
     const controller = devices.find((d) => d.controller);
     const online = devices.filter((d) => d.connected).length;
     const updates = devices.filter((d) => d.update_available).length;
-    const pending = devices.filter((d) => d.pending).length;
+    const pending = devices.filter((d) => d.pending || d.remote_pending).length;
     const firing = entry.alerts.filter((a) => a.devices_on > 0).length;
     const issuesState = entry.fleet_entities.network_issues
       ? this.hass.states[entry.fleet_entities.network_issues]?.state

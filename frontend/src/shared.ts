@@ -15,11 +15,18 @@ export type Status = "ok" | "update" | "alert" | "pending" | "offline";
 
 /** The single most important thing to say about a device. */
 export function deviceStatus(device: CmrDevice): Status {
-  if (device.pending) return "pending";
+  if (device.pending || device.remote_pending) return "pending";
   if (!device.connected) return "offline";
   if (device.alerts?.on) return "alert";
   if (device.update_available) return "update";
   return "ok";
+}
+
+/** Where a pending pairing has to be approved. */
+export function pairingHint(device: CmrDevice): string {
+  if (device.pending) return "approve on the controller";
+  if (device.remote_pending) return "approve on the device";
+  return "";
 }
 
 export const STATUS_LABEL: Record<Status, string> = {

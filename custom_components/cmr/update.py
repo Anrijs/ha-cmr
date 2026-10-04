@@ -28,8 +28,9 @@ FIRMWARE = UpdateEntityDescription(
     device_class=UpdateDeviceClass.FIRMWARE,
 )
 
-# Upgrade job states that mean the job has finished.
-_FINISHED = {"done", "failed", "stopped", "canceled", "cancelled", "error", ""}
+# Upgrade job states in which devices are being, or are about to be, upgraded.
+# A `scheduled` job waits for its schedule-time, possibly for days.
+_RUNNING = {"queued", "queued (busy)", "waiting devices", "version check", "processing"}
 # Stop showing an install as running if the version never changes (failed job).
 _INSTALL_TIMEOUT = timedelta(minutes=20)
 
@@ -100,7 +101,7 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
             return True
         self._installing_to = None
         return any(
-            str(job.get("state", "")) not in _FINISHED and device.matches_labels(job.get("labels"))
+            str(job.get("state", "")) in _RUNNING and device.matches_labels(job.get("labels"))
             for job in self.coordinator.data.upgrade_jobs
         )
 
