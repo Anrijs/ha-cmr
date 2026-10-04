@@ -1,0 +1,731 @@
+{
+ "cmr": {
+  "apptraffic-devices": "Site-AP1,Site-GW",
+  "enabled": "yes",
+  "local-id": "*1",
+  "packages-cache-limit": "201",
+  "packages-directory": "cmr-packages/",
+  "pairing-requirement": "confirm",
+  "self-client-id": "*1"
+ },
+ "cmr/alert": [
+  {
+   ".id": "*1",
+   "action-failures": "0",
+   "action.log": "[device] CPU usage is above 95% ([cpu-usage]%)",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "comment": "example rule 1",
+   "cpu-above": "95",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "0",
+   "labels": "all",
+   "name": "cpu>95%",
+   "severity": "high"
+  },
+  {
+   ".id": "*2",
+   "action-failures": "0",
+   "action.log": "[device] memory usage is above 90% ([mem-usage]%)",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "comment": "example rule 2",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "1",
+   "labels": "all",
+   "mem-above": "90",
+   "name": "memory>90%",
+   "severity": "high"
+  },
+  {
+   ".id": "*3",
+   "action-failures": "0",
+   "action.log": "[device] failed to upgrade from [version] to [upgrade-version], error: [upgrade-error]",
+   "action.log-topics": "cmr,warning",
+   "category": "version",
+   "comment": "example rule 3",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "1",
+   "labels": "all",
+   "name": "upgrade failed",
+   "severity": "high",
+   "upgrade-done": "fail"
+  },
+  {
+   ".id": "*4",
+   "action-failures": "0",
+   "action.log": "[device] disconnected for more than 10m",
+   "action.log-topics": "cmr,warning",
+   "category": "availability",
+   "comment": "example rule 4",
+   "devices": "6",
+   "devices-on": "0",
+   "disabled": "false",
+   "disconnected-more-than": "10m",
+   "fired": "2",
+   "labels": "house,annex",
+   "name": "disconnected >10m",
+   "severity": "high"
+  },
+  {
+   ".id": "*5",
+   "action-failures": "0",
+   "action.log": "[device] has new version available [upgrade-version]",
+   "category": "version",
+   "comment": "example rule 5",
+   "devices": "0",
+   "devices-on": "0",
+   "disabled": "true",
+   "fired": "0",
+   "labels": "all",
+   "name": "upgrade available",
+   "severity": "medium",
+   "upgrade-available": "true"
+  },
+  {
+   ".id": "*6",
+   "action-failures": "0",
+   "action.log": "[device] has successfully upgraded to version [version]",
+   "category": "version",
+   "comment": "example rule 6",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "2",
+   "labels": "all",
+   "name": "upgrade successful",
+   "severity": "medium",
+   "upgrade-done": "success"
+  },
+  {
+   ".id": "*7",
+   "action-failures": "0",
+   "action.log": "[device] is ready to be paired",
+   "category": "availability",
+   "comment": "example rule 7",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "2",
+   "labels": "all",
+   "name": "unpaired device connected",
+   "severity": "medium",
+   "unpaired-device-connected": "true"
+  },
+  {
+   ".id": "*8",
+   "action-failures": "0",
+   "action.log": "[device] rebooted",
+   "category": "availability",
+   "comment": "example rule 8",
+   "devices": "7",
+   "devices-on": "0",
+   "disabled": "false",
+   "fired": "7",
+   "labels": "all",
+   "name": "rebooted",
+   "rebooted": "true",
+   "severity": "medium"
+  },
+  {
+   ".id": "*9",
+   "action-failures": "0",
+   "action.log": "[device] disk usage is above 85% ([hdd-usage]%)",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "devices": "7",
+   "devices-on": "0",
+   "fired": "0",
+   "hdd-above": "85",
+   "labels": "all",
+   "name": "disk>85%",
+   "severity": "high"
+  },
+  {
+   ".id": "*A",
+   "action-failures": "0",
+   "action.log": "[device] CPU temperature is [cpu-temperature]C",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "devices": "7",
+   "devices-on": "0",
+   "fired": "5",
+   "health-above": "75",
+   "health-value": "cpu-temperature",
+   "labels": "all",
+   "name": "cpu-temp>=75C",
+   "severity": "high"
+  },
+  {
+   ".id": "*B",
+   "action-failures": "0",
+   "action.log": "[device] disconnected for more than 30m (tunnel/LTE path)",
+   "action.log-topics": "cmr,warning",
+   "category": "availability",
+   "devices": "1",
+   "devices-on": "0",
+   "disconnected-more-than": "30m",
+   "fired": "0",
+   "labels": "apartment",
+   "name": "apartment disconnected >30m",
+   "severity": "high"
+  },
+  {
+   ".id": "*C",
+   "action-failures": "0",
+   "action.log": "[device] annex building ambient is [board-temperature2]C",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "comment": "example rule 12",
+   "devices": "2",
+   "devices-on": "0",
+   "fired": "0",
+   "health-above": "45",
+   "health-value": "board-temperature2",
+   "labels": "annex",
+   "name": "annex ambient>=45C",
+   "severity": "high"
+  },
+  {
+   ".id": "*D",
+   "action-failures": "0",
+   "action.log": "[device] PSU temperature is [psu1-temperature]C",
+   "action.log-topics": "cmr,warning",
+   "category": "performance",
+   "devices": "2",
+   "devices-on": "0",
+   "fired": "0",
+   "health-above": "60",
+   "health-value": "psu1-temperature",
+   "labels": "annex",
+   "name": "annex psu>=60C",
+   "severity": "high"
+  },
+  {
+   ".id": "*E",
+   "action-failures": "0",
+   "action.log": "[device] ethernet interface went down",
+   "action.log-topics": "cmr,warning",
+   "category": "network",
+   "devices": "1",
+   "devices-on": "0",
+   "fired": "0",
+   "interface-change": "not-running",
+   "interface-type": "ethernet",
+   "labels": "gw",
+   "name": "gateway ethernet down",
+   "severity": "critical"
+  },
+  {
+   ".id": "*F",
+   "action-failures": "0",
+   "action.log": "[message]",
+   "action.log-topics": "cmr,warning",
+   "category": "security",
+   "devices": "7",
+   "devices-on": "0",
+   "fired": "22",
+   "labels": "all",
+   "log-regex": "login failure",
+   "log-topics": "system",
+   "name": "login failure",
+   "severity": "high"
+  }
+ ],
+ "cmr/device": [
+  {
+   ".id": "*1",
+   "alerts": "0/12 0/9/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "arm64,RB5009UPr+S+,Site-Core",
+   "available-version": "7.89rc1",
+   "board": "RB5009UPr+S+",
+   "channel": "testing",
+   "connected": "false",
+   "connected-time": "2d3h37m14s",
+   "controller": "true",
+   "identity": "Site-Core",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "house,router",
+   "minimum-version": "7.80",
+   "packages": "system,cmr,container",
+   "pairing-requirement": "none",
+   "peer": "peer-5dcd",
+   "serial": "S0000000001",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "controller",
+   "uptime": "2d22h39m13s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*2",
+   "address": "192.0.2.3",
+   "alerts": "0/11 1/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "192.0.2.3,arm,CRS320-8P-8B-4S+,Annex-AP",
+   "available-version": "7.89rc1",
+   "board": "CRS320-8P-8B-4S+",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "1d3h6m53s",
+   "identity": "Annex-AP",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "annex,switch,wlanmgr",
+   "minimum-version": "7.80",
+   "packages": "system",
+   "pairing-requirement": "none",
+   "peer": "peer-f6c0",
+   "serial": "S0000000004",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "1d3h7m46s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*3",
+   "address": "192.0.2.10",
+   "alerts": "0/11 1/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "192.0.2.10,arm64,hAP ax^3,C53UiG+5HPaxD2HPaxD,Annex-Switch",
+   "available-version": "7.89rc1",
+   "board": "hAP ax^3",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "2d3h37m13s",
+   "identity": "Annex-Switch",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "house,ap",
+   "minimum-version": "7.60",
+   "packages": "wifi-qcom,system",
+   "pairing-requirement": "none",
+   "peer": "peer-f67c",
+   "serial": "S0000000005",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "2d22h46m45s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*4",
+   "address": "192.0.2.15",
+   "alerts": "0/11 1/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "192.0.2.15,arm64,hAP be^3 Media,MA53UG+HbeH,Site-AP1",
+   "available-version": "7.89rc1",
+   "board": "hAP be^3 Media",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "1d3h5m55s",
+   "identity": "Site-AP1",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "annex,ap",
+   "minimum-version": "7.80",
+   "packages": "tunnel,wifi-qcom-be,system,rose-storage,container",
+   "pairing-requirement": "none",
+   "peer": "peer-1db2",
+   "serial": "S0000000003",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "1d3h6m28s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*5",
+   "address": "198.51.100.216",
+   "alerts": "0/11 1/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "198.51.100.216,arm64,hAP be^3 Media,MA53UG+HbeH,Remote-AP",
+   "available-version": "7.89rc1",
+   "board": "hAP be^3 Media",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "2d3h37m12s",
+   "identity": "Remote-AP",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "apartment,ap",
+   "minimum-version": "7.80",
+   "packages": "wifi-qcom-be,system,container",
+   "pairing-requirement": "none",
+   "peer": "peer-5f03",
+   "serial": "S0000000007",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "2d22h34m46s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*6",
+   "address": "192.0.2.1",
+   "alerts": "0/11 1/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "192.0.2.1,arm64,ATLGM,Site-GW",
+   "available-version": "7.89rc1",
+   "board": "ATLGM",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "2d3h37m13s",
+   "identity": "Site-GW",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "house,gw,gateway",
+   "minimum-version": "7.9",
+   "packages": "tunnel,system",
+   "pairing-requirement": "none",
+   "peer": "peer-687e",
+   "serial": "S0000000002",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "2d22h42m13s",
+   "version": "7.90_ab12"
+  },
+  {
+   ".id": "*7",
+   "address": "192.0.2.24",
+   "alerts": "1/10 0/7/3/0",
+   "allowed-versions": "7.13+,6.49.8+",
+   "auto-labels": "192.0.2.24,arm,wAP ax,wAPG-5HaxD2HaxD,Site-AP2",
+   "available-version": "7.89rc1",
+   "board": "wAP ax",
+   "channel": "testing",
+   "connected": "true",
+   "connected-time": "2d3h37m13s",
+   "identity": "Site-AP2",
+   "ids": "0000000000000000000000000000000000000000000000000000000000000000",
+   "labels": "house,ap",
+   "minimum-version": "7.13.1",
+   "packages": "system,wifi-qcom",
+   "pairing-requirement": "none",
+   "peer": "peer-bf64",
+   "port-labels": "",
+   "serial": "S0000000006",
+   "stale": "false",
+   "upgrade-available": "true",
+   "upgrade-rule": "fleet",
+   "uptime": "2d3h48m9s",
+   "version": "7.90_ab12"
+  }
+ ],
+ "cmr/layout": [
+  {
+   ".id": "*1",
+   "comment": "sites and buildings",
+   "file": "",
+   "name": "Overview"
+  },
+  {
+   ".id": "*2",
+   "comment": "main building",
+   "file": "",
+   "name": "Main"
+  },
+  {
+   ".id": "*3",
+   "comment": "annex",
+   "file": "",
+   "name": "Annex"
+  },
+  {
+   ".id": "*4",
+   "comment": "remote site over a tunnel",
+   "name": "Remote"
+  },
+  {
+   ".id": "*5",
+   "comment": "all devices, physical topology",
+   "name": "Everything"
+  }
+ ],
+ "cmr/layout/link": [
+  {
+   ".id": "*1",
+   "layout": "Main",
+   "links": "*ether2(poe=powered-on,tx=126.4KiB,rx=3493.4KiB)--*ether1(,tx=2995.0KiB,rx=190.5KiB)",
+   "node1": "Site-Core",
+   "node2": "Site-GW"
+  },
+  {
+   ".id": "*2",
+   "layout": "Main",
+   "links": "*ether8(poe=powered-on,tx=1208,rx=2032)--*ether1(poe=waiting-for-load,tx=14.0KiB,rx=8.2KiB)",
+   "node1": "Site-Core",
+   "node2": "Annex-Switch"
+  },
+  {
+   ".id": "*3",
+   "layout": "Annex",
+   "links": "*ether8(poe=powered-on,tx=7.8KiB,rx=10.0KiB)--*ether1(,tx=12.5KiB,rx=9.0KiB)",
+   "node1": "Annex-AP",
+   "node2": "Site-AP1"
+  },
+  {
+   ".id": "*4",
+   "layout": "Overview",
+   "node1": "Main",
+   "node2": "Annex"
+  },
+  {
+   ".id": "*5",
+   "layout": "Overview",
+   "node1": "Main",
+   "node2": "Remote"
+  },
+  {
+   ".id": "*6",
+   "layout": "Everything",
+   "links": "*sfp-sfpplus1(,tx=2888,rx=3536)--*sfp-sfpplus1(,tx=10.0KiB,rx=7.8KiB)",
+   "node1": "all-Site-Core",
+   "node2": "all-Annex-AP"
+  },
+  {
+   ".id": "*7",
+   "layout": "Everything",
+   "links": "*ether2(poe=powered-on,tx=126.4KiB,rx=3493.4KiB)--*ether1(,tx=2995.0KiB,rx=190.5KiB)",
+   "node1": "all-Site-Core",
+   "node2": "all-Site-GW"
+  },
+  {
+   ".id": "*8",
+   "layout": "Everything",
+   "links": "*ether8(poe=powered-on,tx=1208,rx=2032)--*ether1(poe=waiting-for-load,tx=14.0KiB,rx=8.2KiB)",
+   "node1": "all-Site-Core",
+   "node2": "all-Annex-Switch"
+  },
+  {
+   ".id": "*9",
+   "layout": "Everything",
+   "links": "*ether8(poe=powered-on,tx=7.8KiB,rx=10.0KiB)--*ether1(,tx=12.5KiB,rx=9.0KiB)",
+   "node1": "all-Annex-AP",
+   "node2": "all-Site-AP1"
+  },
+  {
+   ".id": "*B",
+   "layout": "Everything",
+   "node1": "all-Site-GW",
+   "node2": "all-hAP-Remote"
+  },
+  {
+   ".id": "*C",
+   "layout": "Everything",
+   "links": "*ether5(poe=powered-on,tx=512,rx=512)--*ether1(,tx=3584,rx=4736)",
+   "node1": "all-Site-Core",
+   "node2": "all-Site-AP2"
+  },
+  {
+   ".id": "*D",
+   "layout": "Main",
+   "links": "*ether5(poe=powered-on,tx=512,rx=512)--*ether1(,tx=3584,rx=4736)",
+   "node1": "Site-Core",
+   "node2": "Site-AP2"
+  }
+ ],
+ "cmr/layout/node": [
+  {
+   ".id": "*1",
+   "layout": "Overview",
+   "name": "Main",
+   "target-layout": "Main",
+   "x": "0",
+   "y": "0"
+  },
+  {
+   ".id": "*2",
+   "layout": "Overview",
+   "name": "Annex",
+   "target-layout": "Annex",
+   "x": "300",
+   "y": "0"
+  },
+  {
+   ".id": "*3",
+   "layout": "Overview",
+   "name": "Remote",
+   "target-layout": "Remote",
+   "x": "4294967294",
+   "y": "236"
+  },
+  {
+   ".id": "*4",
+   "device": "Site-Core",
+   "layout": "Main",
+   "name": "Site-Core",
+   "x": "79",
+   "y": "4294967294"
+  },
+  {
+   ".id": "*5",
+   "device": "Annex-Switch@192.0.2.10",
+   "layout": "Main",
+   "name": "Annex-Switch",
+   "x": "79",
+   "y": "143"
+  },
+  {
+   ".id": "*6",
+   "device": "Site-GW@192.0.2.1",
+   "layout": "Main",
+   "name": "Site-GW",
+   "x": "76",
+   "y": "4294967125"
+  },
+  {
+   ".id": "*7",
+   "device": "Annex-AP@192.0.2.3",
+   "layout": "Annex",
+   "name": "Annex-AP",
+   "x": "4294967104",
+   "y": "0"
+  },
+  {
+   ".id": "*8",
+   "device": "Site-AP1@192.0.2.15",
+   "layout": "Annex",
+   "name": "Site-AP1",
+   "x": "201",
+   "y": "0"
+  },
+  {
+   ".id": "*9",
+   "device": "Remote-AP@198.51.100.216",
+   "layout": "Remote",
+   "name": "Remote-AP"
+  },
+  {
+   ".id": "*C",
+   "device": "Remote-AP@198.51.100.216",
+   "layout": "Everything",
+   "name": "all-hAP-Remote",
+   "x": "800",
+   "y": "0"
+  },
+  {
+   ".id": "*F",
+   "device": "Site-AP2@192.0.2.24",
+   "layout": "Everything",
+   "name": "all-Site-AP2",
+   "x": "400",
+   "y": "320"
+  },
+  {
+   ".id": "*12",
+   "device": "Site-GW@192.0.2.1",
+   "layout": "Everything",
+   "name": "all-Site-GW",
+   "x": "400",
+   "y": "0"
+  },
+  {
+   ".id": "*13",
+   "device": "Site-Core",
+   "layout": "Everything",
+   "name": "all-Site-Core",
+   "x": "400",
+   "y": "160"
+  },
+  {
+   ".id": "*14",
+   "device": "Annex-Switch@192.0.2.10",
+   "layout": "Everything",
+   "name": "all-Annex-Switch",
+   "x": "100",
+   "y": "320"
+  },
+  {
+   ".id": "*15",
+   "device": "Annex-AP@192.0.2.3",
+   "layout": "Everything",
+   "name": "all-Annex-AP",
+   "x": "700",
+   "y": "320"
+  },
+  {
+   ".id": "*16",
+   "device": "Site-AP1@192.0.2.15",
+   "layout": "Everything",
+   "name": "all-Site-AP1",
+   "x": "700",
+   "y": "480"
+  },
+  {
+   ".id": "*17",
+   "device": "Site-AP2@192.0.2.24",
+   "layout": "Main",
+   "name": "Site-AP2"
+  }
+ ],
+ "cmr/upgrade": [
+  {
+   ".id": "*4",
+   "channel": "testing",
+   "fail-policy": "stop",
+   "labels": "ap,wlanmgr,gw",
+   "name": "fleet",
+   "order": "ap,wlanmgr,gw",
+   "strategy": "sequential"
+  },
+  {
+   ".id": "*5",
+   "channel": "testing",
+   "labels": "router",
+   "name": "controller"
+  },
+  {
+   ".id": "*1",
+   "channel": "stable",
+   "dynamic": "true",
+   "labels": "all",
+   "name": "default"
+  }
+ ],
+ "cmr/upgrade/job": [
+  {
+   ".id": "*4",
+   "channel": "7.90_ab12",
+   "end-time": "2026-10-01 22:55:21",
+   "labels": "Site-AP2",
+   "run-time": "1m7s",
+   "schedule-time": "2026-10-01 22:53:45",
+   "start-time": "2026-10-01 22:54:14",
+   "state": "done",
+   "success": "1/1"
+  },
+  {
+   ".id": "*3",
+   "channel": "7.90_ab11",
+   "end-time": "2026-10-01 22:53:15",
+   "labels": "Site-AP2",
+   "run-time": "1m5s",
+   "schedule-time": "2026-10-01 22:52:09",
+   "start-time": "2026-10-01 22:52:10",
+   "state": "done",
+   "success": "1/1"
+  },
+  {
+   ".id": "*2",
+   "channel": "7.90_ab11",
+   "labels": "Site-AP2",
+   "schedule-time": "2026-10-01 22:51:25",
+   "start-time": "2026-10-01 22:51:55",
+   "state": "done"
+  },
+  {
+   ".id": "*1",
+   "channel": "7.90_ab11",
+   "labels": "Site-AP2",
+   "schedule-time": "2026-10-01 22:50:56",
+   "start-time": "2026-10-01 22:50:56",
+   "state": "done",
+   "success": "0/1"
+  }
+ ]
+}

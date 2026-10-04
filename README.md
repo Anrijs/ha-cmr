@@ -70,7 +70,7 @@ flowchart LR
   subgraph router["CMR controller"]
     cmr["/cmr menus<br/>devices · alerts · upgrades · layouts"]
     log["/log and /system/clock"]
-    exec["/execute<br/>console output of link details"]
+    exec["/execute<br/>console output: link ports, device alert counters"]
     rules["alert rules<br/>action.http-url"]
   end
   subgraph ha["Home Assistant"]
@@ -96,8 +96,8 @@ flowchart LR
 ```
 
 1. **Polling.** Every 30 seconds the coordinator reads the CMR menus over the
-   router's REST API in parallel, plus the cable details (through `/execute`)
-   and any new controller log lines. `models.py` turns the strings into typed
+   router's REST API in parallel, plus the cable details and per-device alert
+   counters (through `/execute`) and any new controller log lines. `models.py` turns the strings into typed
    data and fixes known controller quirks.
 2. **Entities and the device registry** are updated from that snapshot.
 3. **The event log** compares the new snapshot with the previous one, classifies
@@ -113,7 +113,7 @@ flowchart LR
 |---|---|
 | `api.py` | REST client; maps router errors to auth / not found / refused |
 | `config_flow.py` | Setup, re-login and options screens |
-| `coordinator.py` | Polling; merges cable details from `/execute` |
+| `coordinator.py` | Polling; merges cable details and alert counters from `/execute` |
 | `models.py` | Parsing, version comparison, quirk fixes (pure Python, tested) |
 | `entity.py`, `sensor.py`, `binary_sensor.py`, `update.py`, `button.py`, `event.py` | Entities |
 | `eventlog.py` | Timeline, log reading, change detection, Repairs, events |
@@ -135,7 +135,7 @@ Every feature reads the controller over REST; only upgrades need write access.
 | Alert rule sensors, alerts card | `/cmr/alert` | same |
 | Upgrades card, last job | `/cmr/upgrade`, `/cmr/upgrade/job` | same |
 | Topology map | `/cmr/layout`, `/cmr/layout/node`, `/cmr/layout/link` | same |
-| Port names, PoE, SFP, traffic on cables | `/execute` running `/cmr/layout/link/print detail` | same (works read-only) |
+| Port names, PoE, SFP, traffic on cables; per-device alert counters | `/execute` running `/cmr/layout/link/print detail` and `/cmr/device/print detail` | same (works read-only) |
 | Timeline and issues | `/log` (new lines only), `/system/clock` | same |
 | Instant alerts | Controller calls `POST /api/webhook/<id>` | (the controller must reach Home Assistant) |
 | Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow starting upgrades* option |
@@ -516,14 +516,16 @@ Handled by the integration:
   builds < beta < rc < release) and only offers newer ones.
 - **Negative layout coordinates** come back as unsigned 32-bit numbers
   (`4294967294` for −2) and are converted back.
-- **REST omits a link's detected ports**; they are read from console output.
+- **REST omits computed fields**: a link's detected ports (`links`) and a
+  device's alert counters (`alerts`) are missing from REST responses, and
+  neither `proplist` nor `get` returns them. They are read from the console's
+  `print detail` output through `/execute`, so they need a user that may run
+  console commands; a stricter user just goes without them (no port chips on
+  cables, no per-device *Active alerts* sensor).
 
 Not available yet:
 
-- REST doesn't return a device's alert counters (`/cmr/device` `alerts`), so
-  the per-device *Active alerts* sensor only appears on controllers that do.
-- `print as-value` of `/cmr/layout/link` returns nothing on the console (REST
-  is unaffected).
+- `print as-value` of `/cmr/layout/link` returns nothing on the console.
 
 ## Development
 
@@ -533,6 +535,23 @@ cd frontend && npm install
 npm run watch                       # rebuilds the card bundle on change
 python3 -m pytest tests             # parsing, versions, log classification, issue rules
 ```
+
+The integration tests in `tests/integration/` load a config entry in a real
+Home Assistant against a recorded controller (`tests/fixtures/controller.json`)
+and check the devices, entities, config flow, websocket payload, webhook and
+diagnostics. They need the Home Assistant test harness, which wants the
+Python version the current Home Assistant release uses:
+
+```
+uv venv --python 3.14 .venv && source .venv/bin/activate
+pip install pytest-homeassistant-custom-component home-assistant-frontend ruff
+pytest tests                        # everything; the integration tests are skipped without the harness
+ruff check custom_components tests
+```
+
+GitHub Actions runs the same on every push: tests, ruff, the TypeScript type
+check, a build that must leave `www/cmr.js` unchanged, hassfest and HACS
+validation.
 
 | Path | |
 |---|---|

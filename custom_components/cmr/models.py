@@ -194,24 +194,48 @@ def _port_end(star: str, name: str, attrs: str) -> PortEnd:
 
 
 _RECORD_START = re.compile(r"^\s*(\*[0-9A-Fa-f]+)\s", re.M)
+# "alerts=0/12 0/9/3/0", tolerating a line break at the space.
+_ALERTS_FIELD = re.compile(r"alerts=(\d+/\d+)\s*(\d+/\d+/\d+/\d+)")
+
+
+def _console_records(text: str) -> dict[str, str]:
+    """Split `print detail show-ids` output into records keyed by id.
+
+    Long values wrap onto indented continuation lines; the line breaks and
+    indentation are dropped so wrapped values read as one token again.
+    """
+    starts = list(_RECORD_START.finditer(text))
+    return {
+        match.group(1): re.sub(r"\s*\r?\n\s*", "", text[match.end() : (starts[i + 1].start() if i + 1 < len(starts) else len(text))])
+        for i, match in enumerate(starts)
+    }
 
 
 def parse_link_details(text: str) -> dict[str, str]:
     """Map link ids to their `links` value from console `print detail show-ids`.
 
-    REST omits this computed field, so it is read from the console output,
-    where long values wrap onto indented lines. `links` is the record's last
-    field and holds no spaces, so dropping line breaks and indentation
-    restores it exactly.
+    REST omits this computed field, so it is read from the console output.
+    `links` is the record's last field and holds no spaces, so the joined
+    record restores it exactly.
     """
-    starts = list(_RECORD_START.finditer(text))
     out: dict[str, str] = {}
-    for i, match in enumerate(starts):
-        end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
-        record = re.sub(r"\s*\r?\n\s*", "", text[match.end() : end])
+    for link_id, record in _console_records(text).items():
         pos = record.rfind("links=")
         if pos != -1 and record[pos + 6 :].strip():
-            out[match.group(1)] = record[pos + 6 :].strip()
+            out[link_id] = record[pos + 6 :].strip()
+    return out
+
+
+def parse_device_alerts(text: str) -> dict[str, str]:
+    """Map device ids to their `alerts` counters from console `print detail show-ids`.
+
+    Like `links`, the per-device alert summary is computed on print and never
+    returned over REST, not even as a requested property.
+    """
+    out: dict[str, str] = {}
+    for device_id, record in _console_records(text).items():
+        if match := _ALERTS_FIELD.search(record):
+            out[device_id] = f"{match.group(1)} {match.group(2)}"
     return out
 
 

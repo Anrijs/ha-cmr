@@ -177,6 +177,24 @@ LINK_DETAIL = (
 )
 
 
+DEVICE_DETAIL = """Flags: L - LOCAL; C - CONNECTED
+ *1 LC  ids=5DCD392DEAED1A27C7DC5E6572532685C38B11A7CC3B93AA5915386B694E7378/6093A
+        52559427C19BAD31874C8457402EAD9026ADF14AE0910EE7B7720515674
+        peer=peer-5dcd board="RB5009UPr+S+" labels=house,router alerts=0/12 0/9/3/0
+        serial="HMW0BMZMXEY" identity="Site-Core"
+
+ *2 C   peer=peer-f6c0 board="CRS320-8P-8B-4S+" labels=sauna,switch alerts=1/12
+        0/9/3/0 serial="HG409N3K4C1" identity="Annex-Switch"
+
+ *3  p  peer=peer-new identity="Pending-AP"
+"""
+
+
+def test_parse_device_alerts_from_console():
+    assert models.parse_device_alerts(DEVICE_DETAIL) == {"*1": "0/12 0/9/3/0", "*2": "1/12 0/9/3/0"}
+    assert models.parse_alert_summary("1/12 0/9/3/0").on == 1
+
+
 def test_parse_link_details_from_console():
     details = models.parse_link_details(LINK_DETAIL)
     assert set(details) == {"*6", "*7"}  # *B has no detected ports

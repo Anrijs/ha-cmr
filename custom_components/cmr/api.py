@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from base64 import b64encode
 from typing import Any
 
 import aiohttp
@@ -57,7 +58,9 @@ class CmrApi:
         self.base_url = f"{scheme}://{host}"
         self._rest = f"{self.base_url}/rest"
         self._session = session
-        self._auth = aiohttp.BasicAuth(username, password)
+        # Plain header: aiohttp.BasicAuth is deprecated.
+        credentials = b64encode(f"{username}:{password}".encode()).decode()
+        self._headers = {"Authorization": f"Basic {credentials}"}
         # Keep concurrent sessions well below the service's max-sessions.
         self._limit = asyncio.Semaphore(4)
 
@@ -76,7 +79,7 @@ class CmrApi:
         try:
             async with self._limit, asyncio.timeout(REQUEST_TIMEOUT):
                 async with self._session.request(
-                    method, url, auth=self._auth, json=payload
+                    method, url, headers=self._headers, json=payload
                 ) as resp:
                     if resp.status in (401, 403):
                         raise CmrAuthError(f"{method} {path}: HTTP {resp.status}")

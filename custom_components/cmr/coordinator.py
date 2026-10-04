@@ -16,7 +16,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
 from .const import CONF_CATALOG_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
-from .models import CmrSnapshot, parse_link_details, parse_snapshot
+from .models import CmrSnapshot, parse_device_alerts, parse_link_details, parse_snapshot
 
 if TYPE_CHECKING:
     from .catalog import ProductCatalog
@@ -36,11 +36,11 @@ OPTIONAL_PATHS = (
     "cmr/layout/link",
 )
 
-# Console command whose output carries each layout link's detected ports.
+# Fields the controller computes on print and leaves out of REST responses
+# (also when asked for by name). They are read from the console output of
+# these commands; the REST API can run a console command and return its text.
 LINK_DETAIL_SCRIPT = "/cmr/layout/link/print detail show-ids without-paging"
-
-# (menu, field) pairs that are only returned when requested explicitly.
-COMPUTED_FIELDS = (("cmr/device", "alerts"), ("cmr/layout/link", "links"))
+DEVICE_DETAIL_SCRIPT = "/cmr/device/print detail show-ids without-paging"
 
 type CmrConfigEntry = ConfigEntry[CmrCoordinator]
 
@@ -71,10 +71,8 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self.eventlog: CmrEventLog | None = None
         self.catalog: ProductCatalog | None = None
         self._missing: set[str] = set()
-        # Computed fields the controller turned out not to return over REST.
-        self._no_computed: set[tuple[str, str]] = set()
         # None until tried; False if the user may not run console commands.
-        self._console_links: bool | None = None
+        self._console_ok: bool | None = None
 
     async def _async_update_data(self) -> CmrSnapshot:
         paths = REQUIRED_PATHS + OPTIONAL_PATHS
@@ -100,8 +98,7 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
                     raise result
                 continue
             raw[path] = result
-        await self._merge_computed(raw)
-        await self._merge_link_ports(raw)
+        await self._merge_console_fields(raw)
         if not self._platform_read:
             try:
                 resource = await self.api.get("system/resource")
@@ -124,65 +121,32 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
                 _LOGGER.exception("Processing controller events failed")
         return snapshot
 
-    async def _merge_link_ports(self, raw: dict[str, Any]) -> None:
-        """Fill layout links' detected ports, PoE and traffic from the console.
+    async def _merge_console_fields(self, raw: dict[str, Any]) -> None:
+        """Fill in the per-device alert counters and the links' detected ports.
 
-        The REST API leaves out `links`, but the console prints it; the REST
-        API can run a console command and return its text output.
+        Both are computed on print and missing from REST responses, so they
+        are parsed from the console's `print detail` output. A user without
+        the policy to run console commands simply goes without them.
         """
-        links = raw.get("cmr/layout/link")
-        if (
-            not isinstance(links, list)
-            or not links
-            or all(item.get("links") for item in links)
-            or self._console_links is False
+        for path, script, parse, field in (
+            ("cmr/device", DEVICE_DETAIL_SCRIPT, parse_device_alerts, "alerts"),
+            ("cmr/layout/link", LINK_DETAIL_SCRIPT, parse_link_details, "links"),
         ):
-            return
-        try:
-            result = await self.api.post(
-                "execute",
-                {"script": LINK_DETAIL_SCRIPT, "as-string": ""},
-            )
-        except CmrApiError as err:
-            _LOGGER.info("Can't read link ports from the console (%s); cables show no port details", err.detail)
-            self._console_links = False
-            return
-        text = result.get("ret", "") if isinstance(result, dict) else ""
-        details = parse_link_details(text)
-        self._console_links = True
-        for item in links:
-            if not item.get("links") and item.get(".id") in details:
-                item["links"] = details[item[".id"]]
-
-    async def _merge_computed(self, raw: dict[str, Any]) -> None:
-        """Add fields REST only returns when asked for by name.
-
-        Per-device alert counters and the detected ports of layout links are
-        computed on print, so a plain GET leaves them out.
-        """
-        for path, field in COMPUTED_FIELDS:
             items = raw.get(path)
-            if (
-                not isinstance(items, list)
-                or not items
-                or path in self._missing
-                or (path, field) in self._no_computed
-            ):
+            if not isinstance(items, list) or not items or self._console_ok is False:
                 continue
             try:
-                extra = await self.api.post(f"{path}/print", {".proplist": f".id,{field}"})
+                result = await self.api.post("execute", {"script": script, "as-string": ""})
             except CmrApiError as err:
-                _LOGGER.debug("No computed %s for /%s: %s", field, path, err)
-                continue
-            values = {
-                item.get(".id"): item.get(field)
-                for item in extra
-                if isinstance(item, dict) and item.get(field) not in (None, "")
-            }
-            if not values:
-                _LOGGER.debug("Controller returns no %s for /%s over REST", field, path)
-                self._no_computed.add((path, field))
-                continue
+                _LOGGER.info(
+                    "Can't run console commands as this user (%s); per-device alert counters "
+                    "and cable port details stay empty",
+                    err.detail,
+                )
+                self._console_ok = False
+                return
+            self._console_ok = True
+            values = parse(result.get("ret", "") if isinstance(result, dict) else "")
             for item in items:
                 if item.get(".id") in values:
                     item[field] = values[item[".id"]]
