@@ -83,7 +83,8 @@ function networkView(entry: CmrEntry, base: Card): Card {
       {
         type: "grid",
         column_span: 2,
-        cards: [{ ...base, type: "custom:cmr-fleet-card", grid_options: { columns: "full" } }],
+        // The overview shows what needs attention; the full table is the Devices view.
+        cards: [{ ...base, type: "custom:cmr-fleet-card", compact: true, page_size: 8, views: { devices: "devices" }, grid_options: { columns: "full" } }],
       },
       {
         type: "grid",

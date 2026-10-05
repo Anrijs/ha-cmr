@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+- The overview's device card is compact: only devices needing attention, eight rows, a link to the full table (`compact` option).
+- Label chips show the eight most used labels; the rest open from "+N more" with a search box.
+
 ## 0.9.0
 - Alert rules open to the devices they fire on (alerts card and the status card's alerts panel), with "Show in Devices" and "Show on map": the device table filters to them, the map dims everything else. Needs the REST user to run console commands; `?cmr_alert=<rule id>` deep-links.
 - The healthy status is called "OK" (it was "Online", which read like the connection count).

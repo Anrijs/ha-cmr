@@ -341,6 +341,7 @@ controller when you have several.
   labels: [ap]              # only devices with all of these CMR labels
   status: offline           # or pending, alert, update, ok: a permanent "offline devices" card
   fold_after: 50            # above this many rows the healthy devices fold into one line
+  compact: false            # true: only devices needing attention, a few rows, link to the full table
 
 - type: custom:cmr-alerts-card
   hide_disabled: true

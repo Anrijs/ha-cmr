@@ -19,7 +19,9 @@ import {
   modelCode,
   modelName,
   moreInfo,
+  navigate,
   pairingHint,
+  viewPath,
 } from "./shared";
 import type { CmrDevice } from "./types";
 
@@ -43,7 +45,17 @@ interface FleetConfig {
   page_size?: number;
   /** Follow `?cmr_status=…` style parameters in the page URL. */
   deep_link?: boolean;
+  /**
+   * Overview mode: only the devices that need attention, a few rows, status
+   * chips only, and a link to the full table (`views.devices`).
+   */
+  compact?: boolean;
+  /** Views of the dashboard this card is on (the generated dashboard sets them). */
+  views?: { devices?: string };
 }
+
+/** Label chips shown before the rest folds into "+N more". */
+const LABEL_CHIPS_MAX = 8;
 
 type SortKey = "attention" | "device" | "version" | "uptime" | "address";
 
@@ -66,7 +78,13 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     _limit: { state: true },
     _unfolded: { state: true },
     _pairing: { state: true },
+    _labelPicker: { state: true },
+    _labelSearch: { state: true },
   };
+
+  /** The "+N more" label list is open. */
+  declare _labelPicker: boolean;
+  declare _labelSearch: string;
 
   declare _filter: Set<string>;
   declare _status: Status | "";
@@ -93,6 +111,8 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     this._limit = 100;
     this._unfolded = false;
     this._pairing = new Map();
+    this._labelPicker = false;
+    this._labelSearch = "";
   }
 
   setConfig(config: FleetConfig): void {
@@ -123,6 +143,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
         { name: "show_filters", selector: { boolean: {} } },
         { name: "show_search", selector: { boolean: {} } },
         { name: "fold_after", selector: { number: { min: 0, max: 5000, mode: "box" } } },
+        { name: "compact", selector: { boolean: {} } },
       ],
       computeLabel: labelsFrom({
         entry_id: "Controller",
@@ -132,6 +153,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
         show_filters: "Show filter chips",
         show_search: "Show search",
         fold_after: "Fold healthy devices above this many rows (0: never)",
+        compact: "Overview mode: only devices needing attention, few rows",
       }),
     };
   }
@@ -227,7 +249,17 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     const entry = this._entry;
     if (!entry) return this.renderWaiting();
 
-    const labels = [...new Set(entry.devices.flatMap((d) => d.labels))].sort();
+    const compact = !!this._config.compact;
+    // Labels by how many devices carry them; the most common stay as chips,
+    // the rest (and a long tail of one-offs) sit behind "+N more".
+    const labelCount = new Map<string, number>();
+    for (const d of entry.devices) for (const l of d.labels) labelCount.set(l, (labelCount.get(l) ?? 0) + 1);
+    const labels = [...labelCount.keys()].sort((a, b) => labelCount.get(b)! - labelCount.get(a)! || a.localeCompare(b));
+    const labelChips = labels.length > LABEL_CHIPS_MAX + 1
+      ? [...new Set([...labels.slice(0, LABEL_CHIPS_MAX), ...this._filter])].sort((a, b) => labels.indexOf(a) - labels.indexOf(b))
+      : labels;
+    const labelRest = labels.filter((l) => !labelChips.includes(l));
+    const labelNeedle = this._labelSearch.trim().toLowerCase();
     const needle = this._search.trim().toLowerCase();
     // Label, version and search narrow the pool; the status chips count within it.
     // An alert filter narrows to the devices the rule fires on; while the
@@ -253,8 +285,10 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     const healthy = devices.length - attention.length;
     const folding =
       !this._status && !this._unfolded && foldAfter > 0 && devices.length > foldAfter && attention.length > 0 && healthy > 0;
-    const listed = folding ? attention : devices;
+    // Compact: the attention list only (or the chosen status), never more than a page.
+    const listed = compact && !this._status ? attention : folding ? attention : devices;
     const shown = listed.slice(0, this._limit);
+    const devicesView = this._config.views?.devices;
     const arrow = (key: SortKey) =>
       this._sort.key === key ? html`<ha-icon class="sort" icon=${this._sort.desc ? "mdi:arrow-down" : "mdi:arrow-up"}></ha-icon>` : nothing;
 
@@ -265,7 +299,11 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
           <span>${this._config.title ?? "Devices"}</span>
           <span class="chip">${devices.length}${devices.length !== entry.devices.length ? ` of ${entry.devices.length}` : ""}</span>
           <div class="spacer"></div>
-          ${this._config.show_search
+          ${compact && this._config.views?.devices
+            ? html`<button class="open-link" @click=${() => navigate(viewPath(this._config.views!.devices!))}>
+                Open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`
+            : nothing}
+          ${this._config.show_search && !compact
             ? html`<input class="search" type="search" placeholder="Search" .value=${this._search}
                 @input=${(e: Event) => { this._search = (e.target as HTMLInputElement).value; this._limit = this._config.page_size ?? 100; }} />`
             : nothing}
@@ -293,13 +331,36 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
                     ? "The controller lists a rule's devices only on its console, which the REST user may not use."
                     : "Couldn't read the rule's device list from the controller."}</span>`
                 : nothing}
-              ${labels.length ? html`<span class="sep"></span>` : nothing}
-              ${labels.map(
-                (label) => html`<button class="pill ${this._filter.has(label) ? "on" : ""}" @click=${() => this._toggleLabel(label)}>
-                  ${label}
-                </button>`,
-              )}
-            </div>`
+              ${labelChips.length && !compact ? html`<span class="sep"></span>` : nothing}
+              ${compact
+                ? nothing
+                : labelChips.map(
+                    (label) => html`<button class="pill ${this._filter.has(label) ? "on" : ""}" @click=${() => this._toggleLabel(label)}>
+                      ${label}
+                    </button>`,
+                  )}
+              ${labelRest.length && !compact
+                ? html`<button class="pill more-labels ${this._labelPicker ? "on" : ""}" aria-expanded=${this._labelPicker}
+                    @click=${() => (this._labelPicker = !this._labelPicker)}>
+                    ${this._labelPicker ? "Fewer labels" : `+${labelRest.length} more`}</button>`
+                : nothing}
+            </div>
+            ${this._labelPicker && labelRest.length && !compact
+              ? html`<div class="picker">
+                  <input class="search" type="search" placeholder="Find a label" .value=${this._labelSearch}
+                    @input=${(e: Event) => (this._labelSearch = (e.target as HTMLInputElement).value)} />
+                  <div class="picker-list">
+                    ${labelRest
+                      .filter((label) => !labelNeedle || label.toLowerCase().includes(labelNeedle))
+                      .sort()
+                      .map(
+                        (label) => html`<button class="pill ${this._filter.has(label) ? "on" : ""}" @click=${() => this._toggleLabel(label)}>
+                          ${label} <span class="muted">${labelCount.get(label)}</span>
+                        </button>`,
+                      )}
+                  </div>
+                </div>`
+              : nothing}`
           : nothing}
         <div class="table" role="table">
           <div class="row head section-label" role="row">
@@ -313,15 +374,24 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
             <button class="c-address" @click=${() => this._setSort("address")}>Address ${arrow("address")}</button>
           </div>
           ${shown.map((d) => this._row(d))}
-          ${folding
+          ${compact && !this._status && healthy > 0
+            ? html`<div class="fold static">
+                <ha-icon icon="mdi:check-circle-outline"></ha-icon>
+                ${attention.length ? `${healthy} more` : `All ${healthy}`} device${healthy === 1 ? "" : "s"} online and up to date
+              </div>`
+            : nothing}
+          ${folding && !compact
             ? html`<button class="fold" @click=${() => (this._unfolded = true)}>
                 <ha-icon icon="mdi:check-circle-outline"></ha-icon>
                 ${healthy} device${healthy === 1 ? "" : "s"} online and up to date — show ${healthy === 1 ? "it" : "them"}
               </button>`
             : nothing}
           ${listed.length > this._limit
-            ? html`<button class="more" @click=${() => (this._limit += this._config.page_size ?? 100)}>
-                Show more (${listed.length - this._limit})</button>`
+            ? compact && devicesView
+              ? html`<button class="more" @click=${() => navigate(viewPath(devicesView, this._status ? { cmr_status: this._status } : {}))}>
+                  ${listed.length - this._limit} more — open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`
+              : html`<button class="more" @click=${() => (this._limit += this._config.page_size ?? 100)}>
+                  Show more (${listed.length - this._limit})</button>`
             : nothing}
           ${devices.length ? nothing : html`<div class="empty">${this._emptyText(entry.devices.length)}</div>`}
         </div>
@@ -444,7 +514,18 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
         background: var(--cmr-surface-2); --mdc-icon-size: 18px;
       }
       .fold ha-icon { color: var(--cmr-ok); }
+      .fold.static { cursor: default; color: var(--cmr-muted); }
       .more { background: none; }
+      .more ha-icon { --mdc-icon-size: 16px; }
+      .open-link {
+        all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 13px;
+        color: var(--primary-color); --mdc-icon-size: 16px;
+      }
+      .open-link:hover { text-decoration: underline; }
+      .picker { margin: -4px 16px 10px; padding: 10px; border-radius: 10px; background: var(--cmr-surface-2); display: flex; flex-direction: column; gap: 8px; }
+      .picker .search { width: 220px; }
+      .picker-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 180px; overflow: auto; }
+      .picker-list .muted { font-size: 11px; margin-left: 2px; }
 
       @container (max-width: 640px) {
         .card-header .search { width: 100%; order: 10; }
