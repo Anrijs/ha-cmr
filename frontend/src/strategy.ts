@@ -166,6 +166,12 @@ export class CmrDashboardStrategy extends HTMLElement {
     return { title: "Network", icon: "mdi:router-network" };
   }
 
+  /**
+   * Home Assistant opens the editor below while adding the dashboard, so the
+   * controller is chosen up front (empty: the first one).
+   */
+  static configRequired = true;
+
   /** "Edit dashboard" shows a controller picker instead of YAML. */
   static async getConfigElement(): Promise<HTMLElement> {
     return document.createElement("cmr-strategy-editor");
@@ -188,22 +194,6 @@ export class CmrDashboardStrategy extends HTMLElement {
       // events card doesn't mix in other controllers.
       const base: Card = entries.length > 1 || config.entry_id ? { entry_id: entry.entry_id } : {};
       const network = networkView(entry, base);
-      if (entries.length > 1 && !config.entry_id) {
-        const others = entries.filter((e) => e !== entry).map((e) => `**${e.title}**`).join(", ");
-        (network.sections as Card[]).unshift({
-          type: "grid",
-          column_span: 3,
-          cards: [
-            {
-              type: "markdown",
-              content:
-                `This dashboard shows **${entry.title}**, the first of ${entries.length} CMR controllers. ` +
-                `To pick one, use *Edit dashboard* (✏️ at the top right) and choose the controller; ` +
-                `for ${others}, add another *CMR network* dashboard under Settings → Dashboards.`,
-            },
-          ],
-        });
-      }
       return {
         title: config.title ?? entry.title,
         views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base)],

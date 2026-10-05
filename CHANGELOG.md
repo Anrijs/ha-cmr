@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1
+- Add dashboard asks which controller the CMR network dashboard shows; the "first of several controllers" note is gone.
+- The map grows to fit large layouts (up to 85% of the window, `max_height`), zooms closer, and double-click zooms in.
+
 ## 0.8.0
 - Large fleets: per-device diagnostic sensors are off by default (also turned off once on existing installs), the Devices view is the table only above 24 devices, the auto map wraps.
 - "Edit dashboard" on a CMR network dashboard picks the controller; with several controllers, each dashboard says which one it shows.

@@ -21,7 +21,10 @@ interface TopologyConfig {
   entry_id?: string;
   layout?: string;
   title?: string;
+  /** Minimum map height in px; the map grows to fit the layout's shape. */
   height?: number;
+  /** Upper bound for that growth in px (default: 85 % of the window). */
+  max_height?: number;
   show_ports?: boolean;
   show_comments?: boolean;
   /** Icons for layout (building) nodes by name, e.g. { House: "mdi:home" }. */
@@ -132,18 +135,23 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _hover: { state: true },
     _hoverLink: { state: true },
     _view: { state: true },
+    _autoHeight: { state: true },
   };
 
   declare _path: string[];
   declare _hover?: { node: PlacedNode; x: number; y: number };
   declare _hoverLink?: { info: LinkInfo; x: number; y: number };
   declare _view: { x: number; y: number; k: number };
+  /** Height that shows the layout at full width, within height … max_height. */
+  declare _autoHeight?: number;
 
   private _memo?: SceneMemo;
   private _userMoved = false;
   private _drag?: { id: number; x: number; y: number; vx: number; vy: number; moved: boolean };
   private _resize?: ResizeObserver;
   private _fittedFor = "";
+  /** Scale at which the whole layout fits; zooming out stops a little below it. */
+  private _fitK = 1;
 
   constructor() {
     super();
@@ -166,6 +174,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         {
           name: "height",
           selector: { number: { min: 200, max: 1400, step: 20, mode: "box", unit_of_measurement: "px" } },
+        },
+        {
+          name: "max_height",
+          selector: { number: { min: 200, max: 3000, step: 20, mode: "box", unit_of_measurement: "px" } },
         },
         { name: "show_ports", selector: { boolean: {} } },
         { name: "show_comments", selector: { boolean: {} } },
@@ -352,16 +364,35 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (viewport && !this._resize) {
       this._resize = new ResizeObserver(() => {
+        this._sizeToLayout();
         if (!this._userMoved) this._fit();
       });
       this._resize.observe(viewport);
     }
+    this._sizeToLayout();
     const key = `${this._entry?.entry_id}|${this._path.join("/")}|${this._entry ? this._scene(this._entry).nodes.length : 0}`;
     if (this._entry && key !== this._fittedFor) {
       this._fittedFor = key;
       this._userMoved = false;
       this._fit();
     }
+  }
+
+  /**
+   * Grow the map to the height the layout needs at the card's width, so a
+   * large layout isn't squeezed into a letterbox. Never below `height`,
+   * never above `max_height`.
+   */
+  private _sizeToLayout(): void {
+    const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
+    if (!viewport || !this._entry) return;
+    const { width, height } = this._scene(this._entry);
+    const vw = viewport.clientWidth;
+    if (!vw || !width) return;
+    const min = this._config?.height ?? 440;
+    const max = Math.max(min, this._config?.max_height ?? Math.round(window.innerHeight * 0.85));
+    const wanted = Math.round(Math.min(max, Math.max(min, (vw * height) / width)));
+    if (this._autoHeight === undefined || Math.abs(wanted - this._autoHeight) > 4) this._autoHeight = wanted;
   }
 
   private _fit(): void {
@@ -372,6 +403,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const vh = viewport.clientHeight;
     if (!vw || !vh) return;
     const k = Math.min(vw / width, vh / height, 1.2);
+    this._fitK = k;
     const next = { k, x: (vw - width * k) / 2, y: (vh - height * k) / 2 };
     if (Math.abs(next.k - this._view.k) > 0.001 || Math.abs(next.x - this._view.x) > 0.5 || Math.abs(next.y - this._view.y) > 0.5) {
       this._view = next;
@@ -389,7 +421,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   /** Scale the view by `factor`, keeping the viewport point (px, py) fixed. */
   private _zoomAt(px: number, py: number, factor: number): void {
     const { x, y, k } = this._view;
-    const nk = Math.min(2.5, Math.max(0.25, k * factor));
+    const nk = Math.min(4, Math.max(Math.min(0.25, this._fitK * 0.8), k * factor));
     this._view = { k: nk, x: px - ((px - x) * nk) / k, y: py - ((py - y) * nk) / k };
     this._userMoved = true;
     this._clearHover();
@@ -425,6 +457,13 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   private _zoom(factor: number): void {
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (viewport) this._zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, factor);
+  }
+
+  /** Double-click: zoom in on that spot (the fit button shows everything again). */
+  private _onDoubleClick(ev: MouseEvent): void {
+    if ((ev.target as HTMLElement).closest(".controls")) return;
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    this._zoomAt(ev.clientX - rect.left, ev.clientY - rect.top, 2);
   }
 
   private _resetView(): void {
@@ -534,13 +573,13 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${this.renderStale(entry)}
         <div
           class="viewport"
-          style="min-height:${height}px"
+          style="min-height:${this._autoHeight ?? height}px"
           @wheel=${this._onWheel}
           @pointerdown=${this._onPointerDown}
           @pointermove=${this._onPointerMove}
           @pointerup=${this._onPointerUp}
           @pointercancel=${this._onPointerUp}
-          @dblclick=${this._resetView}
+          @dblclick=${this._onDoubleClick}
           @mouseleave=${this._clearHover}
         >
           <div
@@ -560,9 +599,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           ${this._hover ? this._renderTooltip(this._hover) : nothing}
           ${this._hoverLink && !this._hover ? this._renderLinkTooltip(this._hoverLink) : nothing}
           <div class="controls">
-            <button title="Zoom in" @click=${() => this._zoom(1.25)}><ha-icon icon="mdi:plus"></ha-icon></button>
-            <button title="Zoom out" @click=${() => this._zoom(0.8)}><ha-icon icon="mdi:minus"></ha-icon></button>
-            <button title="Fit" @click=${this._resetView}><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon></button>
+            <button title="Zoom in (or double-click the map)" @click=${() => this._zoom(1.6)}><ha-icon icon="mdi:plus"></ha-icon></button>
+            <button title="Zoom out" @click=${() => this._zoom(1 / 1.6)}><ha-icon icon="mdi:minus"></ha-icon></button>
+            <button title="Show the whole map" @click=${this._resetView}><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon></button>
           </div>
           <div class="legend">
             ${(["ok", "update", "alert", "offline"] as Status[]).map(

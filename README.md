@@ -306,10 +306,9 @@ Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard (u
 It regenerates from the fleet every time it opens. To customise it, use *Take
 control* in the dashboard menu.
 
-**Several controllers:** add one *CMR network* dashboard per controller. A
-new one shows the first controller (with a note saying so when there are
-more); open it, press ✏️ *Edit dashboard* and pick the **Controller** (and
-optionally a title). In YAML:
+**Several controllers:** add one *CMR network* dashboard per controller.
+*Add dashboard* asks which controller (empty: the first one); ✏️ *Edit
+dashboard* changes it later. In YAML:
 
 ```yaml
 strategy:
@@ -331,7 +330,8 @@ controller when you have several.
 
 - type: custom:cmr-topology-card
   layout: Overview          # start in this CMR layout (default: the top one)
-  height: 480
+  height: 480               # minimum; the map grows to fit the layout's shape
+  max_height: 900           # … up to this (default: 85% of the window)
   show_ports: true          # port names at both ends of each cable
   show_comments: true       # link comments on cables without detected ports
   icons:                    # icons for layout nodes that open another layout
@@ -357,7 +357,7 @@ controller when you have several.
 
 On the map: click a building to open its layout, click a device for its
 details, hover a cable for its ports, PoE and traffic. Pinch or Ctrl/⌘-scroll
-zooms, drag pans, double-click fits.
+zooms, drag pans, double-click zooms in on that spot, ⤢ shows the whole map.
 
 Finding what needs attention in a large fleet: the device table lists
 offline, waiting-to-pair, alerting and updatable devices first; the chips
