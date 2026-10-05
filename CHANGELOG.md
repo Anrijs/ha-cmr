@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1
+- Connection errors say what to fix (service refused on port 443/80, no route, timeout, certificate) instead of a raw error.
+
 ## 0.7.0
 - Device table for large fleets: attention first, status chips with counts, search, a version filter, and the healthy devices fold into one line.
 - The status card's tiles open the list behind the number (offline since when, updates, firing rules, issues, devices to approve); the version bar lists who runs what.

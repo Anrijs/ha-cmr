@@ -92,7 +92,30 @@ class CmrApi:
                         raise _error_for(method, path, resp.status, body)
                     return body
         except (aiohttp.ClientError, TimeoutError, ValueError) as err:
-            raise CmrConnectionError(f"{method} {path}: {err!r}") from err
+            raise CmrConnectionError(f"{method} {path}: {err!r}", connection_detail(err, self.base_url)) from err
+
+
+def connection_detail(err: BaseException, base_url: str) -> str:
+    """What went wrong reaching the controller, in words a user can act on."""
+    target = base_url.split("://", 1)[-1]
+    port_hint = "443 (www-ssl)" if base_url.startswith("https") else "80 (www)"
+    if isinstance(err, aiohttp.ClientConnectorCertificateError | aiohttp.ClientSSLError):
+        return f"{target} answered, but its HTTPS certificate was rejected; turn off certificate verification or use a trusted certificate."
+    if isinstance(err, aiohttp.ClientConnectorError):
+        cause = err.os_error
+        if isinstance(cause, ConnectionRefusedError):
+            return (
+                f"{target} refused the connection on port {port_hint}: that service is disabled on the router, "
+                "or its allowed addresses don't include Home Assistant (/ip service)."
+            )
+        if getattr(cause, "errno", None) in (51, 65, 101, 113):
+            return f"No route to {target} from Home Assistant (network unreachable)."
+        return f"Can't connect to {target}: {cause or err}."
+    if isinstance(err, TimeoutError):
+        return f"No answer from {target} within {REQUEST_TIMEOUT} s."
+    if isinstance(err, ValueError):
+        return f"{target} answered with something that isn't the REST API (not JSON)."
+    return f"{target}: {err}"
 
 
 def _error_for(method: str, path: str, status: int, body: Any) -> CmrApiError:

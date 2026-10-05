@@ -41,7 +41,7 @@
       }
     },
     "error": {
-      "cannot_connect": "REST API nav sasniedzams. Pārbaudi adresi, vai ieslēgts www-ssl (vai www) serviss un HTTPS iestatījumu. {detail}",
+      "cannot_connect": "Kontroliera REST API nav sasniedzams. {detail}",
       "invalid_auth": "Kontrolieris noraidīja pieslēgšanos, vai lietotāja grupai nav read, api un rest-api politiku. {detail}",
       "no_cmr": "Šim rūterim nav /cmr izvēlnes. Uzinstalē cmr pakotni un ieslēdz kontrolieri. Rūteris atbildēja: {detail}",
       "not_controller": "Rūterim ir /cmr izvēlne, bet tas nedarbojas kā CMR kontrolieris.",

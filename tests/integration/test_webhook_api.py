@@ -85,6 +85,22 @@ async def test_push_alerts_refused_without_actions(hass: HomeAssistant, entry, h
     assert not reply["success"] and reply["error"]["code"] == "not_allowed"
 
 
+def test_connection_errors_read_like_advice() -> None:
+    from types import SimpleNamespace
+
+    import aiohttp
+
+    key = SimpleNamespace(host="192.0.2.8", port=443, ssl=True)
+    refused = aiohttp.ClientConnectorError(key, ConnectionRefusedError(111, "Connect call failed"))
+    detail = api.connection_detail(refused, "https://192.0.2.8")
+    assert detail.startswith("192.0.2.8 refused the connection on port 443 (www-ssl)")
+    assert "port 80 (www)" in api.connection_detail(refused, "http://192.0.2.8")
+    unreachable = aiohttp.ClientConnectorError(key, OSError(101, "Network unreachable"))
+    assert api.connection_detail(unreachable, "https://192.0.2.8") == "No route to 192.0.2.8 from Home Assistant (network unreachable)."
+    assert "within 20 s" in api.connection_detail(TimeoutError(), "https://192.0.2.8")
+    assert "isn't the REST API" in api.connection_detail(ValueError("bad json"), "https://192.0.2.8")
+
+
 def test_rest_error_classification() -> None:
     assert isinstance(api._error_for("GET", "cmr", 400, {"message": "no such command"}), api.CmrNotFoundError)
     assert isinstance(api._error_for("GET", "cmr", 400, {"detail": "not enough permissions"}), api.CmrAuthError)

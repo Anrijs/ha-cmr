@@ -41,7 +41,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Can't reach the REST API. Check the address, that the www-ssl (or www) service is enabled, and the HTTPS setting. {detail}",
+      "cannot_connect": "Can't reach the controller's REST API. {detail}",
       "invalid_auth": "The controller rejected the login, or the user's group lacks the read, api and rest-api policies. {detail}",
       "no_cmr": "This router has no /cmr menu. Install the cmr package and enable the controller. Router said: {detail}",
       "not_controller": "The router has a /cmr menu but isn't acting as a CMR controller.",
