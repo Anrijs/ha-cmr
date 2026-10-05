@@ -80,22 +80,25 @@ function networkView(entry: CmrEntry, base: Card): Card {
         column_span: 3,
         cards: [{ ...base, type: "custom:cmr-topology-card", height: 480, grid_options: { columns: "full" } }],
       },
+      // Two independent columns: a section is a vertical stack, so a short
+      // devices card and a tall alerts card no longer leave a gap under the
+      // shorter one (sections sharing a row take the taller one's height).
       {
         type: "grid",
         column_span: 2,
-        // The overview shows what needs attention; the full table is the Devices view.
-        cards: [{ ...base, type: "custom:cmr-fleet-card", compact: true, page_size: 8, views: { devices: "devices" }, grid_options: { columns: "full" } }],
+        cards: [
+          // The overview shows what needs attention; the full table is the Devices view.
+          { ...base, type: "custom:cmr-fleet-card", compact: true, page_size: 8, views: { devices: "devices" }, grid_options: { columns: "full" } },
+          { ...base, type: "custom:cmr-events-card", max_items: 15, notable: true, grid_options: { columns: "full" } },
+        ],
       },
       {
         type: "grid",
-        cards: [{ ...base, type: "custom:cmr-alerts-card", views: { devices: "devices", topology: "topology" }, grid_options: { columns: "full" } }],
+        cards: [
+          { ...base, type: "custom:cmr-alerts-card", views: { devices: "devices", topology: "topology" }, grid_options: { columns: "full" } },
+          { ...base, type: "custom:cmr-upgrades-card", grid_options: { columns: "full" } },
+        ],
       },
-      {
-        type: "grid",
-        column_span: 2,
-        cards: [{ ...base, type: "custom:cmr-events-card", max_items: 15, notable: true, grid_options: { columns: "full" } }],
-      },
-      { type: "grid", cards: [{ ...base, type: "custom:cmr-upgrades-card", grid_options: { columns: "full" } }] },
     ],
   };
 }

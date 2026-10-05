@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.8
+- Overview layout: Devices and Events share the left column, Alerts and Upgrades the right one, so a short device list no longer leaves a gap beside a long alert list.
+
 ## 0.10.7
 - A device already on its channel's newest version showed its RouterOS update as "Unknown" (the controller reports no available version for it); it now reads up to date.
 
