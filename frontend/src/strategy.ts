@@ -92,9 +92,14 @@ function networkView(entry: CmrEntry, base: Card): Card {
   };
 }
 
+// Above this many devices the Devices view is the table only: a tile section
+// and a history line per device would make the page heavy and unreadable.
+const PER_DEVICE_SECTIONS_MAX = 24;
+
 function devicesView(entry: CmrEntry, hass: HassLike, base: Card): Card {
   const alertsPushed = entry.alerts.some((rule) => rule.webhook);
   const devices = [...entry.devices].sort(compareDevices);
+  const small = devices.length <= PER_DEVICE_SECTIONS_MAX;
   const connectivity = devices.map((d) => d.entities.connected).filter(Boolean);
   return {
     title: "Devices",
@@ -105,15 +110,19 @@ function devicesView(entry: CmrEntry, hass: HassLike, base: Card): Card {
     sections: [
       // The device table first: the status card's "Open in Devices" links land here, pre-filtered.
       { type: "grid", column_span: 4, cards: [{ ...base, type: "custom:cmr-fleet-card", grid_options: { columns: "full" } }] },
-      {
-        type: "grid",
-        column_span: 4,
-        cards: [
-          heading("Connectivity, last 24 hours", "mdi:chart-timeline-variant"),
-          { type: "history-graph", hours_to_show: 24, entities: connectivity, grid_options: { columns: "full" } },
-        ],
-      },
-      ...devices.map((device) => deviceSection(device, hass, alertsPushed)),
+      ...(small
+        ? [
+            {
+              type: "grid",
+              column_span: 4,
+              cards: [
+                heading("Connectivity, last 24 hours", "mdi:chart-timeline-variant"),
+                { type: "history-graph", hours_to_show: 24, entities: connectivity, grid_options: { columns: "full" } },
+              ],
+            },
+            ...devices.map((device) => deviceSection(device, hass, alertsPushed)),
+          ]
+        : []),
     ],
   };
 }
@@ -157,6 +166,11 @@ export class CmrDashboardStrategy extends HTMLElement {
     return { title: "Network", icon: "mdi:router-network" };
   }
 
+  /** "Edit dashboard" shows a controller picker instead of YAML. */
+  static async getConfigElement(): Promise<HTMLElement> {
+    return document.createElement("cmr-strategy-editor");
+  }
+
   static async generate(config: StrategyConfig, hass: HassLike) {
     // Never throw: a failing strategy leaves Home Assistant on an error page
     // with no way back, so any problem becomes a message on a normal view.
@@ -170,10 +184,29 @@ export class CmrDashboardStrategy extends HTMLElement {
             "[Settings → Devices & services](/config/integrations/dashboard/add?domain=cmr).",
         );
       }
-      const base: Card = config.entry_id ? { entry_id: config.entry_id } : {};
+      // Every card is pinned to the controller this dashboard shows, so the
+      // events card doesn't mix in other controllers.
+      const base: Card = entries.length > 1 || config.entry_id ? { entry_id: entry.entry_id } : {};
+      const network = networkView(entry, base);
+      if (entries.length > 1 && !config.entry_id) {
+        const others = entries.filter((e) => e !== entry).map((e) => `**${e.title}**`).join(", ");
+        (network.sections as Card[]).unshift({
+          type: "grid",
+          column_span: 3,
+          cards: [
+            {
+              type: "markdown",
+              content:
+                `This dashboard shows **${entry.title}**, the first of ${entries.length} CMR controllers. ` +
+                `To pick one, use *Edit dashboard* (✏️ at the top right) and choose the controller; ` +
+                `for ${others}, add another *CMR network* dashboard under Settings → Dashboards.`,
+            },
+          ],
+        });
+      }
       return {
-        title: config.title ?? "Network",
-        views: [networkView(entry, base), eventsView(base), devicesView(entry, hass, base), topologyView(base)],
+        title: config.title ?? entry.title,
+        views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base)],
       };
     } catch (err) {
       console.error("cmr: dashboard strategy failed", err);

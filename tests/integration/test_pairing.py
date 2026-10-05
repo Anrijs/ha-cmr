@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
@@ -119,3 +121,54 @@ async def test_websocket_pair_refused_without_actions(hass: HomeAssistant, contr
     await client.send_json({"id": 1, "type": "cmr/pair", "entry_id": entry.entry_id, "device_key": "S0000000001"})
     reply = await client.receive_json()
     assert not reply["success"] and reply["error"]["code"] == "not_allowed"
+
+
+@pytest.mark.wifi_logs_default
+async def test_wifi_logs_not_queried_by_default(hass: HomeAssistant, controller: FakeController, entry) -> None:
+    """Released builds leave the fleet Wi-Fi feed off: it is never requested."""
+    await entry.runtime_data.async_refresh()
+    assert not any(path == "cmr/device/wifi-logs" for _, path, _ in controller.calls)
+
+
+async def test_diagnostic_sensors_are_disabled_by_default(hass: HomeAssistant, entry) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    by_key = {e.unique_id: e for e in er.async_entries_for_config_entry(registry, entry.entry_id)}
+    gw = "S0000000002"
+    assert by_key[f"{gw}_channel"].disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert by_key[f"{gw}_version"].disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert by_key[f"{gw}_uptime"].disabled_by is None
+    assert by_key[f"{gw}_active_alerts"].disabled_by is None
+    # Per device: connected, firmware, up since, active alerts, alert event.
+    enabled = [e for e in by_key.values() if e.unique_id.startswith(gw) and e.disabled_by is None]
+    assert sorted(e.domain for e in enabled) == ["binary_sensor", "event", "sensor", "sensor", "update"]
+
+
+async def test_migration_disables_diagnostic_sensors(hass: HomeAssistant, controller: FakeController) -> None:
+    """Entries from before 1.2 get the lighter default once; other entities stay."""
+    from homeassistant.helpers import entity_registry as er
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from .conftest import ENTRY_DATA
+
+    entry = MockConfigEntry(domain=DOMAIN, title="CMR Site-Core", unique_id="S0000000001", data=ENTRY_DATA, version=1, minor_version=1)
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    old = {
+        key: registry.async_get_or_create("sensor", DOMAIN, f"S0000000002_{key}", config_entry=entry)
+        for key in ("channel", "address", "version", "uptime", "active_alerts")
+    }
+    assert all(item.disabled_by is None for item in old.values())
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.minor_version == 2
+    state = {key: registry.async_get(item.entity_id).disabled_by for key, item in old.items()}
+    assert state == {
+        "channel": er.RegistryEntryDisabler.INTEGRATION,
+        "address": er.RegistryEntryDisabler.INTEGRATION,
+        "version": er.RegistryEntryDisabler.INTEGRATION,
+        "uptime": None,
+        "active_alerts": None,
+    }

@@ -229,8 +229,9 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     // the rest become one line until opened.
     const foldAfter = this._config.fold_after ?? 50;
     const attention = devices.filter((d) => deviceStatus(d) !== "ok");
+    const healthy = devices.length - attention.length;
     const folding =
-      !this._status && !this._unfolded && foldAfter > 0 && devices.length > foldAfter && attention.length > 0;
+      !this._status && !this._unfolded && foldAfter > 0 && devices.length > foldAfter && attention.length > 0 && healthy > 0;
     const listed = folding ? attention : devices;
     const shown = listed.slice(0, this._limit);
     const arrow = (key: SortKey) =>
@@ -285,7 +286,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
           ${folding
             ? html`<button class="fold" @click=${() => (this._unfolded = true)}>
                 <ha-icon icon="mdi:check-circle-outline"></ha-icon>
-                ${devices.length - attention.length} devices online and up to date — show them
+                ${healthy} device${healthy === 1 ? "" : "s"} online and up to date — show ${healthy === 1 ? "it" : "them"}
               </button>`
             : nothing}
           ${listed.length > this._limit

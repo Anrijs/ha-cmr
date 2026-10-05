@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from homeassistant.const import CONF_SCAN_INTERVAL, Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .catalog import ProductCatalog
@@ -63,6 +63,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
+    """1.1 → 1.2: turn off the per-device diagnostic sensors, as new installs do.
+
+    With hundreds of devices they made thousands of entities, more than a
+    browser can take in when Home Assistant starts. Users can enable any of
+    them again; this runs once.
+    """
+    if entry.version > 1:
+        return False
+    if entry.minor_version < 2:
+        from .sensor import DEVICE_SENSORS  # noqa: PLC0415 - platform module, only needed here
+
+        off = tuple(f"_{d.key}" for d in DEVICE_SENSORS if d.entity_registry_enabled_default is False)
+        registry = er.async_get(hass)
+        for item in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if item.domain == "sensor" and item.disabled_by is None and item.unique_id.endswith(off):
+                registry.async_update_entity(item.entity_id, disabled_by=er.RegistryEntryDisabler.INTEGRATION)
+        hass.config_entries.async_update_entry(entry, minor_version=2)
     return True
 
 

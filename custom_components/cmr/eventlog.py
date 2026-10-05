@@ -49,6 +49,11 @@ _LOGGER = logging.getLogger(__name__)
 
 STORE_VERSION = 1
 MAX_EVENTS = 1000
+# Fleet-wide Wi-Fi events from `/cmr/device/wifi-logs`. Off: current
+# controllers return the whole history on every call (time-start is
+# ignored) with empty rows over REST, which on a large fleet runs past the
+# request timeout and upsets the web service. Re-enable once it filters.
+WIFI_LOGS_ENABLED = False
 # Categories always worth a line in Home Assistant's activity log.
 NOTABLE_CATEGORIES = {"device", "upgrade", "alert", "security", "config", "insight"}
 CLOCK_REFRESH = timedelta(minutes=10)
@@ -238,7 +243,7 @@ class CmrEventLog:
         itself; this command collects them from the whole fleet. For now it
         ignores the device selection, so one call returns everything.
         """
-        if self._wifi_logs_ok is False or snapshot.controller is None:
+        if not WIFI_LOGS_ENABLED or self._wifi_logs_ok is False or snapshot.controller is None:
             return []
         offset = timedelta(seconds=self._gmt_offset or 0)
         start = self._wifi_last or (now - timedelta(hours=1 if replay else 0, minutes=0 if replay else 5))

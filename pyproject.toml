@@ -2,6 +2,7 @@
 testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = ["wifi_logs_default: run with the fleet Wi-Fi feed at its released default (off)"]
 
 [tool.ruff]
 line-length = 120

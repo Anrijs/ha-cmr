@@ -320,18 +320,23 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       const tier = tierOf(device);
       tiers.set(tier, [...(tiers.get(tier) ?? []), device]);
     }
-    const widest = Math.max(...[...tiers.values()].map((t) => t.length), 1);
+    // Wrap long rows into a block about twice as wide as tall.
+    const perRow = Math.max(4, Math.ceil(Math.sqrt(entry.devices.length * 2.2)));
     const nodes: PlacedNode[] = [];
-    [...tiers.keys()].sort().forEach((tier, row) => {
+    let row = 0;
+    for (const tier of [...tiers.keys()].sort()) {
       const devices = tiers.get(tier)!.sort((a, b) => a.identity.localeCompare(b.identity));
-      const offset = ((widest - devices.length) * (NODE_W + 48)) / 2;
-      devices.forEach((device, i) =>
-        nodes.push({
-          id: device.key, name: device.identity, kind: "device", device,
-          x: offset + i * (NODE_W + 48), y: row * (NODE_H + 90),
-        }),
-      );
-    });
+      for (let start = 0; start < devices.length; start += perRow, row += 1) {
+        const line = devices.slice(start, start + perRow);
+        const offset = ((Math.min(perRow, entry.devices.length) - line.length) * (NODE_W + 48)) / 2;
+        line.forEach((device, i) =>
+          nodes.push({
+            id: device.key, name: device.identity, kind: "device", device,
+            x: offset + i * (NODE_W + 48), y: row * (NODE_H + 90),
+          }),
+        );
+      }
+    }
     const controller = entry.devices.find((d) => d.controller);
     const links: CmrLink[] = controller
       ? entry.devices

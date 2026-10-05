@@ -5,6 +5,7 @@ import { CmrEventsCard } from "./events-card";
 import { CmrFleetCard } from "./fleet-card";
 import { CmrStatusCard } from "./status-card";
 import { CmrDashboardStrategy } from "./strategy";
+import { CmrStrategyEditor } from "./strategy-editor";
 import { CmrTopologyCard } from "./topology-card";
 import { CmrUpgradesCard } from "./upgrades-card";
 
@@ -39,6 +40,9 @@ for (const [type, , name, description] of CARDS) {
 
 if (!customElements.get("ll-strategy-dashboard-cmr")) {
   customElements.define("ll-strategy-dashboard-cmr", CmrDashboardStrategy);
+}
+if (!customElements.get("cmr-strategy-editor")) {
+  customElements.define("cmr-strategy-editor", CmrStrategyEditor);
 }
 window.customStrategies = window.customStrategies || [];
 if (!window.customStrategies.some((s) => s.type === "cmr")) {

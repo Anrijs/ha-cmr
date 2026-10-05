@@ -178,6 +178,15 @@ def _custom_integrations(enable_custom_integrations: None) -> None:
     """Let Home Assistant load custom_components/."""
 
 
+@pytest.fixture(autouse=True)
+def _wifi_logs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The fleet Wi-Fi feed is off in releases; most tests exercise it anyway."""
+    from custom_components.cmr import eventlog
+
+    if "wifi_logs_default" not in request.keywords:
+        monkeypatch.setattr(eventlog, "WIFI_LOGS_ENABLED", True)
+
+
 @pytest.fixture
 def controller(monkeypatch: pytest.MonkeyPatch) -> FakeController:
     fake = FakeController()

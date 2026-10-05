@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+- Large fleets: per-device diagnostic sensors are off by default (also turned off once on existing installs), the Devices view is the table only above 24 devices, the auto map wraps.
+- "Edit dashboard" on a CMR network dashboard picks the controller; with several controllers, each dashboard says which one it shows.
+- The fleet Wi-Fi probe is off until controllers filter it properly.
+
 ## 0.7.2
 - Connection errors name the port you entered, and say when a port speaks plain HTTP while HTTPS is on.
 

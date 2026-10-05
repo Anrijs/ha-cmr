@@ -167,8 +167,11 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
                 <circle cx="32" cy="32" r=${R} class="value"
                   stroke-dasharray=${`${C * share} ${C}`} transform="rotate(-90 32 32)"></circle>
               </svg>
-              <div class="ring-text"><b>${online}</b><span>/${devices.length}</span></div>
-              <div class="label">online</div>
+              ${devices.length < 100
+                ? html`<div class="ring-text"><b>${online}</b><span>/${devices.length}</span></div>
+                    <div class="label">online</div>`
+                : html`<div class="ring-text"><b>${online}</b></div>
+                    <div class="label">of ${devices.length} online</div>`}
             </button>
             ${this._stat("updates", "mdi:update", updates, "updates", updates ? "update" : "ok")}
             ${this._stat("alerts", "mdi:bell-alert-outline", firing, "alerts firing", firing ? "alert" : "ok")}

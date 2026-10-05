@@ -94,6 +94,8 @@ class CmrConfigFlow(ConfigFlow, domain=DOMAIN):
     """Set up a CMR controller."""
 
     VERSION = 1
+    # 1.2: per-device diagnostic sensors are disabled by default (migrated in __init__).
+    MINOR_VERSION = 2
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

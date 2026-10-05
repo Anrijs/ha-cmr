@@ -299,16 +299,22 @@ Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard (u
 - **Network:** status, topology, devices, alerts, events (notable ones),
   upgrades.
 - **Events:** the full timeline and active issues.
-- **Devices:** a 24-hour connectivity timeline and a section per device.
+- **Devices:** the device table; for fleets of up to 24 devices also a
+  24-hour connectivity timeline and a section per device.
 - **Topology:** the map, full screen.
 
 It regenerates from the fleet every time it opens. To customise it, use *Take
-control* in the dashboard menu; or create it in YAML:
+control* in the dashboard menu.
+
+**Several controllers:** add one *CMR network* dashboard per controller. A
+new one shows the first controller (with a note saying so when there are
+more); open it, press ✏️ *Edit dashboard* and pick the **Controller** (and
+optionally a title). In YAML:
 
 ```yaml
 strategy:
   type: custom:cmr
-  # entry_id: <config entry id>   # only with more than one controller
+  entry_id: <config entry id>   # ⋮ on the integration entry → Copy entry ID
 ```
 
 ### Cards on your own dashboards
@@ -373,9 +379,15 @@ Entity ids follow the device identity, e.g. for a device named `Office-AP`:
 |---|---|
 | Connected | `binary_sensor.office_ap_connected` |
 | Up since | `sensor.office_ap_up_since` |
-| Firmware version | `sensor.office_ap_firmware_version` |
+| Active alerts | `sensor.office_ap_active_alerts` |
 | Firmware update | `update.office_ap_firmware` |
 | Last alert (pushed) | `event.office_ap_alert` |
+
+Each device also has diagnostic sensors (firmware version, channel version,
+update channel, upgrade rule, address, packages, labels, connected since).
+They are **disabled by default** — with hundreds of devices they would add
+thousands of entities — and can be enabled per device on its page. The cards
+don't need any of them.
 
 On the controller's device: `sensor.<controller>_devices_online`,
 `_updates_available`, `_alert_rules_firing`, `_network_issues`,
