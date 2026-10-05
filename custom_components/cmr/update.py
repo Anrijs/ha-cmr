@@ -1,4 +1,4 @@
-"""Firmware update entities, one per managed device."""
+"""RouterOS update entities, one per managed device (RouterBOOT firmware is not covered)."""
 
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ async def async_setup_entry(
 
 
 class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
-    """Installed firmware version against what the device's channel offers.
+    """Installed RouterOS version against what the device's channel offers.
 
     The controller flags any *different* version as an upgrade; an older
     available version (an internal build ahead of its channel) is reported as

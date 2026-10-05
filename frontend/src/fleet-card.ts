@@ -429,7 +429,8 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
   private _row(d: CmrDevice): TemplateResult {
     const status = deviceStatus(d);
     return html`
-      <div class="row status-${status}" role="row" @click=${() => moreInfo(this, d.entities.connected)}>
+      <div class="row status-${status}" role="row"
+        @click=${() => moreInfo(this, (d.update_available ? d.entities.update : undefined) ?? d.entities.connected)}>
         <div class="c-device">
           <div class="icon" title=${STATUS_LABEL[status]}>${deviceVisual(d, "thumb")}<i class="dot"></i></div>
           <div class="who">

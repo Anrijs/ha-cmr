@@ -1,4 +1,4 @@
-"""Buttons: check for new firmware versions, run an upgrade rule now."""
+"""Buttons: check for new RouterOS versions, run an upgrade rule now."""
 
 from __future__ import annotations
 

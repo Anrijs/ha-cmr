@@ -501,7 +501,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       this._path = [...(this._path.length ? this._path : [this._currentLayout(this._entry!)]), node.target];
       this._hover = undefined;
     } else if (node.device) {
-      moreInfo(this, node.device.entities.connected ?? node.device.entities.update);
+      // With an update waiting, the update entity's dialog has the Install button.
+      const e = node.device.entities;
+      moreInfo(this, (node.device.update_available ? e.update : undefined) ?? e.connected ?? e.update);
     }
   }
 

@@ -139,7 +139,7 @@
         "name": "Ieslēgts kopš"
       },
       "version": {
-        "name": "Programmatūras versija"
+        "name": "RouterOS versija"
       },
       "active_alerts": {
         "name": "Aktīvie brīdinājumi"
@@ -186,7 +186,7 @@
     },
     "update": {
       "firmware": {
-        "name": "Programmatūra"
+        "name": "RouterOS"
       }
     },
     "button": {

@@ -71,7 +71,7 @@
           "catalog_url": "Product catalog URL"
         },
         "data_description": {
-          "allow_upgrades": "Adds Install to each firmware update, a button per upgrade rule, and Approve for devices waiting to be paired. Needs the `write` policy on the router user.",
+          "allow_upgrades": "Adds Install to each RouterOS update, a button per upgrade rule, and Approve for devices waiting to be paired. Needs the `write` policy on the router user.",
           "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything.",
           "catalog_url": "Optional. A product catalog that adds photos and product names to devices; leave empty to turn it off. Photos then load from the catalog's image server."
         },
@@ -139,7 +139,7 @@
         "name": "Up since"
       },
       "version": {
-        "name": "Firmware version"
+        "name": "RouterOS version"
       },
       "active_alerts": {
         "name": "Active alerts"
@@ -186,7 +186,7 @@
     },
     "update": {
       "firmware": {
-        "name": "Firmware"
+        "name": "RouterOS"
       }
     },
     "button": {

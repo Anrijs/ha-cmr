@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.3
+- Clicking a device on the map or in the device table opens its RouterOS update (with Install) when one is waiting, instead of the connectivity sensor.
+- "Firmware" is now "RouterOS" everywhere (entity names, the per-device tile, the README): in MikroTik terms firmware is RouterBOOT, and these are RouterOS upgrades. Existing entity ids are unchanged.
+
 ## 0.10.2
 - Map tiles show the available version with an up-arrow instead of "installed → available", which overflowed the tile; the tooltip still shows both.
 

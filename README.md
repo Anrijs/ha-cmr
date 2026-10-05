@@ -36,9 +36,9 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
 **In Home Assistant**
 
 - Every CMR-managed device becomes a Home Assistant **device** (model, product
-  code, serial, firmware version, link to its web interface), grouped under the
+  code, serial, RouterOS version, link to its web interface), grouped under the
   controller. Newly paired devices appear on their own.
-- Per device: *Connected*, *Up since*, *Firmware version*, a **firmware update**
+- Per device: *Connected*, *Up since*, *RouterOS version*, a **RouterOS update**
   entity (listed in Settings → Updates), an *Alert* event entity, and
   diagnostic sensors (address, channel, upgrade rule, packages, labels).
 - For the fleet: managed devices, devices online, updates available, alert
@@ -48,7 +48,7 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
   links, repeated reboots, login failures…), with issues in **Settings →
   Repairs**.
 - **Instant alerts** from the controller's alert rules through a webhook.
-- **Upgrades** (opt-in): install a firmware update on one device, run an
+- **Upgrades** (opt-in): install a RouterOS update on one device, run an
   upgrade rule, check for new versions, with guards against accidental
   downgrades.
 
@@ -386,10 +386,10 @@ Entity ids follow the device identity, e.g. for a device named `Office-AP`:
 | Connected | `binary_sensor.office_ap_connected` |
 | Up since | `sensor.office_ap_up_since` |
 | Active alerts | `sensor.office_ap_active_alerts` |
-| Firmware update | `update.office_ap_firmware` |
+| RouterOS update | `update.office_ap_routeros` |
 | Last alert (pushed) | `event.office_ap_alert` |
 
-Each device also has diagnostic sensors (firmware version, channel version,
+Each device also has diagnostic sensors (RouterOS version, channel version,
 update channel, upgrade rule, address, packages, labels, connected since).
 They are **disabled by default** — with hundreds of devices they would add
 thousands of entities — and can be enabled per device on its page. The cards
@@ -487,7 +487,7 @@ so.
 
 With *Allow actions on the controller* on and `write` on the router user:
 
-- **Install** on a device's firmware update upgrades that one device. It always
+- **Install** on a device's RouterOS update upgrades that one device. It always
   pins the exact version shown, and only offers versions that are newer than
   the installed one.
 - **Run upgrade rule** starts that rule's job now. It refuses while the rule's
@@ -593,7 +593,7 @@ Handled by the integration:
 - **Older versions offered as upgrades.** By design, the controller's
   "upgrade available" flag means the device's channel offers a *different*
   version, which can be older (a device on a testing build whose rule uses
-  `stable`). The update entity compares firmware versions (dev builds < beta
+  `stable`). The update entity compares RouterOS versions (dev builds < beta
   < rc < release) and only offers newer ones; an explicit version pin is the
   user's call.
 - **Negative layout coordinates** come back as unsigned 32-bit numbers
