@@ -62,9 +62,22 @@ function eventIcon(event: CmrEvent): string {
 }
 
 /** Events about the same thing, so runs of them can fold into one row. */
+/**
+ * A log line's shape with the variable parts blanked out, so runs of lines
+ * that differ only in an address, a MAC or a number fold together
+ * ("10.5.2.17 received DHCP message …" × 28).
+ */
+function template(text: string): string {
+  return text
+    .replace(/\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b/g, "<mac>")
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?:\/\d+)?(?::\d+)?\b/g, "<ip>")
+    .replace(/\b[0-9a-f]*:[0-9a-f:]+:[0-9a-f]*\b/gi, "<ip6>")
+    .replace(/\d+/g, "#");
+}
+
 function subjectKey(event: CmrEvent): string {
   const d = event.data ?? {};
-  const subject = d.mac ?? d.interface ?? d.user ?? d.rule_id ?? d.key ?? event.title;
+  const subject = d.mac ?? d.interface ?? d.user ?? d.rule_id ?? d.key ?? template(event.title);
   return `${event.category}|${event.device_key ?? ""}|${String(subject)}`;
 }
 

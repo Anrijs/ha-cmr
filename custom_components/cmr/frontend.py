@@ -19,7 +19,8 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
         return
     hass.data[f"{DOMAIN}_frontend"] = True
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(FRONTEND_URL, str(_FRONTEND_DIR), cache_headers=False)]
+        # Cacheable: the script URL carries the file's mtime, so a new build gets a new URL.
+        [StaticPathConfig(FRONTEND_URL, str(_FRONTEND_DIR), cache_headers=True)]
     )
     script = _FRONTEND_DIR / FRONTEND_SCRIPT
     # The file's mtime busts browser caches after an update.

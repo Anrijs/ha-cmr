@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.2
+- Repetitive log lines that differ only in an address or a number fold into one timeline row.
+- The card script is cached by the browser (faster dashboard loads).
+
 ## 0.8.1
 - Add dashboard asks which controller the CMR network dashboard shows; the "first of several controllers" note is gone.
 - The map grows to fit large layouts (up to 85% of the window, `max_height`), zooms closer, and double-click zooms in.
