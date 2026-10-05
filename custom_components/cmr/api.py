@@ -98,9 +98,18 @@ class CmrApi:
 def connection_detail(err: BaseException, base_url: str) -> str:
     """What went wrong reaching the controller, in words a user can act on."""
     target = base_url.split("://", 1)[-1]
-    port_hint = "443 (www-ssl)" if base_url.startswith("https") else "80 (www)"
-    if isinstance(err, aiohttp.ClientConnectorCertificateError | aiohttp.ClientSSLError):
+    https = base_url.startswith("https")
+    # host:port (an IPv6 literal without a port has several colons and no port)
+    port = target.rpartition(":")[2] if target.count(":") == 1 else ""
+    default_port = "443 (www-ssl)" if https else "80 (www)"
+    port_hint = f"{port} ({'HTTPS' if https else 'HTTP'})" if port else default_port
+    cause = getattr(err, "os_error", None) or err.__cause__ or err
+    if https and "WRONG_VERSION_NUMBER" in str(cause).upper():
+        return f"{target} speaks plain HTTP, not HTTPS: turn off Use HTTPS (or point to the www-ssl port)."
+    if isinstance(err, aiohttp.ClientConnectorCertificateError):
         return f"{target} answered, but its HTTPS certificate was rejected; turn off certificate verification or use a trusted certificate."
+    if isinstance(err, aiohttp.ClientSSLError):
+        return f"HTTPS handshake with {target} failed: {cause}"
     if isinstance(err, aiohttp.ClientConnectorError):
         cause = err.os_error
         if isinstance(cause, ConnectionRefusedError):

@@ -97,6 +97,15 @@ def test_connection_errors_read_like_advice() -> None:
     assert "port 80 (www)" in api.connection_detail(refused, "http://192.0.2.8")
     unreachable = aiohttp.ClientConnectorError(key, OSError(101, "Network unreachable"))
     assert api.connection_detail(unreachable, "https://192.0.2.8") == "No route to 192.0.2.8 from Home Assistant (network unreachable)."
+    custom = aiohttp.ClientConnectorError(SimpleNamespace(host="192.0.2.8", port=888, ssl=False), ConnectionRefusedError(111, "x"))
+    assert "refused the connection on port 888 (HTTP)" in api.connection_detail(custom, "http://192.0.2.8:888")
+    tls = aiohttp.ClientConnectorSSLError(
+        SimpleNamespace(host="192.0.2.8", port=888, ssl=True),
+        OSError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1082)"),
+    )
+    assert api.connection_detail(tls, "https://192.0.2.8:888") == (
+        "192.0.2.8:888 speaks plain HTTP, not HTTPS: turn off Use HTTPS (or point to the www-ssl port)."
+    )
     assert "within 20 s" in api.connection_detail(TimeoutError(), "https://192.0.2.8")
     assert "isn't the REST API" in api.connection_detail(ValueError("bad json"), "https://192.0.2.8")
 

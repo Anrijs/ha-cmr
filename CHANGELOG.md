@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.2
+- Connection errors name the port you entered, and say when a port speaks plain HTTP while HTTPS is on.
+
 ## 0.7.1
 - Connection errors say what to fix (service refused on port 443/80, no route, timeout, certificate) instead of a raw error.
 
