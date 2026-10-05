@@ -162,7 +162,6 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
               <div class="meta">
                 ${controller ? modelName(controller) : ""} ·
                 <span class="mono">${controller?.version ?? "?"}</span>
-                ${controller?.prerelease ? html`<span class="chip">pre-release</span>` : nothing}
               </div>
             </div>
             <a class="open" href=${entry.controller_url} target="_blank" rel="noreferrer" title="Open the router's web interface (WebFig)">

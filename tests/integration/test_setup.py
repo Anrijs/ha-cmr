@@ -98,7 +98,7 @@ async def test_websocket_subscribe_payload(hass: HomeAssistant, entry, hass_ws_c
     assert payload["available"] is True
     assert len(payload["devices"]) == 7
     core = next(d for d in payload["devices"] if d["controller"])
-    assert core["prerelease"] is True and core["update_available"] is False
+    assert core["update_available"] is False and "prerelease" not in core
     assert core["alerts"]["total"] > 0
     assert core["entities"]["update"] and core["entities"]["connected"]
     assert "role" not in core

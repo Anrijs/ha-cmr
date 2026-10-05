@@ -442,7 +442,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
           </div>
         </div>
         <div class="c-labels">${d.labels.map((l) => html`<span class="chip">${l}</span>`)}</div>
-        <div class="c-version" title=${d.prerelease ? "Pre-release build · click to filter by this version" : "Click to filter by this version"}>
+        <div class="c-version" title="Click to filter by this version">
           <button class="ver mono" @click=${(e: Event) => { e.stopPropagation(); this._version = this._version === d.version ? "" : (d.version ?? ""); }}>
             ${d.version ?? "–"}</button>
           ${d.update_available

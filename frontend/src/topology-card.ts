@@ -933,7 +933,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         <table>
           <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}${pairingHint(d) ? ` (${pairingHint(d)})` : ""}${d.stale ? " · stale data" : ""}</td></tr>
           ${d.connected && d.connected_time != null ? html`<tr><td>Connected</td><td>for ${formatDuration(d.connected_time)}</td></tr>` : nothing}
-          <tr><td>Version</td><td class="mono">${d.version ?? "–"}${d.prerelease ? " (pre-release)" : ""}</td></tr>
+          <tr><td>Version</td><td class="mono">${d.version ?? "–"}</td></tr>
           <tr><td>Channel</td><td>${d.channel ?? "–"}${d.available_version && d.available_version !== d.version
             ? html` <span class="muted">(${d.update_available ? "update to" : "offers"} <span class="mono">${d.available_version}</span>)</span>`
             : nothing}</td></tr>

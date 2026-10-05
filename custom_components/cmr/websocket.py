@@ -21,7 +21,6 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from .api import CmrApiError
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry
-from .models import is_prerelease
 from .pairing import async_pair
 from .webhook import (
     alert_setup_script,
@@ -95,7 +94,6 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "model_code": d.model_code,
             "arch": d.arch,
             "version": d.version,
-            "prerelease": is_prerelease(d.version),
             "available_version": d.available_version,
             "update_available": d.update_available,
             "minimum_version": d.minimum_version,

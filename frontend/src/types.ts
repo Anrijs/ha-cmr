@@ -18,7 +18,6 @@ export interface CmrDevice {
   model_code: string | null;
   arch: string | null;
   version: string | null;
-  prerelease: boolean;
   available_version: string | null;
   update_available: boolean;
   minimum_version: string | null;

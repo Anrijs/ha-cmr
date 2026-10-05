@@ -6,6 +6,7 @@ from collections.abc import Mapping
 import logging
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant.components import webhook
@@ -21,7 +22,8 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_create_clientsession, async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.util.ssl import client_context, client_context_no_verify
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrConnectionError, CmrNotFoundError
 from .catalog import CatalogError, async_fetch_products
@@ -69,11 +71,13 @@ def build_api(hass: HomeAssistant, data: Mapping[str, Any], *, dedicated: bool =
     and log in again. Home Assistant's shared session would keep them alive.
     """
     verify_ssl = data.get(CONF_VERIFY_SSL, False)
-    session = (
-        async_create_clientsession(hass, verify_ssl=verify_ssl)
-        if dedicated
-        else async_get_clientsession(hass, verify_ssl=verify_ssl)
-    )
+    if dedicated:
+        # Our own session, not one from Home Assistant's helpers: those patch
+        # `close()` to warn, and this one is closed on unload on purpose.
+        context = client_context() if verify_ssl else client_context_no_verify()
+        session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=context))
+    else:
+        session = async_get_clientsession(hass, verify_ssl=verify_ssl)
     return CmrApi(
         session,
         data[CONF_HOST],

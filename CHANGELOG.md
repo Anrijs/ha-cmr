@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.9
+- The "pre-release" marker on versions is gone from the map tooltip, status card and device table: it was our own reading of the version string, not a RouterOS notion, and the channel is shown anyway.
+- The integration's own HTTP session is a plain aiohttp session (closed on reload and at shutdown), which removes a Home Assistant warning about closing a helper-created session.
+
 ## 0.10.8
 - Overview layout: Devices and Events share the left column, Alerts and Upgrades the right one, so a short device list no longer leaves a gap beside a long alert list.
 

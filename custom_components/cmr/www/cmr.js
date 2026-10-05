@@ -553,7 +553,7 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
           </div>
         </div>
         <div class="c-labels">${e.labels.map(s=>a`<span class="chip">${s}</span>`)}</div>
-        <div class="c-version" title=${e.prerelease?"Pre-release build \xB7 click to filter by this version":"Click to filter by this version"}>
+        <div class="c-version" title="Click to filter by this version">
           <button class="ver mono" @click=${s=>{s.stopPropagation(),this._version=this._version===e.version?"":e.version??""}}>
             ${e.version??"\u2013"}</button>
           ${e.update_available?a`<span class="update" title="Update available"><ha-icon icon="mdi:arrow-up-circle"></ha-icon><span class="mono">${e.available_version}</span></span>`:h}
@@ -652,7 +652,6 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
               <div class="meta">
                 ${s?I(s):""} ·
                 <span class="mono">${s?.version??"?"}</span>
-                ${s?.prerelease?a`<span class="chip">pre-release</span>`:h}
               </div>
             </div>
             <a class="open" href=${e.controller_url} target="_blank" rel="noreferrer" title="Open the router's web interface (WebFig)">
@@ -989,7 +988,7 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
         <table>
           <tr><td>Status</td><td class="status-${$(r)}"><i class="dot"></i> ${A[$(r)]}${q(r)?` (${q(r)})`:""}${r.stale?" \xB7 stale data":""}</td></tr>
           ${r.connected&&r.connected_time!=null?a`<tr><td>Connected</td><td>for ${ce(r.connected_time)}</td></tr>`:h}
-          <tr><td>Version</td><td class="mono">${r.version??"\u2013"}${r.prerelease?" (pre-release)":""}</td></tr>
+          <tr><td>Version</td><td class="mono">${r.version??"\u2013"}</td></tr>
           <tr><td>Channel</td><td>${r.channel??"\u2013"}${r.available_version&&r.available_version!==r.version?a` <span class="muted">(${r.update_available?"update to":"offers"} <span class="mono">${r.available_version}</span>)</span>`:h}</td></tr>
           ${r.address?a`<tr><td>Address</td><td class="mono">${r.address}</td></tr>`:h}
           <tr><td>Uptime</td><td>${ce(r.uptime)}</td></tr>

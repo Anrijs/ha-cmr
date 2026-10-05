@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from homeassistant.const import CONF_SCAN_INTERVAL, Platform
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.const import CONF_SCAN_INTERVAL, EVENT_HOMEASSISTANT_CLOSE, Platform
+from homeassistant.core import callback, Event, HomeAssistant
 from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
@@ -45,6 +45,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
     entry.runtime_data = coordinator
     # Reload = log in again (the router keeps a session's rights as they were at login).
     entry.async_on_unload(coordinator.api.async_close)
+
+    async def _close_on_stop(_event: Event) -> None:
+        await coordinator.api.async_close()
+
+    entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, _close_on_stop))
     coordinator.catalog = hass.data[f"{DOMAIN}_catalog"]
     coordinator.eventlog = CmrEventLog(hass, entry)
     await coordinator.eventlog.async_load()
