@@ -225,3 +225,43 @@ def test_state_round_trip():
     assert restored.active.keys() == engine.active.keys()
     (kind, _), = restored.observe(wifi_drop(5))
     assert kind == "updated"
+
+
+def test_dismiss_forgets_counts_and_keeps_offline_quiet():
+    from datetime import UTC, datetime, timedelta
+
+    from custom_components.cmr import insights
+
+    engine = insights.InsightEngine()
+    now = datetime(2026, 10, 5, 12, 0, tzinfo=UTC)
+    for i in range(5):
+        engine.observe({
+            "time": now + timedelta(seconds=i), "category": "security", "severity": "warning",
+            "data": {"event": "failure", "user": "admin", "address": "203.0.113.9", "service": "ssh"},
+        })
+    key = next(iter(engine.active))
+    assert key.startswith("login_failures:")
+    dismissed = engine.dismiss(key, now + timedelta(minutes=1))
+    assert dismissed is not None and dismissed.resolved is not None
+    assert key not in engine.active
+    # The old failures are forgotten: four new ones don't reach the threshold again.
+    for i in range(4):
+        engine.observe({
+            "time": now + timedelta(minutes=2, seconds=i), "category": "security", "severity": "warning",
+            "data": {"event": "failure", "user": "admin", "address": "203.0.113.9", "service": "ssh"},
+        })
+    assert key not in engine.active
+    assert engine.dismiss("login_failures:nobody", now) is None
+
+    # A dismissed offline insight stays quiet while the device is still down, and
+    # may come back after it has been online once.
+    down = [{"key": "S1", "name": "AP", "connected": False, "pending": False, "disconnected_for": 3600}]
+    assert [c for c, _ in engine.check_devices(down, now)] == ["raised"]
+    assert engine.dismiss("device_offline:S1", now).kind == "device_offline"
+    assert engine.check_devices(down, now + timedelta(minutes=5)) == []
+    up = [{**down[0], "connected": True, "disconnected_for": None}]
+    assert engine.check_devices(up, now + timedelta(minutes=6)) == []
+    assert [c for c, _ in engine.check_devices(down, now + timedelta(minutes=30))] == ["raised"]
+    # The dismissal survives a save/load round trip.
+    engine.dismiss("device_offline:S1", now)
+    assert "device_offline:S1" in insights.InsightEngine(engine.as_dict())._dismissed

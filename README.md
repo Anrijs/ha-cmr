@@ -533,7 +533,11 @@ sources, all generic:
 | Alert action failing | a rule's action (e.g. webhook) failed | 1 h without failures |
 
 Each issue appears in Settings → Repairs, in *Network issues* / *Network
-trouble*, at the top of the events card, and fires the issue event. Wi-Fi
+trouble*, at the top of the events card, and fires the issue event. Issues
+resolve themselves after the quiet period; an administrator can also dismiss
+one with its ✕ (events card or the status card's issues panel) — its counted
+occurrences are forgotten, so it comes back only on new ones, and a dismissed
+"offline" issue stays quiet until the device has been back online once. Wi-Fi
 clients are named from Home Assistant's device registry when another
 integration knows their MAC address, otherwise from DHCP lease names in the
 log.

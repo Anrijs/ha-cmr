@@ -250,8 +250,9 @@ export const baseStyles = css`
   :host {
     --cmr-ok: var(--success-color, #2e7d32);
     --cmr-update: var(--info-color, #0288d1);
-    --cmr-alert: var(--error-color, #d32f2f);
-    --cmr-pending: var(--warning-color, #f57c00);
+    /* Three distinct hues: alerts amber, offline red, pairing purple. */
+    --cmr-alert: var(--warning-color, #f57c00);
+    --cmr-pending: #8e24aa;
     --cmr-offline: var(--error-color, #d32f2f);
     /* Aqua, the jacket colour of OM3/OM4 multimode fiber. */
     --cmr-fiber: var(--cyan-color, #00bcd4);

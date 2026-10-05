@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.5
+- Detected issues can be dismissed (✕ on the events card and in the status card's issues panel, administrators only): the issue clears everywhere and comes back only on new occurrences.
+- Alert firing is amber and disconnected red (they were both red); a device waiting to pair is purple; offline devices lose their colour on the map.
+
 ## 0.10.4
 - Each controller gets its own HTTP session, closed on reload: the router keeps a REST session's rights as they were at login, so after granting the user `write`, reloading the integration now really logs in again (before, upgrades kept failing with "not enough permissions"). The upgrade error says so.
 

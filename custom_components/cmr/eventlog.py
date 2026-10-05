@@ -529,12 +529,25 @@ class CmrEventLog:
 
     # ------------------------------------------------------------ queries
 
+    def dismiss_issue(self, key: str) -> bool:
+        """Clear an active issue by hand: resolved event, Repair removed, listeners told."""
+        now = dt_util.utcnow()
+        insight = self.engine.dismiss(key, now)
+        if insight is None:
+            return False
+        added = self._on_insight("resolved", insight, now, replay=False)
+        self._save()
+        for listener in list(self._listeners):
+            listener(added)
+        return True
+
     def insight_list(self) -> list[dict[str, Any]]:
         out = []
         for insight in sorted(self.engine.active.values(), key=lambda i: i.since):
             title, detail = describe(insight, self.engine.offline_after)
             out.append(
                 {
+                    "entry_id": self.entry.entry_id,
                     "key": insight.key,
                     "kind": insight.kind,
                     "severity": insight.severity,

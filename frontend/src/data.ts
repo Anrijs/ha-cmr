@@ -145,7 +145,13 @@ export interface CmrEvent {
   notable?: boolean;
 }
 
+/** Clear a detected issue by hand; it comes back only on new occurrences. */
+export function dismissIssue(hass: HassLike, entryId: string, key: string): Promise<unknown> {
+  return hass.connection.sendMessagePromise({ type: "cmr/issue_dismiss", entry_id: entryId, key });
+}
+
 export interface CmrIssue {
+  entry_id: string;
   key: string;
   kind: string;
   severity: string;

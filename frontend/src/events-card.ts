@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, type PropertyValues, type TemplateResult } from "lit";
-import { cmrEvents, type CmrEvent, type CmrIssue } from "./data";
+import { cmrEvents, dismissIssue, type CmrEvent, type CmrIssue } from "./data";
 import { baseStyles, navigate } from "./shared";
 import type { HassLike } from "./types";
 
@@ -330,6 +330,11 @@ export class CmrEventsCard extends LitElement {
             : device ? html`· ${device}` : nothing}
         </div>
       </div>
+      ${this.hass.user?.is_admin
+        ? html`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
+            @click=${() => dismissIssue(this.hass, issue.entry_id, issue.key).catch((err) => console.error("cmr: dismiss", err))}>
+            <ha-icon icon="mdi:close"></ha-icon></button>`
+        : nothing}
     </div>`;
   }
 
@@ -417,6 +422,11 @@ export class CmrEventsCard extends LitElement {
       .issue .detail { font-size: 13px; margin-top: 2px; line-height: 1.4; }
       .issue .meta { font-size: 12px; color: var(--cmr-muted); margin-top: 4px; }
       .issue a { color: var(--primary-color); text-decoration: none; }
+      .issue .dismiss {
+        all: unset; cursor: pointer; flex: none; align-self: flex-start; line-height: 0; padding: 4px; border-radius: 50%;
+        color: var(--cmr-muted); --mdc-icon-size: 18px;
+      }
+      .issue .dismiss:hover { color: var(--primary-text-color); background: color-mix(in srgb, var(--sev) 15%, transparent); }
       .sev-error { --sev: var(--cmr-alert); }
       .sev-warning { --sev: var(--cmr-pending); }
       .sev-notice { --sev: var(--cmr-update); }

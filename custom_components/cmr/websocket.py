@@ -59,6 +59,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_alert_push)
     websocket_api.async_register_command(hass, ws_pair)
     websocket_api.async_register_command(hass, ws_alert_devices)
+    websocket_api.async_register_command(hass, ws_issue_dismiss)
 
 
 def _loaded_entries(hass: HomeAssistant, entry_id: str | None) -> list[CmrConfigEntry]:
@@ -343,6 +344,26 @@ async def ws_alert_devices(
         connection.send_error(msg["id"], "unsupported", "This user may not run console commands on the controller")
         return
     connection.send_result(msg["id"], {"devices": keys})
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "cmr/issue_dismiss", vol.Required("entry_id"): str, vol.Required("key"): str}
+)
+@callback
+def ws_issue_dismiss(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Clear a detected issue by hand (it comes back only on new occurrences)."""
+    entries = _loaded_entries(hass, msg["entry_id"])
+    log = entries[0].runtime_data.eventlog if entries else None
+    if log is None:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return
+    if not log.dismiss_issue(msg["key"]):
+        connection.send_error(msg["id"], "not_found", "No such active issue")
+        return
+    connection.send_result(msg["id"], {"key": msg["key"]})
 
 
 @websocket_api.websocket_command(

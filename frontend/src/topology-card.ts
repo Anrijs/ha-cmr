@@ -1036,6 +1036,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         border-radius: 50%; background: var(--status, var(--cmr-muted)); border: 2px solid var(--cmr-surface);
       }
       .node.status-alert .badge::after, .node.status-offline .badge::after { animation: pulse 1.8s ease-out infinite; }
+      /* An offline device also loses its colour, so red-dot-offline and amber-dot-alert never look alike. */
+      .node.status-offline .badge img, .node.status-offline .badge ha-icon { filter: grayscale(1); opacity: 0.55; }
+      .node.status-offline .name { color: var(--cmr-muted); }
       @keyframes pulse {
         0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--status) 60%, transparent); }
         100% { box-shadow: 0 0 0 9px transparent; }

@@ -175,6 +175,8 @@ class InsightEngine:
         self.active: dict[str, Insight] = {
             key: Insight.from_dict(item) for key, item in state.get("active", {}).items()
         }
+        # Offline insights dismissed by hand: not raised again while the device stays down.
+        self._dismissed: set[str] = set(state.get("dismissed", []))
 
     def configure(self, thresholds: Mapping[str, int] | None = None, offline_after: timedelta | None = None) -> None:
         """Apply per-rule thresholds (0 turns a rule off) and the offline delay."""
@@ -190,6 +192,7 @@ class InsightEngine:
                 key: [(t.isoformat(), extra) for t, extra in items] for key, items in self._seen.items()
             },
             "active": {key: insight.as_dict() for key, insight in self.active.items()},
+            "dismissed": sorted(self._dismissed),
         }
 
     # ------------------------------------------------------------- input
@@ -213,7 +216,7 @@ class InsightEngine:
             down_for = device.get("disconnected_for")
             offline = not device["connected"] and not device.get("pending")
             if offline and down_for is not None and down_for >= self.offline_after.total_seconds():
-                if key not in self.active:
+                if key not in self.active and key not in self._dismissed:
                     since = now - timedelta(seconds=down_for)
                     insight = Insight(
                         key, "device_offline", device["name"], device["key"], "error",
@@ -221,10 +224,12 @@ class InsightEngine:
                     )
                     self.active[key] = insight
                     changes.append(("raised", insight))
-            elif not offline and key in self.active:
-                insight = self.active.pop(key)
-                insight.resolved = now
-                changes.append(("resolved", insight))
+            elif not offline:
+                self._dismissed.discard(key)
+                if key in self.active:
+                    insight = self.active.pop(key)
+                    insight.resolved = now
+                    changes.append(("resolved", insight))
         # A device removed from the controller is no longer "offline".
         present = {f"device_offline:{device['key']}" for device in devices}
         for key in [k for k in self.active if k.startswith("device_offline:") and k not in present]:
@@ -232,6 +237,22 @@ class InsightEngine:
             insight.resolved = now
             changes.append(("resolved", insight))
         return changes
+
+    def dismiss(self, key: str, now: datetime) -> Insight | None:
+        """Resolve an insight by hand.
+
+        Its counted occurrences are forgotten so only new ones can raise it
+        again; a dismissed offline insight stays quiet until the device has
+        been back online once.
+        """
+        insight = self.active.pop(key, None)
+        if insight is None:
+            return None
+        insight.resolved = now
+        self._seen.pop(key, None)
+        if insight.kind == "device_offline":
+            self._dismissed.add(key)
+        return insight
 
     def sweep(self, now: datetime) -> list[Insight]:
         """Resolve insights that have been quiet long enough; drop old counts."""

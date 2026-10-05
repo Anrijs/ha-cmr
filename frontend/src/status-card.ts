@@ -1,5 +1,5 @@
 import { css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
-import { RuleDevices, cmrEvents, type CmrIssue } from "./data";
+import { RuleDevices, cmrEvents, dismissIssue, type CmrIssue } from "./data";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
@@ -270,6 +270,11 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
             <div class="muted small">${issue.detail}</div>
           </div>
           ${issue.device_name ? html`<span class="chip">${issue.device_name}</span>` : nothing}
+          ${this.hass.user?.is_admin
+            ? html`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
+                @click=${() => dismissIssue(this.hass, issue.entry_id, issue.key).catch((err) => console.error("cmr: dismiss", err))}>
+                <ha-icon icon="mdi:close"></ha-icon></button>`
+            : nothing}
         </div>`,
       );
       link = { view: this._config.views?.events, params: {} };
@@ -351,6 +356,8 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
       .item .chev { color: var(--cmr-muted); --mdc-icon-size: 18px; }
       .item.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
       .rd { margin-left: 0; }
+      .item .dismiss { all: unset; cursor: pointer; line-height: 0; padding: 4px; border-radius: 50%; color: var(--cmr-muted); --mdc-icon-size: 18px; }
+      .item .dismiss:hover { color: var(--primary-text-color); background: var(--cmr-surface); }
       ha-card { display: flex; flex-direction: column; container-type: inline-size; }
       .hero { display: flex; gap: 16px; padding: 16px; align-items: center; flex-wrap: wrap; }
       .identity { display: flex; gap: 12px; align-items: center; flex: 1 1 260px; min-width: 0; }
