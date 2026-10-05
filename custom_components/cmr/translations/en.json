@@ -208,6 +208,9 @@
     "upgrade_failed": {
       "message": "The controller refused to upgrade {device}: {detail}"
     },
+    "upgrade_refused_permissions": {
+      "message": "The controller refused to upgrade {device}: {detail}. The user needs the `write` policy; if its group was changed after setup, reload the integration so it logs in again (the controller keeps a session's rights as they were at login)."
+    },
     "command_failed": {
       "message": "The controller refused the command: {detail}"
     },

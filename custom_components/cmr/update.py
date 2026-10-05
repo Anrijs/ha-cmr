@@ -157,9 +157,10 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
                 {"numbers": device.rest_id, "channel": target, "duration": "2s"},
             )
         except CmrApiError as err:
+            refused = "permission" in (err.detail or "").lower()
             raise HomeAssistantError(
                 translation_domain=DOMAIN,
-                translation_key="upgrade_failed",
+                translation_key="upgrade_refused_permissions" if refused else "upgrade_failed",
                 translation_placeholders={"device": device.identity, "detail": err.detail},
             ) from err
         self._installing_to = target

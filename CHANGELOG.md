@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.4
+- Each controller gets its own HTTP session, closed on reload: the router keeps a REST session's rights as they were at login, so after granting the user `write`, reloading the integration now really logs in again (before, upgrades kept failing with "not enough permissions"). The upgrade error says so.
+
 ## 0.10.3
 - Clicking a device on the map or in the device table opens its RouterOS update (with Install) when one is waiting, instead of the connectivity sensor.
 - "Firmware" is now "RouterOS" everywhere (entity names, the per-device tile, the README): in MikroTik terms firmware is RouterBOOT, and these are RouterOS upgrades. Existing entity ids are unchanged.

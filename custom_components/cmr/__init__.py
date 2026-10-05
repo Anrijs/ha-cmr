@@ -41,8 +41,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
-    coordinator = CmrCoordinator(hass, entry, build_api(hass, entry.data))
+    coordinator = CmrCoordinator(hass, entry, build_api(hass, entry.data, dedicated=True))
     entry.runtime_data = coordinator
+    # Reload = log in again (the router keeps a session's rights as they were at login).
+    entry.async_on_unload(coordinator.api.async_close)
     coordinator.catalog = hass.data[f"{DOMAIN}_catalog"]
     coordinator.eventlog = CmrEventLog(hass, entry)
     await coordinator.eventlog.async_load()

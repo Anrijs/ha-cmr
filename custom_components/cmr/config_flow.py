@@ -21,7 +21,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_create_clientsession, async_get_clientsession
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrConnectionError, CmrNotFoundError
 from .catalog import CatalogError, async_fetch_products
@@ -60,14 +60,27 @@ USER_SCHEMA = vol.Schema(
 )
 
 
-def build_api(hass: HomeAssistant, data: Mapping[str, Any]) -> CmrApi:
-    """Create an API client from config entry data."""
+def build_api(hass: HomeAssistant, data: Mapping[str, Any], *, dedicated: bool = False) -> CmrApi:
+    """Create an API client from config entry data.
+
+    A loaded entry gets its own HTTP session (`dedicated`): the router keeps
+    the rights a REST session logged in with, so after the user's group
+    changes, reloading the integration must really close the connections
+    and log in again. Home Assistant's shared session would keep them alive.
+    """
+    verify_ssl = data.get(CONF_VERIFY_SSL, False)
+    session = (
+        async_create_clientsession(hass, verify_ssl=verify_ssl)
+        if dedicated
+        else async_get_clientsession(hass, verify_ssl=verify_ssl)
+    )
     return CmrApi(
-        async_get_clientsession(hass, verify_ssl=data.get(CONF_VERIFY_SSL, False)),
+        session,
         data[CONF_HOST],
         data[CONF_USERNAME],
         data[CONF_PASSWORD],
         ssl=data.get(CONF_SSL, True),
+        owns_session=dedicated,
     )
 
 

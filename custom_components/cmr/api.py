@@ -52,12 +52,14 @@ class CmrApi:
         password: str,
         *,
         ssl: bool = True,
+        owns_session: bool = False,
     ) -> None:
         scheme = "https" if ssl else "http"
         self.host = host
         self.base_url = f"{scheme}://{host}"
         self._rest = f"{self.base_url}/rest"
         self._session = session
+        self._owns_session = owns_session
         # Plain header: aiohttp.BasicAuth is deprecated.
         credentials = b64encode(f"{username}:{password}".encode()).decode()
         self._headers = {"Authorization": f"Basic {credentials}"}
@@ -75,6 +77,11 @@ class CmrApi:
     async def patch(self, path: str, payload: dict[str, Any]) -> Any:
         """PATCH /rest/<path>/<id>: set fields of one item."""
         return await self._request("PATCH", path, payload)
+
+    async def async_close(self) -> None:
+        """Drop the connections (and with them the router-side REST session) of an owned session."""
+        if self._owns_session:
+            await self._session.close()
 
     async def _request(
         self, method: str, path: str, payload: dict[str, Any] | None = None

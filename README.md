@@ -183,6 +183,11 @@ To let Home Assistant start upgrades, add `write`:
 To take a policy away again, negate it (`policy=read,!write,api,rest-api`); a
 shorter list doesn't remove a policy that is already set.
 
+A REST session keeps the rights it logged in with, so after changing the
+group's policies **reload the integration** (Settings → Devices & services →
+MikroTik CMR → ⋮ → Reload) to log in again; otherwise actions keep failing
+with "not enough permissions" even though the policy is there.
+
 **HTTPS for the REST API.** A small local CA and a certificate for the
 controller's address:
 
