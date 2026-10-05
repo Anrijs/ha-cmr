@@ -11,11 +11,42 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
 
 > **Status:** beta, tested with Home Assistant 2026.9 and RouterOS 7.26.
 > CMR itself is new (RouterOS 7.26beta1); the
-> [CMR documentation](https://help.mikrotik.com/docs/) describes the
-> controller side. Issues and ideas are welcome.
+> [CMR documentation](https://manual.mikrotik.com/docs/management-tools/cmr/)
+> describes the controller side. Issues and ideas are welcome.
+
+## Quick start
+
+1. **Controller:** on a RouterOS 7.26 router with the `cmr` package, enable
+   the CMR controller and pair your devices (see the
+   [CMR documentation](https://manual.mikrotik.com/docs/management-tools/cmr/)).
+   Then create a user for Home Assistant and enable the REST API on that router:
+
+   ```
+   /user group add name=homeassistant policy=read,api,rest-api comment="Home Assistant"
+   /user add name=homeassistant group=homeassistant address=<home-assistant-ip>/32 password=<choose one>
+   /ip service set www-ssl disabled=no
+   ```
+
+   Add `write` to the group's policy if Home Assistant should be able to start
+   upgrades and approve pairings. Details and a certificate recipe:
+   [1. Prepare the controller](#1-prepare-the-controller).
+2. **Install:** in Home Assistant open **HACS → ⋮ → Custom repositories**,
+   add `https://github.com/trakais/ha-cmr` as type *Integration*, then search
+   HACS for **MikroTik CMR**, **Download** it and restart Home Assistant.
+3. **Connect:** Settings → Devices & services → **Add integration** →
+   *MikroTik CMR*. Enter the controller's address, the user from step 1,
+   turn *Use HTTPS* on and *Verify the HTTPS certificate* off (self-signed).
+4. **Dashboard:** reload the browser page, then Settings → Dashboards →
+   **Add dashboard** → *MikroTik CMR network* and pick the controller. You get
+   the Network overview, Events, Devices and Topology views.
+5. **Optional:** the integration's *Configure* button turns on *Allow actions
+   on the controller* (upgrades, pairing approval — needs `write`, then
+   reload the integration), and the alerts card's *Push alerts to Home
+   Assistant* makes alerts arrive instantly instead of on the next poll.
 
 ## Contents
 
+- [Quick start](#quick-start)
 - [What you get](#what-you-get)
 - [How it fits together](#how-it-fits-together)
 - [What needs what](#what-needs-what)
@@ -301,7 +332,7 @@ its entities and history.
 
 ### The generated dashboard
 
-Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard (under
+Settings → Dashboards → **Add dashboard** → the *MikroTik CMR network* dashboard (under
 *Community dashboards*). It has four views:
 
 - **Network:** status, topology, devices, alerts, events (notable ones),
@@ -314,7 +345,7 @@ Settings → Dashboards → **Add dashboard** → the *CMR network* dashboard (u
 It regenerates from the fleet every time it opens. To customise it, use *Take
 control* in the dashboard menu.
 
-**Several controllers:** add one *CMR network* dashboard per controller.
+**Several controllers:** add one *MikroTik CMR network* dashboard per controller.
 *Add dashboard* asks which controller (empty: the first one); ✏️ *Edit
 dashboard* changes it later. In YAML:
 
@@ -586,7 +617,7 @@ names or comments.
 | No upgrade buttons | Turn on *Allow actions on the controller* in the options. |
 | "The controller refused to upgrade …" | The user lacks `write`, or the controller refused the job; the message carries its reason. |
 | The dashboard says it couldn't be built | Reload the page. If it stays, check that the integration is loaded. |
-| *CMR network* is missing under Add dashboard, or cards show "Custom element doesn't exist" | Add the integration first (the cards are served by it), then reload the browser page. |
+| *MikroTik CMR network* is missing under Add dashboard, or cards show "Custom element doesn't exist" | Add the integration first (the cards are served by it), then reload the browser page. |
 
 Debug logging:
 
