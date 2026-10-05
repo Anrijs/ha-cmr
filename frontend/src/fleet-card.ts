@@ -1,4 +1,5 @@
-import { css, html, nothing, type PropertyDeclarations, type TemplateResult } from "lit";
+import { css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
+import { RuleDevices } from "./data";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
@@ -32,6 +33,8 @@ interface FleetConfig {
   status?: Status;
   /** Start filtered to one firmware version. */
   version?: string;
+  /** Start filtered to the devices this alert rule (its id) fires on. */
+  alert?: string;
   show_filters?: boolean;
   show_search?: boolean;
   /** Above this many rows the healthy devices fold into one line. */
@@ -57,6 +60,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     _filter: { state: true },
     _status: { state: true },
     _version: { state: true },
+    _alert: { state: true },
     _search: { state: true },
     _sort: { state: true },
     _limit: { state: true },
@@ -67,7 +71,10 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
   declare _filter: Set<string>;
   declare _status: Status | "";
   declare _version: string;
+  /** Alert rule id: only the devices it fires on (the list comes from the controller's console). */
+  declare _alert: string;
   declare _search: string;
+  private _ruleDevices = new RuleDevices(() => this.requestUpdate());
   declare _sort: { key: SortKey; desc: boolean };
   declare _limit: number;
   /** The healthy group was opened by hand. */
@@ -80,6 +87,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     this._filter = new Set();
     this._status = "";
     this._version = "";
+    this._alert = "";
     this._search = "";
     this._sort = { key: "attention", desc: false };
     this._limit = 100;
@@ -92,6 +100,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     this._filter = new Set(config.labels ?? []);
     this._status = config.status ?? "";
     this._version = config.version ?? "";
+    this._alert = config.alert ?? "";
     this._limit = this._config.page_size ?? 100;
     this._applyDeepLink();
   }
@@ -154,6 +163,12 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     if (link.status) this._status = link.status;
     if (link.version) this._version = link.version;
     if (link.search) this._search = link.search;
+    if (link.alert) this._alert = link.alert;
+  }
+
+  protected willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    if (changed.has("_entry")) this._ruleDevices.invalidate();
   }
 
   // ------------------------------------------------------------ actions
@@ -215,10 +230,16 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     const labels = [...new Set(entry.devices.flatMap((d) => d.labels))].sort();
     const needle = this._search.trim().toLowerCase();
     // Label, version and search narrow the pool; the status chips count within it.
+    // An alert filter narrows to the devices the rule fires on; while the
+    // controller is asked (or can't answer) the other filters still apply.
+    const rule = this._alert ? entry.alerts.find((r) => r.id === this._alert) : undefined;
+    const ruleState = rule && rule.devices_on > 0 ? this._ruleDevices.get(this.hass, entry.entry_id, rule.id) : rule ? [] : undefined;
+    const ruleKeys = Array.isArray(ruleState) ? new Set(ruleState) : undefined;
     const pool = entry.devices.filter(
       (d) =>
         [...this._filter].every((label) => d.labels.includes(label)) &&
         (!this._version || d.version === this._version) &&
+        (!ruleKeys || ruleKeys.has(d.key)) &&
         deviceMatches(d, needle),
     );
     const counts = new Map<Status, number>();
@@ -262,6 +283,15 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
               ${this._version
                 ? html`<button class="pill on" title="Clear the version filter" @click=${() => (this._version = "")}>
                     <span class="mono">${this._version}</span> ✕</button>`
+                : nothing}
+              ${this._alert
+                ? html`<button class="pill on status-alert" title="Clear the alert filter" @click=${() => (this._alert = "")}>
+                    <ha-icon icon="mdi:bell-alert-outline"></ha-icon>${rule?.name ?? "alert rule"}${ruleState === "loading" ? " …" : ""} ✕</button>`
+                : nothing}
+              ${ruleState === "unsupported" || ruleState === "error"
+                ? html`<span class="muted small">${ruleState === "unsupported"
+                    ? "The controller lists a rule's devices only on its console, which the REST user may not use."
+                    : "Couldn't read the rule's device list from the controller."}</span>`
                 : nothing}
               ${labels.length ? html`<span class="sep"></span>` : nothing}
               ${labels.map(

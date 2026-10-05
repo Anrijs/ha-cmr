@@ -1,5 +1,5 @@
-import { css, html, nothing, type PropertyDeclarations, type TemplateResult } from "lit";
-import { cmrEvents, type CmrIssue } from "./data";
+import { css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
+import { RuleDevices, cmrEvents, type CmrIssue } from "./data";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
@@ -15,6 +15,8 @@ import {
   navigate,
   pairingHint,
   relativeTime,
+  renderRuleDevices,
+  ruleDevicesStyles,
   viewPath,
 } from "./shared";
 import type { CmrAlertRule, CmrDevice, CmrEntry } from "./types";
@@ -23,7 +25,7 @@ interface StatusConfig {
   type: string;
   entry_id?: string;
   /** Views of the dashboard this card is on, for "Open in …" links (the generated dashboard sets them). */
-  views?: { devices?: string; events?: string };
+  views?: { devices?: string; events?: string; topology?: string };
 }
 
 type Panel = "online" | "updates" | "alerts" | "issues" | "pending" | "version";
@@ -44,19 +46,29 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
     _version: { state: true },
     _issues: { state: true },
     _pairing: { state: true },
+    _openRule: { state: true },
   };
 
   declare _panel?: Panel;
   declare _version?: string;
   declare _issues: CmrIssue[];
   declare _pairing: Map<string, string>;
+  /** Rule opened in the alerts panel to show the devices it fires on. */
+  declare _openRule: string;
   private _ticker?: number;
   private _unsubscribeEvents?: () => void;
+  private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
   constructor() {
     super();
     this._issues = [];
     this._pairing = new Map();
+    this._openRule = "";
+  }
+
+  protected willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    if (changed.has("_entry")) this._ruleDevices.invalidate();
   }
 
   static getConfigForm() {
@@ -246,7 +258,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
       const rules = entry.alerts.filter((r) => r.devices_on > 0).sort((a, b) => b.devices_on - a.devices_on);
       title = rules.length ? `${rules.length} alert rule${rules.length > 1 ? "s" : ""} firing` : "No alert rule is firing";
       empty = "All alert rules are quiet.";
-      items = rules.map((r) => this._ruleRow(r));
+      items = rules.map((r) => this._ruleRow(r, entry));
     } else if (panel === "issues") {
       title = this._issues.length ? `${this._issues.length} detected issue${this._issues.length > 1 ? "s" : ""}` : "No issues detected";
       empty = this._unsubscribeEvents ? "Nothing unusual in the events." : "Loading…";
@@ -299,15 +311,21 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
     </button>`;
   }
 
-  private _ruleRow(rule: CmrAlertRule): TemplateResult {
-    return html`<button class="item sev-${rule.severity}" @click=${() => moreInfo(this, rule.entity_id)}>
-      <ha-icon icon="mdi:bell-alert"></ha-icon>
-      <div class="text">
-        <div class="t">${rule.name}</div>
-        <div class="muted small">${rule.severity} · ${rule.categories.join(", ") || "uncategorised"} · fired ${rule.fired}×</div>
-      </div>
-      <span class="chip alert">${rule.devices_on}/${rule.devices}</span>
-    </button>`;
+  private _ruleRow(rule: CmrAlertRule, entry: CmrEntry): TemplateResult {
+    const open = this._openRule === rule.id;
+    return html`<button class="item sev-${rule.severity} ${open ? "open" : ""}" aria-expanded=${open}
+        @click=${() => (this._openRule = open ? "" : rule.id)}>
+        <ha-icon icon="mdi:bell-alert"></ha-icon>
+        <div class="text">
+          <div class="t">${rule.name}</div>
+          <div class="muted small">${rule.severity} · ${rule.categories.join(", ") || "uncategorised"} · fired ${rule.fired}×</div>
+        </div>
+        <span class="chip alert">${rule.devices_on}/${rule.devices}</span>
+        <ha-icon class="chev" icon=${open ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
+      </button>
+      ${open
+        ? renderRuleDevices(this, entry, rule, this._ruleDevices.get(this.hass, entry.entry_id, rule.id), this._config.views)
+        : nothing}`;
   }
 
   private _pendingRow(d: CmrDevice, entry: CmrEntry): TemplateResult {
@@ -328,7 +346,11 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
 
   static styles = [
     baseStyles,
+    ruleDevicesStyles,
     css`
+      .item .chev { color: var(--cmr-muted); --mdc-icon-size: 18px; }
+      .item.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+      .rd { margin-left: 0; }
       ha-card { display: flex; flex-direction: column; container-type: inline-size; }
       .hero { display: flex; gap: 16px; padding: 16px; align-items: center; flex-wrap: wrap; }
       .identity { display: flex; gap: 12px; align-items: center; flex: 1 1 260px; min-width: 0; }

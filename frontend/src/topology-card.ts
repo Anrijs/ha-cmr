@@ -1,9 +1,11 @@
-import { css, html, nothing, svg, type PropertyDeclarations, type TemplateResult } from "lit";
+import { css, html, nothing, svg, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
+import { RuleDevices } from "./data";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
   STATUS_LABEL,
   baseStyles,
+  deepLinkParams,
   deviceStatus,
   deviceVisual,
   formatDuration,
@@ -136,6 +138,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _hoverLink: { state: true },
     _view: { state: true },
     _autoHeight: { state: true },
+    _alert: { state: true },
   };
 
   declare _path: string[];
@@ -144,6 +147,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   declare _view: { x: number; y: number; k: number };
   /** Height that shows the layout at full width, within height … max_height. */
   declare _autoHeight?: number;
+  /** Alert rule id from the page URL: its devices stay lit, the rest dim. */
+  declare _alert: string;
+  private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
   private _memo?: SceneMemo;
   private _userMoved = false;
@@ -157,7 +163,16 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     super();
     this._path = [];
     this._view = { x: 0, y: 0, k: 1 };
+    this._alert = "";
   }
+
+  /** Keys of the devices the highlighted rule fires on, set during render. */
+  private _lit?: Set<string>;
+
+  private _onLocation = (): void => {
+    const alert = deepLinkParams().alert;
+    if (alert) this._alert = alert;
+  };
 
   setConfig(config: TopologyConfig): void {
     this._config = { height: 440, show_ports: true, show_comments: true, ...config };
@@ -206,11 +221,14 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   connectedCallback(): void {
     super.connectedCallback();
     window.addEventListener("keydown", this._onKey);
+    window.addEventListener("location-changed", this._onLocation);
+    this._onLocation();
   }
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this._onKey);
+    window.removeEventListener("location-changed", this._onLocation);
     this._resize?.disconnect();
     this._resize = undefined;
   }
@@ -359,6 +377,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   // ------------------------------------------------------------ viewport
+
+  protected willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    if (changed.has("_entry")) this._ruleDevices.invalidate();
+  }
 
   protected updated(): void {
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
@@ -544,6 +567,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const legendKinds = LEGEND_KINDS.filter((kind) => links.some((l) => l.kind === kind));
     const { x, y, k } = this._view;
     const layoutInfo = entry.layouts.find((l) => l.name === scene.layout);
+    // Highlight from "Show on map": the rule's devices stay lit, the rest dim.
+    const rule = this._alert ? entry.alerts.find((r) => r.id === this._alert) : undefined;
+    const ruleState = rule ? (rule.devices_on > 0 ? this._ruleDevices.get(this.hass, entry.entry_id, rule.id) : []) : undefined;
+    this._lit = Array.isArray(ruleState) ? new Set(ruleState) : undefined;
 
     return html`
       <ha-card>
@@ -570,6 +597,18 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             : nothing}
         </div>
         ${layoutInfo?.comment ? html`<div class="subtitle">${layoutInfo.comment}</div>` : nothing}
+        ${rule
+          ? html`<div class="hl">
+              <ha-icon icon="mdi:bell-alert-outline"></ha-icon>
+              <span>${Array.isArray(ruleState)
+                ? `${ruleState.length} device${ruleState.length === 1 ? "" : "s"} where "${rule.name}" fires`
+                : ruleState === "loading"
+                  ? `Finding the devices where "${rule.name}" fires…`
+                  : `The devices where "${rule.name}" fires can't be listed (console access)`}</span>
+              <span class="spacer"></span>
+              <button class="hl-close" title="Show every device" @click=${() => (this._alert = "")}><ha-icon icon="mdi:close"></ha-icon></button>
+            </div>`
+          : nothing}
         ${this.renderStale(entry)}
         <div
           class="viewport"
@@ -845,8 +884,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     const device = node.device;
     const status = deviceStatus(device);
+    const dim = this._lit && !this._lit.has(device.key);
     return html`
-      <div class="node device status-${status} ${device.controller ? "controller" : ""}" style=${style}
+      <div class="node device status-${status} ${device.controller ? "controller" : ""} ${dim ? "dim" : ""}" style=${style}
            role="button" tabindex="0" aria-label="${device.identity}, ${STATUS_LABEL[status]}"
            @click=${() => this._open(node)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
            @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
@@ -1012,6 +1052,15 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .node.site { border-style: dashed; border-width: 1.5px; }
       .node.site .chev { color: var(--cmr-muted); --mdc-icon-size: 20px; }
       .node.unknown { opacity: 0.6; cursor: default; }
+      .node.dim { opacity: 0.18; filter: grayscale(1); }
+      .node.dim .badge::after { animation: none; }
+      .hl {
+        display: flex; align-items: center; gap: 8px; margin: 0 16px 8px; padding: 6px 10px; border-radius: 10px;
+        font-size: 13px; background: color-mix(in srgb, var(--cmr-alert) 10%, transparent); --mdc-icon-size: 18px;
+      }
+      .hl > ha-icon { color: var(--cmr-alert); }
+      .hl-close { all: unset; cursor: pointer; line-height: 0; color: var(--cmr-muted); border-radius: 50%; padding: 2px; }
+      .hl-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
 
       .tooltip {
         position: absolute; z-index: 3; width: 300px; padding: 10px 12px; border-radius: 12px;

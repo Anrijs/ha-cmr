@@ -58,6 +58,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_alert_setup)
     websocket_api.async_register_command(hass, ws_alert_push)
     websocket_api.async_register_command(hass, ws_pair)
+    websocket_api.async_register_command(hass, ws_alert_devices)
 
 
 def _loaded_entries(hass: HomeAssistant, entry_id: str | None) -> list[CmrConfigEntry]:
@@ -166,6 +167,8 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
         "available": coordinator.last_update_success,
         # Whether Home Assistant may act on the controller (pair, upgrade).
         "actions": coordinator.allow_upgrades,
+        # Console commands work for the REST user (per-rule device lists need them).
+        "console": coordinator.console_ok,
         "fleet_entities": {
             name: entity_id(platform, f"{controller_key}_{name}")
             for name, platform in _FLEET_ENTITIES.items()
@@ -313,6 +316,33 @@ async def ws_pair(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         return
     connection.send_result(msg["id"], {"device_key": device.key})
     await coordinator.async_request_refresh()
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "cmr/alert_devices", vol.Required("entry_id"): str, vol.Required("rule_id"): str}
+)
+@websocket_api.async_response
+async def ws_alert_devices(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Keys of the devices an alert rule is firing on (read-only; needs the console)."""
+    entries = _loaded_entries(hass, msg["entry_id"])
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return
+    coordinator = entries[0].runtime_data
+    try:
+        keys = await coordinator.async_alert_devices(msg["rule_id"])
+    except ValueError as err:
+        connection.send_error(msg["id"], "not_found", str(err))
+        return
+    except CmrApiError as err:
+        connection.send_error(msg["id"], "failed", err.detail or str(err))
+        return
+    if keys is None:
+        connection.send_error(msg["id"], "unsupported", "This user may not run console commands on the controller")
+        return
+    connection.send_result(msg["id"], {"devices": keys})
 
 
 @websocket_api.websocket_command(

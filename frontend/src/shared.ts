@@ -1,6 +1,6 @@
 import { LitElement, css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
-import { cmrStore, pickEntry } from "./data";
-import type { CmrDevice, CmrEntry, HassLike } from "./types";
+import { type RuleDevicesState, cmrStore, pickEntry } from "./data";
+import type { CmrAlertRule, CmrDevice, CmrEntry, HassLike } from "./types";
 
 /**
  * Icon when there is no product photo. The controller reports no role for a
@@ -52,13 +52,15 @@ export function deviceMatches(device: CmrDevice, needle: string): boolean {
  * `/cmr-network/devices?cmr_status=offline`. Home Assistant hands cards no
  * query parameters, so they read the location themselves.
  */
-export function deepLinkParams(): { status?: Status; version?: string; search?: string } {
+export function deepLinkParams(): { status?: Status; version?: string; search?: string; alert?: string } {
   const params = new URLSearchParams(window.location.search);
   const status = params.get("cmr_status") as Status | null;
   return {
     status: status && STATUS_ORDER.includes(status) ? status : undefined,
     version: params.get("cmr_version") ?? undefined,
     search: params.get("cmr_search") ?? undefined,
+    // An alert rule id: only the devices it fires on.
+    alert: params.get("cmr_alert") ?? undefined,
   };
 }
 
@@ -73,7 +75,8 @@ export function viewPath(view: string, params: Record<string, string | undefined
 }
 
 export const STATUS_LABEL: Record<Status, string> = {
-  ok: "Online",
+  // Online with nothing wrong; plain "Online" reads as the connection count.
+  ok: "OK",
   update: "Update available",
   alert: "Alert firing",
   pending: "Waiting to pair",
@@ -419,3 +422,81 @@ export function modelName(device: CmrDevice): string {
 export function modelCode(device: CmrDevice): string | null {
   return device.product && !device.product.ambiguous ? device.product.code : device.model_code;
 }
+
+// ------------------------------------------------------------ rule devices
+
+/**
+ * The devices an alert rule fires on, under a rule row: the list (or why it
+ * isn't available) plus links to the Devices view and the map filtered to
+ * the same set. Shared by the alerts and status cards.
+ */
+export function renderRuleDevices(
+  host: HTMLElement,
+  entry: CmrEntry,
+  rule: CmrAlertRule,
+  state: RuleDevicesState,
+  views: { devices?: string; topology?: string } | undefined,
+  max = 12,
+): TemplateResult {
+  let body: TemplateResult;
+  if (rule.devices_on === 0) {
+    body = html`<div class="muted small">Not firing on any device right now.</div>`;
+  } else if (!entry.console || state === "unsupported") {
+    body = html`<div class="muted small">
+      The controller lists these devices only on its console, and this REST user may not run console commands.
+    </div>`;
+  } else if (state === "loading") {
+    body = html`<div class="muted small">Asking the controller…</div>`;
+  } else if (state === "error") {
+    body = html`<div class="muted small">Couldn't read the device list from the controller.</div>`;
+  } else {
+    const byKey = new Map(entry.devices.map((d) => [d.key, d]));
+    const devices = state.map((key) => byKey.get(key)).filter((d): d is CmrDevice => !!d).sort(compareDevices);
+    const shown = devices.slice(0, max);
+    body = html`
+      <div class="rd-list">
+        ${shown.map(
+          (d) => html`<button class="rd-dev status-${deviceStatus(d)}" title=${STATUS_LABEL[deviceStatus(d)]}
+            @click=${() => moreInfo(host, d.entities.connected)}><i class="dot"></i>${d.identity}</button>`,
+        )}
+        ${devices.length > shown.length ? html`<span class="muted small">+${devices.length - shown.length} more</span>` : nothing}
+        ${devices.length ? nothing : html`<span class="muted small">Fires on devices this Home Assistant doesn't list yet.</span>`}
+      </div>`;
+  }
+  const params = { cmr_alert: rule.id };
+  return html`<div class="rd">
+    ${body}
+    ${rule.devices_on > 0 && (views?.devices || views?.topology)
+      ? html`<div class="rd-links">
+          ${views?.devices
+            ? html`<button class="rd-link" @click=${() => navigate(viewPath(views.devices!, params))}>
+                <ha-icon icon="mdi:table"></ha-icon>Show in Devices</button>`
+            : nothing}
+          ${views?.topology
+            ? html`<button class="rd-link" @click=${() => navigate(viewPath(views.topology!, params))}>
+                <ha-icon icon="mdi:sitemap-outline"></ha-icon>Show on map</button>`
+            : nothing}
+        </div>`
+      : nothing}
+  </div>`;
+}
+
+export const ruleDevicesStyles = css`
+  .rd {
+    margin: 0 0 6px 19px; padding: 8px 10px 8px 12px; border-radius: 0 0 10px 10px;
+    background: var(--cmr-surface-2); display: flex; flex-direction: column; gap: 8px;
+  }
+  .rd-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .rd-dev {
+    all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px;
+    padding: 3px 9px 3px 7px; border-radius: 999px; background: var(--cmr-surface); border: 1px solid var(--cmr-line);
+    max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rd-dev:hover { border-color: var(--status, var(--cmr-muted)); }
+  .rd-links { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .rd-link {
+    all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px;
+    color: var(--primary-color); --mdc-icon-size: 16px;
+  }
+  .rd-link:hover { text-decoration: underline; }
+`;

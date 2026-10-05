@@ -366,10 +366,12 @@ and the search box narrow further, a version is a filter when clicked, and
 above `fold_after` rows the healthy devices fold into "995 devices online and
 up to date — show them". The status card's tiles open the same lists inline
 (offline since when, update from → to, firing rules, issues, devices to
-approve), and the version bar lists who runs what. In the generated dashboard
-the panel's *Open in Devices* jumps to the device table with that filter;
-`?cmr_status=offline`, `?cmr_version=…` and `?cmr_search=…` on a dashboard URL
-do the same for your own dashboards.
+approve), and the version bar lists who runs what. A firing rule opens to the
+devices it fires on, with *Show in Devices* (the table filtered to them) and
+*Show on map* (everything else dimmed). In the generated dashboard the panel's
+*Open in Devices* jumps to the device table with that filter;
+`?cmr_status=offline`, `?cmr_version=…`, `?cmr_search=…` and
+`?cmr_alert=<rule id>` on a dashboard URL do the same for your own dashboards.
 
 ### Entities
 
@@ -470,6 +472,12 @@ some other webhook are left alone. Without actions, the card shows the
 equivalent script to paste into the controller's terminal; edit its `find`
 to choose rules. The address the controller calls comes from the *Home
 Assistant address* option.
+
+Which devices a rule fires on is something the controller only tells on its
+console, so the lists under a rule are read through `/execute` like the
+device alert counters (the user from *Prepare the controller* may). A user
+that is not allowed console commands gets the counts only, and the cards say
+so.
 
 ### Upgrades
 

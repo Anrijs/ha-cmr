@@ -71,6 +71,57 @@ export function pickEntry(entries: CmrEntry[] | undefined, entryId?: string): Cm
   return entries.find((entry) => entry.entry_id === entryId) ?? entries[0];
 }
 
+// ----------------------------------------------------------- rule devices
+
+/** Keys of the devices an alert rule fires on, or why they aren't known. */
+export type RuleDevicesState = string[] | "loading" | "error" | "unsupported";
+
+// Shared by every card on the page; a result is good for half a minute.
+const ruleDevicesCache = new Map<string, { at: number; keys: string[] }>();
+const RULE_DEVICES_TTL = 30_000;
+
+async function fetchRuleDevices(hass: HassLike, entryId: string, ruleId: string): Promise<string[]> {
+  const key = `${entryId}/${ruleId}`;
+  const hit = ruleDevicesCache.get(key);
+  if (hit && Date.now() - hit.at < RULE_DEVICES_TTL) return hit.keys;
+  const result = await hass.connection.sendMessagePromise<{ devices: string[] }>({
+    type: "cmr/alert_devices",
+    entry_id: entryId,
+    rule_id: ruleId,
+  });
+  ruleDevicesCache.set(key, { at: Date.now(), keys: result.devices });
+  return result.devices;
+}
+
+/**
+ * Per-card view of rule device lists: `get()` during render starts the
+ * lookup once and reports its state; `onChange` fires when it lands. After
+ * `invalidate()` (a new snapshot) the old list stays up while it refreshes.
+ */
+export class RuleDevices {
+  private state = new Map<string, RuleDevicesState>();
+  private stale = new Set<string>();
+
+  constructor(private onChange: () => void) {}
+
+  get(hass: HassLike, entryId: string, ruleId: string): RuleDevicesState {
+    const key = `${entryId}/${ruleId}`;
+    const current = this.state.get(key);
+    if (current !== undefined && !this.stale.has(key)) return current;
+    this.stale.delete(key);
+    if (current === undefined) this.state.set(key, "loading");
+    fetchRuleDevices(hass, entryId, ruleId)
+      .then((keys) => this.state.set(key, keys))
+      .catch((err: { code?: string }) => this.state.set(key, err?.code === "unsupported" ? "unsupported" : "error"))
+      .finally(() => this.onChange());
+    return this.state.get(key)!;
+  }
+
+  invalidate(): void {
+    for (const key of this.state.keys()) this.stale.add(key);
+  }
+}
+
 // ------------------------------------------------------------------ events
 
 export interface CmrEvent {

@@ -41,6 +41,9 @@ OPTIONAL_PATHS = (
 # these commands; the REST API can run a console command and return its text.
 LINK_DETAIL_SCRIPT = "/cmr/layout/link/print detail show-ids without-paging"
 DEVICE_DETAIL_SCRIPT = "/cmr/device/print detail show-ids without-paging"
+# `show-devices` prints a table (identities may hold spaces); as a value it
+# yields records, so the script prints one device id per line instead.
+ALERT_DEVICES_SCRIPT = ':foreach d in=[/cmr/alert/show-devices {rule} on-only=yes as-value] do={{:put ($d->".id")}}'
 
 type CmrConfigEntry = ConfigEntry[CmrCoordinator]
 
@@ -78,6 +81,40 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self._missing: set[str] = set()
         # None until tried; False if the user may not run console commands.
         self._console_ok: bool | None = None
+        # Rule id -> (when read, device keys it fires on); see async_alert_devices.
+        self._alert_devices: dict[str, tuple[datetime, list[str]]] = {}
+
+    @property
+    def console_ok(self) -> bool:
+        """Console commands work for this user (assumed until one is refused)."""
+        return self._console_ok is not False
+
+    async def async_alert_devices(self, rule_id: str) -> list[str] | None:
+        """Keys of the devices an alert rule is firing on right now.
+
+        `show-devices` returns nothing over plain REST, so it runs on the
+        console through `/execute`. Cached for one poll interval: a card
+        opening several rules shouldn't hit the controller for each click.
+        None when console commands are refused for this user.
+        """
+        if self._console_ok is False or self.data is None:
+            return None
+        if rule_id not in {rule.rest_id for rule in self.data.alerts.values()}:
+            raise ValueError(f"No alert rule {rule_id}")
+        cached = self._alert_devices.get(rule_id)
+        if cached and dt_util.utcnow() - cached[0] < (self.update_interval or timedelta(seconds=DEFAULT_SCAN_INTERVAL)):
+            return cached[1]
+        try:
+            result = await self.api.post("execute", {"script": ALERT_DEVICES_SCRIPT.format(rule=rule_id), "as-string": ""})
+        except CmrAuthError as err:
+            _LOGGER.info("Can't run console commands as this user (%s); alert device lists stay empty", err.detail)
+            self._console_ok = False
+            return None
+        text = result.get("ret", "") if isinstance(result, dict) else ""
+        by_rest_id = {device.rest_id: device.key for device in self.data.devices.values()}
+        keys = [by_rest_id[line.strip()] for line in text.splitlines() if line.strip() in by_rest_id]
+        self._alert_devices[rule_id] = (dt_util.utcnow(), keys)
+        return keys
 
     async def _async_update_data(self) -> CmrSnapshot:
         paths = REQUIRED_PATHS + OPTIONAL_PATHS

@@ -121,6 +121,8 @@ export interface CmrEntry {
   available: boolean;
   /** Home Assistant may act on the controller (pair, upgrade). */
   actions: boolean;
+  /** The REST user may run console commands (per-rule device lists need them). */
+  console: boolean;
   fleet_entities: Record<string, string | null>;
   devices: CmrDevice[];
   alerts: CmrAlertRule[];

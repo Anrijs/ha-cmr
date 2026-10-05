@@ -63,6 +63,8 @@ class FakeController:
         self.console_ok = True
         # Set to override the generated rows (e.g. [{}] for a controller that serves no fields).
         self.wifi_logs: list[dict[str, Any]] | None = None
+        # Alert rule id -> device ids it fires on (`show-devices on-only=yes`).
+        self.alert_devices: dict[str, list[str]] = {"*1": ["*7"]}
 
     @property
     def devices(self) -> list[dict[str, Any]]:
@@ -130,8 +132,14 @@ class FakeController:
         if path == "execute":
             if not self.console_ok:
                 raise CmrAuthError("POST execute: not enough permissions", "not enough permissions")
-            if payload.get("script", "").startswith("/cmr/device/"):
+            script = payload.get("script", "")
+            if script.startswith("/cmr/device/"):
                 return {"ret": self.device_console_output()}
+            if "show-devices" in script:
+                rule_id = script.split("show-devices ", 1)[1].split()[0]
+                if rule_id not in {r[".id"] for r in self.data["cmr/alert"]}:
+                    raise CmrNotFoundError("POST execute: no such item", "no such item")
+                return {"ret": "".join(f"{d}\n" for d in self.alert_devices.get(rule_id, []))}
             return {"ret": self.link_console_output()}
         if path == "cmr/alert/unset":
             for rule in self.data["cmr/alert"]:

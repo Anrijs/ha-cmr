@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.0
+- Alert rules open to the devices they fire on (alerts card and the status card's alerts panel), with "Show in Devices" and "Show on map": the device table filters to them, the map dims everything else. Needs the REST user to run console commands; `?cmr_alert=<rule id>` deep-links.
+- The healthy status is called "OK" (it was "Online", which read like the connection count).
+
 ## 0.8.2
 - Repetitive log lines that differ only in an address or a number fold into one timeline row.
 - The card script is cached by the browser (faster dashboard loads).

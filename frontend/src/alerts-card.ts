@@ -1,12 +1,25 @@
-import { css, html, nothing, type PropertyDeclarations, type TemplateResult } from "lit";
-import { CmrEntryCard, ENTRY_FIELD, baseStyles, copyText, labelsFrom, moreInfo, relativeTime } from "./shared";
-import type { CmrAlertRule } from "./types";
+import { css, html, nothing, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
+import { RuleDevices } from "./data";
+import {
+  CmrEntryCard,
+  ENTRY_FIELD,
+  baseStyles,
+  copyText,
+  labelsFrom,
+  moreInfo,
+  relativeTime,
+  renderRuleDevices,
+  ruleDevicesStyles,
+} from "./shared";
+import type { CmrAlertRule, CmrEntry } from "./types";
 
 interface AlertsConfig {
   type: string;
   entry_id?: string;
   title?: string;
   hide_disabled?: boolean;
+  /** Views of the dashboard this card is on, for "Show in …" links (the generated dashboard sets them). */
+  views?: { devices?: string; topology?: string };
 }
 
 const SEVERITY_ORDER = ["critical", "high", "medium", "low"] as const;
@@ -23,6 +36,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
     _copied: { state: true },
     _push: { state: true },
     _only: { state: true },
+    _open: { state: true },
   };
 
   declare _setup?: { url: string; script: string } | null;
@@ -31,10 +45,20 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
   declare _push?: string;
   /** Chip filter: all rules, or only the firing / disabled / pushing ones. */
   declare _only: "" | "firing" | "disabled" | "pushing";
+  /** Id of the rule opened to show the devices it fires on. */
+  declare _open: string;
+  private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
   constructor() {
     super();
     this._only = "";
+    this._open = "";
+  }
+
+  protected willUpdate(changed: PropertyValues): void {
+    super.willUpdate(changed);
+    // A new snapshot may mean new firing devices; the open list refreshes quietly.
+    if (changed.has("_entry")) this._ruleDevices.invalidate();
   }
 
   private async _pushAlerts(enable: boolean): Promise<void> {
@@ -156,7 +180,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
           : nothing}
 
         <div class="rules">
-          ${rules.map((rule) => this._rule(rule))}
+          ${rules.map((rule) => this._rule(rule, entry))}
           ${rules.length ? nothing : html`<div class="empty">${pool.length ? "No rules match this filter." : "No alert rules on the controller."}</div>`}
         </div>
 
@@ -196,11 +220,12 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
     `;
   }
 
-  private _rule(rule: CmrAlertRule): TemplateResult {
+  private _rule(rule: CmrAlertRule, entry: CmrEntry): TemplateResult {
     const on = rule.devices_on > 0;
+    const open = this._open === rule.id;
     return html`
-      <button class="rule sev-${rule.severity} ${on ? "on" : ""} ${rule.disabled ? "disabled" : ""}"
-              @click=${() => moreInfo(this, rule.entity_id)}>
+      <button class="rule sev-${rule.severity} ${on ? "on" : ""} ${rule.disabled ? "disabled" : ""} ${open ? "open" : ""}"
+              aria-expanded=${open} @click=${() => (this._open = open ? "" : rule.id)}>
         <span class="stripe"></span>
         <ha-icon class="sev" icon=${SEVERITY_ICON[rule.severity]}></ha-icon>
         <div class="body">
@@ -217,14 +242,27 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
           <div class=${on ? "hot" : ""}>${rule.devices_on}/${rule.devices}</div>
           <div class="muted small" title="Times fired">${rule.fired}×</div>
         </div>
+        ${rule.entity_id
+          ? html`<span class="info" role="button" title="Entity details"
+              @click=${(e: Event) => { e.stopPropagation(); moreInfo(this, rule.entity_id); }}>
+              <ha-icon icon="mdi:information-outline"></ha-icon></span>`
+          : nothing}
       </button>
+      ${open
+        ? renderRuleDevices(this, entry, rule, on ? this._ruleDevices.get(this.hass, entry.entry_id, rule.id) : [], this._config.views)
+        : nothing}
     `;
   }
 
   static styles = [
     baseStyles,
+    ruleDevicesStyles,
     css`
       .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+      .rule .info { color: var(--cmr-muted); --mdc-icon-size: 18px; line-height: 0; padding: 2px; border-radius: 50%; }
+      .rule .info:hover { color: var(--primary-color); background: var(--cmr-surface); }
+      .rule.open { background: var(--cmr-surface-2); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+      .rule.open.on { background: color-mix(in srgb, var(--sev) 14%, transparent); }
       .pill.hot:not(.on) { border-color: color-mix(in srgb, var(--cmr-alert) 55%, transparent); color: var(--cmr-alert); }
       .pill.hot.on { background: var(--cmr-alert); border-color: var(--cmr-alert); }
       .last {

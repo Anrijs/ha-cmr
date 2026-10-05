@@ -70,7 +70,11 @@ function networkView(entry: CmrEntry, base: Card): Card {
       .map(([entity, name]) => ({ type: "entity", entity, name, show_name: true })),
     sections: [
       // The status card's drill-downs link into this dashboard's own views.
-      { type: "grid", column_span: 3, cards: [{ ...base, type: "custom:cmr-status-card", views: { devices: "devices", events: "events" } }] },
+      {
+        type: "grid",
+        column_span: 3,
+        cards: [{ ...base, type: "custom:cmr-status-card", views: { devices: "devices", events: "events", topology: "topology" } }],
+      },
       {
         type: "grid",
         column_span: 3,
@@ -81,7 +85,10 @@ function networkView(entry: CmrEntry, base: Card): Card {
         column_span: 2,
         cards: [{ ...base, type: "custom:cmr-fleet-card", grid_options: { columns: "full" } }],
       },
-      { type: "grid", cards: [{ ...base, type: "custom:cmr-alerts-card", grid_options: { columns: "full" } }] },
+      {
+        type: "grid",
+        cards: [{ ...base, type: "custom:cmr-alerts-card", views: { devices: "devices", topology: "topology" }, grid_options: { columns: "full" } }],
+      },
       {
         type: "grid",
         column_span: 2,
