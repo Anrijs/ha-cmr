@@ -475,8 +475,9 @@ action:
 Polling sees alert rules change state within 30 seconds. To get each alert the
 moment it fires, press *Push alerts to Home Assistant* on the alerts card.
 With *Allow actions on the controller* on, that sets every alert rule's HTTP
-action to Home Assistant's webhook (POST, JSON body with the rule's name and
-severity) and *Stop pushing* clears exactly those again; rules that point at
+action to Home Assistant's webhook (POST, JSON body with the rule's name,
+severity and category, filled in by the controller for each alert) and
+*Stop pushing* clears exactly those again; rules that point at
 some other webhook are left alone. Without actions, the card shows the
 equivalent script to paste into the controller's terminal; edit its `find`
 to choose rules. The address the controller calls comes from the *Home

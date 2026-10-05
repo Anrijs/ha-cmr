@@ -3,8 +3,6 @@ import { RuleDevices, cmrEvents, dismissIssue, type CmrIssue } from "./data";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
-  STATUS_LABEL,
-  type Status,
   approvePairing,
   baseStyles,
   compareDevices,

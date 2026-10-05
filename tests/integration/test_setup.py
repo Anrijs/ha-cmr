@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -86,6 +87,7 @@ async def test_computed_fields_are_merged(hass: HomeAssistant, entry, controller
     assert not any(path.endswith("/print") and ".proplist" in (payload or {}) for _, path, payload in controller.calls)
 
 
+@pytest.mark.wifi_logs
 async def test_websocket_subscribe_payload(hass: HomeAssistant, entry, hass_ws_client) -> None:
     client = await hass_ws_client(hass)
     await client.send_json({"id": 1, "type": "cmr/subscribe"})

@@ -89,7 +89,7 @@ def parse_duration(value: Any) -> int | None:
 
 
 # ---------------------------------------------------------------------------
-# Firmware versions
+# RouterOS versions
 # ---------------------------------------------------------------------------
 
 # Internal builds ("7.40_ab12") sort before beta, beta before rc, rc
@@ -99,7 +99,7 @@ _VERSION = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:(_ab|alpha|beta|rc)(\d+))?")
 
 
 def version_key(version: Any) -> tuple[int, int, int, int, int] | None:
-    """Sortable key for a firmware version string, or None if unparsable."""
+    """Sortable key for a RouterOS version string, or None if unparsable."""
     if not version:
         return None
     match = _VERSION.match(str(version).strip())
@@ -116,7 +116,7 @@ def version_key(version: Any) -> tuple[int, int, int, int, int] | None:
 
 
 def is_newer(candidate: Any, installed: Any) -> bool:
-    """True when candidate is a strictly newer firmware version.
+    """True when candidate is a strictly newer RouterOS version.
 
     The controller flags any *different* version as an upgrade, including
     older ones; this comparison is what decides whether to offer an update.

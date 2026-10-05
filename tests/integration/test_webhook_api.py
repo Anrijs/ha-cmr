@@ -23,18 +23,27 @@ def test_parse_payload_tolerates_broken_json() -> None:
 def test_normalize_alert() -> None:
     alert = webhook.normalize_alert({"alert": "cpu>95%", "severity": "HIGH", "device": "unknown", "identity": "AP1", "version": ""})
     assert alert == {
-        "alert": "cpu>95%", "severity": "high", "device": "AP1", "serial": None, "address": None,
+        "alert": "cpu>95%", "severity": "high", "category": None, "device": "AP1", "serial": None, "address": None,
         "version": None, "upgrade_version": None, "message": None,
     }
     assert webhook.normalize_alert({})["severity"] == "medium"
     assert webhook.normalize_alert({"severity": "bogus"})["severity"] == "medium"
+    # Placeholders a build doesn't substitute come back in brackets: fall back to the baked values.
+    old = webhook.normalize_alert({"alert": "[alert-name]", "severity": "[severity]", "category": "[category]",
+                                   "rule": "cpu>95%", "rule_severity": "high", "device": "(empty)"})
+    assert (old["alert"], old["severity"], old["category"], old["device"]) == ("cpu>95%", "high", None, None)
+    assert webhook.normalize_alert({"category": "performance,version"})["category"] == "performance"
 
 
 def test_alert_setup_script_points_every_rule_at_the_webhook() -> None:
     script = webhook.alert_setup_script("http://ha.local:8123/", "abc")
     assert 'action.http-url="http://ha.local:8123/api/webhook/abc"' in script
     assert script.startswith(":foreach a in=[/cmr/alert find]")
-    assert '\\"severity\\":\\"" . $s . "\\"' in script
+    # The controller fills the rule's name and severity itself; the baked values are the fallback.
+    assert '\\"alert\\":\\"[alert-name]\\"' in script and '\\"severity\\":\\"[severity]\\"' in script
+    assert '\\"rule_severity\\":\\"" . $s . "\\"' in script
+    body = webhook.alert_http_action("http://ha.local:8123", "abc", "cpu>95%", "high")["action.http-body"]
+    assert '"alert":"[alert-name]"' in body and '"rule":"cpu>95%"' in body
     assert webhook.webhook_url(None, "abc") == "http://homeassistant.local:8123/api/webhook/abc"
 
 
@@ -44,7 +53,8 @@ def test_alert_http_action_fields() -> None:
     assert fields["action.http-method"] == "post"
     assert fields["action.http-headers"] == "Content-Type: application/json"
     body = fields["action.http-body"]
-    assert body.startswith('{"alert":"cpu \\"hot\\"","severity":"high","device":"[identity]"')
+    assert body.startswith('{"alert":"[alert-name]","severity":"[severity]","category":"[category]","device":"[identity]"')
+    assert body.endswith('"rule":"cpu \\"hot\\"","rule_severity":"high"}')
     assert webhook.pushes_to_home_assistant("http://ha.local:8123/api/webhook/abc", "abc")
     assert not webhook.pushes_to_home_assistant("https://example.invalid/hook", "abc")
     assert not webhook.pushes_to_home_assistant(None, "abc")

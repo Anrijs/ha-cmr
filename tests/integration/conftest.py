@@ -188,10 +188,10 @@ def _custom_integrations(enable_custom_integrations: None) -> None:
 
 @pytest.fixture(autouse=True)
 def _wifi_logs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The fleet Wi-Fi feed is off in releases; most tests exercise it anyway."""
+    """Tests run with the shipped default (fleet Wi-Fi feed off) unless marked `wifi_logs`."""
     from custom_components.cmr import eventlog
 
-    if "wifi_logs_default" not in request.keywords:
+    if "wifi_logs" in request.keywords:
         monkeypatch.setattr(eventlog, "WIFI_LOGS_ENABLED", True)
 
 

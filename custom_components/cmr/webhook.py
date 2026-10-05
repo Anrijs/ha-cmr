@@ -27,8 +27,15 @@ from .coordinator import CmrConfigEntry
 _LOGGER = logging.getLogger(__name__)
 
 # JSON fields the generated alert script sends; values are the controller's alert
-# placeholders, substituted per device by the controller.
+# placeholders, substituted per device by the controller. The rule's name,
+# severity and categories are placeholders too (documented for 7.26), so a
+# renamed rule keeps pushing the right name; `rule`/`rule_severity` carry the
+# values as they were when the action was set, for builds that leave the
+# bracketed placeholders unsubstituted.
 _BODY_FIELDS = {
+    "alert": "[alert-name]",
+    "severity": "[severity]",
+    "category": "[category]",
     "device": "[identity]",
     "serial": "[serial]",
     "address": "[address]",
@@ -62,7 +69,7 @@ def alert_setup_script(base_url: str | None, webhook_id: str) -> str:
         f',\\"{key}\\":\\"{placeholder}\\"' for key, placeholder in _BODY_FIELDS.items()
     )
     body = (
-        '("{\\"alert\\":\\"" . $n . "\\",\\"severity\\":\\"" . $s . "\\"'
+        '("{\\"rule\\":\\"" . $n . "\\",\\"rule_severity\\":\\"" . $s . "\\"'
         f'{fields}}}")'
     )
     return (
@@ -84,7 +91,7 @@ def alert_http_action(base_url: str | None, webhook_id: str, name: str, severity
 
     Same payload as the console script, built here as plain REST values.
     """
-    body = {"alert": name, "severity": severity, **_BODY_FIELDS}
+    body = {**_BODY_FIELDS, "rule": name, "rule_severity": severity}
     return {
         "action.http-url": webhook_url(base_url, webhook_id),
         "action.http-method": "post",
@@ -148,14 +155,18 @@ def normalize_alert(payload: dict[str, Any]) -> dict[str, Any]:
 
     def value(key: str) -> str | None:
         raw = payload.get(key)
-        if raw in (None, "", "unknown"):
+        if raw in (None, "", "unknown", "(empty)"):
             return None
-        return str(raw)
+        text = str(raw)
+        # A controller that doesn't know a placeholder sends it back verbatim.
+        return None if text.startswith("[") and text.endswith("]") else text
 
-    severity = (value("severity") or "medium").lower()
+    severity = (value("severity") or value("rule_severity") or "medium").lower()
+    category = value("category")
     return {
-        "alert": value("alert") or "alert",
+        "alert": value("alert") or value("rule") or "alert",
         "severity": severity if severity in SEVERITIES else "medium",
+        "category": category.split(",")[0].strip() if category else None,
         "device": value("device") or value("identity"),
         "serial": value("serial"),
         "address": value("address"),

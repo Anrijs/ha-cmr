@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.6
+- Pushed alerts use the controller's own `[alert-name]`, `[severity]` and `[category]` placeholders, so a renamed rule keeps pushing the right name; the values set at push time stay in the body as a fallback for builds without these placeholders. Pushed alerts carry a `category`.
+- Housekeeping: Wi-Fi dedup bookkeeping only while that feed is on; tests run with the shipped defaults; stricter TypeScript checks.
+
 ## 0.10.5
 - Detected issues can be dismissed (✕ on the events card and in the status card's issues panel, administrators only): the issue clears everywhere and comes back only on new occurrences.
 - Alert firing is amber and disconnected red (they were both red); a device waiting to pair is purple; offline devices lose their colour on the map.

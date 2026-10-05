@@ -104,6 +104,7 @@ async def test_topology_tracking_hint(hass: HomeAssistant, controller: FakeContr
     assert ir.async_get(hass).async_get_issue(DOMAIN, f"topology_tracking_{entry.entry_id}") is None
 
 
+@pytest.mark.wifi_logs
 async def test_wifi_logs_without_fields_are_not_polled(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
     """Some controllers answer with empty rows; one look is enough."""
     controller.wifi_logs = [{}, {}, {}]
@@ -123,7 +124,6 @@ async def test_websocket_pair_refused_without_actions(hass: HomeAssistant, contr
     assert not reply["success"] and reply["error"]["code"] == "not_allowed"
 
 
-@pytest.mark.wifi_logs_default
 async def test_wifi_logs_not_queried_by_default(hass: HomeAssistant, controller: FakeController, entry) -> None:
     """Released builds leave the fleet Wi-Fi feed off: it is never requested."""
     await entry.runtime_data.async_refresh()

@@ -224,7 +224,9 @@ class CmrEventLog:
             }
             if parsed.category == "wifi":
                 self._name_wifi_client(event, parsed.data["mac"])
-                self._wifi_seen[(parsed.data["mac"], parsed.data["event"], device.identity if device else "")] = when
+                # Dedup keys matter only while the fleet Wi-Fi feed can report the same event.
+                if WIFI_LOGS_ENABLED and self._wifi_logs_ok is not False:
+                    self._wifi_seen[(parsed.data["mac"], parsed.data["event"], device.identity if device else "")] = when
             events.append(event)
         return events
 
