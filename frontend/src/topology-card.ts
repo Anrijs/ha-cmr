@@ -895,10 +895,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         <div class="text">
           <div class="name">${device.identity}</div>
           <div class="sub">${modelName(device)}</div>
-          <div class="ver mono">
-            ${device.version ?? "–"}${device.update_available
-              ? html`<span class="up"> → ${device.available_version}</span>`
-              : nothing}
+          <div class="ver mono" title=${device.update_available ? `${device.version} → ${device.available_version}` : ""}>
+            ${device.update_available
+              ? html`<span class="up"><ha-icon icon="mdi:arrow-up-circle"></ha-icon>${device.available_version}</span>`
+              : (device.version ?? "–")}
           </div>
         </div>
         ${device.controller
@@ -1041,8 +1041,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .node .text { min-width: 0; flex: 1; }
       .node .name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .node .sub { font-size: 11px; color: var(--cmr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
-      .node .ver { font-size: 10.5px; color: var(--cmr-muted); white-space: nowrap; }
-      .node .ver .up { color: var(--cmr-update); font-weight: 600; }
+      .node .ver { font-size: 10.5px; color: var(--cmr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .node .ver .up { color: var(--cmr-update); font-weight: 600; display: inline-flex; align-items: center; gap: 2px; --mdc-icon-size: 12px; }
       .node.controller { border-color: color-mix(in srgb, var(--primary-color) 50%, var(--cmr-line)); }
       .node .crown { position: absolute; top: -10px; right: 10px; color: var(--primary-color); background: var(--cmr-surface); border-radius: 50%; padding: 1px; --mdc-icon-size: 16px; line-height: 0; }
       .node .count {

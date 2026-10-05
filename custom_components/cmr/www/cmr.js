@@ -955,8 +955,8 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
         <div class="text">
           <div class="name">${s.identity}</div>
           <div class="sub">${I(s)}</div>
-          <div class="ver mono">
-            ${s.version??"\u2013"}${s.update_available?a`<span class="up"> → ${s.available_version}</span>`:h}
+          <div class="ver mono" title=${s.update_available?`${s.version} \u2192 ${s.available_version}`:""}>
+            ${s.update_available?a`<span class="up"><ha-icon icon="mdi:arrow-up-circle"></ha-icon>${s.available_version}</span>`:s.version??"\u2013"}
           </div>
         </div>
         ${s.controller?a`<span class="crown" title="CMR controller"><ha-icon icon="mdi:crown-outline"></ha-icon></span>`:h}
@@ -1073,8 +1073,8 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       .node .text { min-width: 0; flex: 1; }
       .node .name { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .node .sub { font-size: 11px; color: var(--cmr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 5px; }
-      .node .ver { font-size: 10.5px; color: var(--cmr-muted); white-space: nowrap; }
-      .node .ver .up { color: var(--cmr-update); font-weight: 600; }
+      .node .ver { font-size: 10.5px; color: var(--cmr-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .node .ver .up { color: var(--cmr-update); font-weight: 600; display: inline-flex; align-items: center; gap: 2px; --mdc-icon-size: 12px; }
       .node.controller { border-color: color-mix(in srgb, var(--primary-color) 50%, var(--cmr-line)); }
       .node .crown { position: absolute; top: -10px; right: 10px; color: var(--primary-color); background: var(--cmr-surface); border-radius: 50%; padding: 1px; --mdc-icon-size: 16px; line-height: 0; }
       .node .count {

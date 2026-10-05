@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.2
+- Map tiles show the available version with an up-arrow instead of "installed → available", which overflowed the tile; the tooltip still shows both.
+
 ## 0.10.1
 - Firefox (and other browsers without native scoped custom element registries): the dashboard always failed with "Timeout waiting for strategy element ll-strategy-dashboard-cmr". The cards and the strategy are now registered once Home Assistant's own elements are, so its registry polyfill sees them.
 
