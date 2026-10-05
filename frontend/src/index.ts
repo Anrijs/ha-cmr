@@ -49,8 +49,8 @@ if (!window.customStrategies.some((s) => s.type === "cmr")) {
   window.customStrategies.push({
     type: "cmr",
     strategyType: "dashboard",
-    name: "CMR network",
-    description: "A complete network dashboard generated from your CMR controller: status, topology, devices, alerts and upgrades.",
+    name: "MikroTik CMR network",
+    description: "A complete network dashboard generated from your MikroTik CMR controller: status, topology, devices, alerts and upgrades.",
     documentationURL: DOCS,
   });
 }

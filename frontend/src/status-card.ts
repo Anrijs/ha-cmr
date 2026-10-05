@@ -167,7 +167,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
                 ${controller?.prerelease ? html`<span class="chip">pre-release</span>` : nothing}
               </div>
             </div>
-            <a class="open" href=${entry.controller_url} target="_blank" rel="noreferrer" title="Open the router's web interface">
+            <a class="open" href=${entry.controller_url} target="_blank" rel="noreferrer" title="Open the router's web interface (WebFig)">
               <ha-icon icon="mdi:open-in-new"></ha-icon>
             </a>
           </div>

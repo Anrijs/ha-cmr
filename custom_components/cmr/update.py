@@ -82,6 +82,18 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
         return device.version if device else None
 
     @property
+    def release_url(self) -> str | None:
+        """MikroTik's changelog for the device's release channel."""
+        device = self.device
+        tree = {
+            "stable": "stable-release-tree",
+            "testing": "testing-release-tree",
+            "long-term": "long-term-release-tree",
+            "development": "development-release-tree",
+        }.get(device.channel or "" if device else "")
+        return f"https://mikrotik.com/download/changelogs/{tree}" if tree else "https://mikrotik.com/download/changelogs"
+
+    @property
     def latest_version(self) -> str | None:
         device = self.device
         if device is None or not device.available_version:

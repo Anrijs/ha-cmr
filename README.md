@@ -1,15 +1,18 @@
-# CMR for Home Assistant
+# MikroTik CMR for Home Assistant
 
-See, monitor and upgrade a router network managed by **CMR** from Home
-Assistant: every managed device and its firmware version, the controller's alert and upgrade rules, a live network
-map drawn from your CMR layouts, a timeline of what happens on the network, and
-automatic detection of trouble.
+See, monitor and upgrade a MikroTik network managed by **CMR** (the fleet
+management built into RouterOS 7.26) from Home Assistant: every managed
+device and its RouterOS version, the controller's alert and upgrade rules, a
+live network map drawn from your CMR layouts, a timeline of what happens on
+the network, and automatic detection of trouble.
 
 Nothing is tied to one network. Point the integration at a CMR controller and
 it discovers the fleet; the bundled dashboard builds itself from what it finds.
 
-> **Status:** 0.2, beta, tested with Home Assistant 2026.9. Issues and ideas
-> are welcome.
+> **Status:** beta, tested with Home Assistant 2026.9 and RouterOS 7.26.
+> CMR itself is new (RouterOS 7.26beta1); the
+> [CMR documentation](https://help.mikrotik.com/docs/) describes the
+> controller side. Issues and ideas are welcome.
 
 ## Contents
 
@@ -150,8 +153,8 @@ present (they are part of the default configuration).
 
 ## Requirements
 
-- A router running the **CMR controller** (the `cmr` package, with
-  the controller enabled).
+- A MikroTik router running **RouterOS 7.26beta1 or newer** with the `cmr`
+  package, acting as the **CMR controller** (controller enabled).
 - The REST API reachable from Home Assistant: `www-ssl` (recommended) or
   `www`.
 - Home Assistant 2026.9 or newer.

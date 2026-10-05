@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect a CMR controller",
-        "description": "Home Assistant reads the controller's CMR menus over the router's REST API. Create a user group with the `read`, `api` and `rest-api` policies (add `write` to start upgrades from Home Assistant) and enable `www-ssl` (or `www` with HTTPS off).",
+        "description": "Home Assistant reads the controller's CMR menus over the RouterOS REST API. Create a user group with the `read`, `api` and `rest-api` policies (add `write` to start upgrades from Home Assistant) and enable `www-ssl` (or `www` with HTTPS off).",
         "data": {
           "host": "Controller address",
           "username": "Username",
@@ -12,7 +12,7 @@
           "verify_ssl": "Verify the HTTPS certificate"
         },
         "data_description": {
-          "host": "IP address or host name of the router running the CMR controller, optionally with :port.",
+          "host": "IP address or host name of the MikroTik router running the CMR controller, optionally with :port.",
           "verify_ssl": "Leave off for the router's self-signed certificate."
         }
       },

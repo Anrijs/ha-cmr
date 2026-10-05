@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.0
+- CMR is public with RouterOS 7.26beta1: the integration is now called "MikroTik CMR", and the README names the platform and the RouterOS requirement.
+- Update entities link to MikroTik's changelog for the device's release channel.
+- Releases are regular releases from here on, so HACS offers them without "Show beta versions".
+
 ## 0.9.2
 - "Timeout waiting for strategy element" after an update: the page now reloads itself once when that happens, and the card script logs its load timing for bug reports.
 - A dashboard pinned to one controller no longer shows another controller while its own is still starting; it says so instead.

@@ -60,4 +60,4 @@ jobs:
         with:
           category: integration
           # brands: no entry in home-assistant/brands yet; topics: set on the repository later.
-          ignore: brands topics
+          ignore: brands
