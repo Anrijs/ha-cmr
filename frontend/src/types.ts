@@ -29,6 +29,8 @@ export interface CmrDevice {
   packages: string[];
   uptime: number | null;
   connected_time: number | null;
+  /** Controller local time, e.g. "2026-10-04 20:55:21", while disconnected. */
+  disconnected_since: string | null;
   controller: boolean;
   connected: boolean;
   /** Pairing waits for approval on the controller (P flag). */

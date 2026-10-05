@@ -22,12 +22,20 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
     _setup: { state: true },
     _copied: { state: true },
     _push: { state: true },
+    _only: { state: true },
   };
 
   declare _setup?: { url: string; script: string } | null;
   declare _copied: boolean;
   /** "busy" while rules are being changed, else the last result or error text. */
   declare _push?: string;
+  /** Chip filter: all rules, or only the firing / disabled / pushing ones. */
+  declare _only: "" | "firing" | "disabled" | "pushing";
+
+  constructor() {
+    super();
+    this._only = "";
+  }
 
   private async _pushAlerts(enable: boolean): Promise<void> {
     this._push = "busy";
@@ -92,8 +100,16 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
     const entry = this._entry;
     if (!entry) return this.renderWaiting();
 
-    const rules = entry.alerts
-      .filter((r) => !(this._config.hide_disabled && r.disabled))
+    const pool = entry.alerts.filter((r) => !(this._config.hide_disabled && r.disabled));
+    const counts = {
+      firing: pool.filter((r) => r.devices_on > 0).length,
+      disabled: pool.filter((r) => r.disabled).length,
+      pushing: pool.filter((r) => r.webhook_ha).length,
+    };
+    const rules = pool
+      .filter((r) =>
+        this._only === "firing" ? r.devices_on > 0 : this._only === "disabled" ? r.disabled : this._only === "pushing" ? r.webhook_ha : true,
+      )
       .sort(
         (a, b) =>
           Number(b.devices_on > 0) - Number(a.devices_on > 0) ||
@@ -117,6 +133,17 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
           <div class="spacer"></div>
         </div>
         ${this.renderStale(entry)}
+        ${pool.length > 3
+          ? html`<div class="filters">
+              <button class="pill ${this._only ? "" : "on"}" @click=${() => (this._only = "")}>All ${pool.length}</button>
+              ${counts.firing ? html`<button class="pill hot ${this._only === "firing" ? "on" : ""}" @click=${() => (this._only = this._only === "firing" ? "" : "firing")}>
+                  <ha-icon icon="mdi:bell-alert-outline"></ha-icon>Firing ${counts.firing}</button>` : nothing}
+              ${counts.pushing ? html`<button class="pill ${this._only === "pushing" ? "on" : ""}" @click=${() => (this._only = this._only === "pushing" ? "" : "pushing")}>
+                  <ha-icon icon="mdi:webhook"></ha-icon>Pushing ${counts.pushing}</button>` : nothing}
+              ${counts.disabled ? html`<button class="pill ${this._only === "disabled" ? "on" : ""}" @click=${() => (this._only = this._only === "disabled" ? "" : "disabled")}>
+                  <ha-icon icon="mdi:bell-off-outline"></ha-icon>Disabled ${counts.disabled}</button>` : nothing}
+            </div>`
+          : nothing}
 
         ${last && last.state !== "unknown" && last.state !== "unavailable"
           ? html`<button class="last sev-${lastAttrs.event_type}" @click=${() => moreInfo(this, lastId)}>
@@ -130,7 +157,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
 
         <div class="rules">
           ${rules.map((rule) => this._rule(rule))}
-          ${rules.length ? nothing : html`<div class="empty">No alert rules on the controller.</div>`}
+          ${rules.length ? nothing : html`<div class="empty">${pool.length ? "No rules match this filter." : "No alert rules on the controller."}</div>`}
         </div>
 
         ${this.hass.user?.is_admin
@@ -197,6 +224,9 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
   static styles = [
     baseStyles,
     css`
+      .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+      .pill.hot:not(.on) { border-color: color-mix(in srgb, var(--cmr-alert) 55%, transparent); color: var(--cmr-alert); }
+      .pill.hot.on { background: var(--cmr-alert); border-color: var(--cmr-alert); }
       .last {
         all: unset; cursor: pointer; box-sizing: border-box; display: flex; gap: 10px; align-items: center;
         margin: 0 12px 8px; padding: 8px 12px; border-radius: 12px; width: calc(100% - 24px);

@@ -69,7 +69,8 @@ function networkView(entry: CmrEntry, base: Card): Card {
       .filter(([entity]) => entity)
       .map(([entity, name]) => ({ type: "entity", entity, name, show_name: true })),
     sections: [
-      { type: "grid", column_span: 3, cards: [{ ...base, type: "custom:cmr-status-card" }] },
+      // The status card's drill-downs link into this dashboard's own views.
+      { type: "grid", column_span: 3, cards: [{ ...base, type: "custom:cmr-status-card", views: { devices: "devices", events: "events" } }] },
       {
         type: "grid",
         column_span: 3,
@@ -91,7 +92,7 @@ function networkView(entry: CmrEntry, base: Card): Card {
   };
 }
 
-function devicesView(entry: CmrEntry, hass: HassLike): Card {
+function devicesView(entry: CmrEntry, hass: HassLike, base: Card): Card {
   const alertsPushed = entry.alerts.some((rule) => rule.webhook);
   const devices = [...entry.devices].sort(compareDevices);
   const connectivity = devices.map((d) => d.entities.connected).filter(Boolean);
@@ -102,6 +103,8 @@ function devicesView(entry: CmrEntry, hass: HassLike): Card {
     type: "sections",
     max_columns: 4,
     sections: [
+      // The device table first: the status card's "Open in Devices" links land here, pre-filtered.
+      { type: "grid", column_span: 4, cards: [{ ...base, type: "custom:cmr-fleet-card", grid_options: { columns: "full" } }] },
       {
         type: "grid",
         column_span: 4,
@@ -170,7 +173,7 @@ export class CmrDashboardStrategy extends HTMLElement {
       const base: Card = config.entry_id ? { entry_id: config.entry_id } : {};
       return {
         title: config.title ?? "Network",
-        views: [networkView(entry, base), eventsView(base), devicesView(entry, hass), topologyView(base)],
+        views: [networkView(entry, base), eventsView(base), devicesView(entry, hass, base), topologyView(base)],
       };
     } catch (err) {
       console.error("cmr: dashboard strategy failed", err);

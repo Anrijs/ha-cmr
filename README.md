@@ -319,6 +319,9 @@ controller when you have several.
 
 ```yaml
 - type: custom:cmr-status-card
+  views:                    # optional: dashboard views its drill-downs can open
+    devices: devices
+    events: events
 
 - type: custom:cmr-topology-card
   layout: Overview          # start in this CMR layout (default: the top one)
@@ -330,6 +333,8 @@ controller when you have several.
 
 - type: custom:cmr-fleet-card
   labels: [ap]              # only devices with all of these CMR labels
+  status: offline           # or pending, alert, update, ok: a permanent "offline devices" card
+  fold_after: 50            # above this many rows the healthy devices fold into one line
 
 - type: custom:cmr-alerts-card
   hide_disabled: true
@@ -347,6 +352,18 @@ controller when you have several.
 On the map: click a building to open its layout, click a device for its
 details, hover a cable for its ports, PoE and traffic. Pinch or Ctrl/⌘-scroll
 zooms, drag pans, double-click fits.
+
+Finding what needs attention in a large fleet: the device table lists
+offline, waiting-to-pair, alerting and updatable devices first; the chips
+above it (*Offline 3*, *Updates 12*, …) filter to one status, the label chips
+and the search box narrow further, a version is a filter when clicked, and
+above `fold_after` rows the healthy devices fold into "995 devices online and
+up to date — show them". The status card's tiles open the same lists inline
+(offline since when, update from → to, firing rules, issues, devices to
+approve), and the version bar lists who runs what. In the generated dashboard
+the panel's *Open in Devices* jumps to the device table with that filter;
+`?cmr_status=offline`, `?cmr_version=…` and `?cmr_search=…` on a dashboard URL
+do the same for your own dashboards.
 
 ### Entities
 

@@ -104,6 +104,8 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "packages": d.packages,
             "uptime": d.uptime,
             "connected_time": d.connected_time,
+            # The controller's own timestamp (its local time), when disconnected.
+            "disconnected_since": d.disconnected_since,
             "controller": d.controller,
             "connected": d.connected,
             "pending": d.pending,

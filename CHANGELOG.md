@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.0
+- Device table for large fleets: attention first, status chips with counts, search, a version filter, and the healthy devices fold into one line.
+- The status card's tiles open the list behind the number (offline since when, updates, firing rules, issues, devices to approve); the version bar lists who runs what.
+- "Open in Devices" from those panels; `?cmr_status=…` links pre-filter the table on any dashboard.
+
 ## 0.6.0
 - One click on the alerts card makes every alert rule push to Home Assistant (and one to stop); the script is only shown when actions are off.
 

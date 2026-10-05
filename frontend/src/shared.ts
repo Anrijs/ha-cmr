@@ -29,6 +29,49 @@ export function pairingHint(device: CmrDevice): string {
   return "";
 }
 
+/** Most urgent first: the default order of device lists and status chips. */
+export const STATUS_ORDER: Status[] = ["offline", "pending", "alert", "update", "ok"];
+
+/** Approve a device's pairing on the controller (the Approve buttons). */
+export async function approvePairing(hass: HassLike, entryId: string, deviceKey: string): Promise<void> {
+  await hass.connection.sendMessagePromise({ type: "cmr/pair", entry_id: entryId, device_key: deviceKey });
+}
+
+/** Device fields a free-text search looks at. */
+export function deviceMatches(device: CmrDevice, needle: string): boolean {
+  if (!needle) return true;
+  const hay = [device.identity, device.board, device.model_code, device.address, device.version, ...device.labels]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return hay.includes(needle);
+}
+
+/**
+ * Filters another card asked for through the page URL, e.g.
+ * `/cmr-network/devices?cmr_status=offline`. Home Assistant hands cards no
+ * query parameters, so they read the location themselves.
+ */
+export function deepLinkParams(): { status?: Status; version?: string; search?: string } {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("cmr_status") as Status | null;
+  return {
+    status: status && STATUS_ORDER.includes(status) ? status : undefined,
+    version: params.get("cmr_version") ?? undefined,
+    search: params.get("cmr_search") ?? undefined,
+  };
+}
+
+/** Path of a view in the dashboard the page is on ("devices" → "/cmr-network/devices"). */
+export function viewPath(view: string, params: Record<string, string | undefined> = {}): string {
+  const dashboard = window.location.pathname.split("/")[1] || "lovelace";
+  const query = Object.entries(params)
+    .filter((entry): entry is [string, string] => !!entry[1])
+    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+    .join("&");
+  return `/${dashboard}/${view}${query ? `?${query}` : ""}`;
+}
+
 export const STATUS_LABEL: Record<Status, string> = {
   ok: "Online",
   update: "Update available",
