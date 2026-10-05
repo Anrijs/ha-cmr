@@ -72,6 +72,10 @@ class CmrApi:
         """POST /rest/<path> (runs a console command) and return the JSON."""
         return await self._request("POST", path, payload)
 
+    async def patch(self, path: str, payload: dict[str, Any]) -> Any:
+        """PATCH /rest/<path>/<id>: set fields of one item."""
+        return await self._request("PATCH", path, payload)
+
     async def _request(
         self, method: str, path: str, payload: dict[str, Any] | None = None
     ) -> Any:

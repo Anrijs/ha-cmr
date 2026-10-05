@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.0
+- One click on the alerts card makes every alert rule push to Home Assistant (and one to stop); the script is only shown when actions are off.
+
 ## 0.5.2
 - Pairing Repair texts pass Home Assistant's translation validation.
 

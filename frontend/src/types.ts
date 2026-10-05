@@ -67,7 +67,10 @@ export interface CmrAlertRule {
   fired: number;
   action_failures: number;
   disabled: boolean;
+  /** Has any HTTP action. */
   webhook: boolean;
+  /** Its HTTP action points at this Home Assistant's webhook. */
+  webhook_ha: boolean;
   entity_id: string | null;
 }
 

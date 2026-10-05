@@ -21,10 +21,29 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
   static properties: PropertyDeclarations = {
     _setup: { state: true },
     _copied: { state: true },
+    _push: { state: true },
   };
 
   declare _setup?: { url: string; script: string } | null;
   declare _copied: boolean;
+  /** "busy" while rules are being changed, else the last result or error text. */
+  declare _push?: string;
+
+  private async _pushAlerts(enable: boolean): Promise<void> {
+    this._push = "busy";
+    try {
+      const result = await this.hass.connection.sendMessagePromise<{ done: number; failures: string[] }>({
+        type: "cmr/alert_push",
+        entry_id: this._entry!.entry_id,
+        enable,
+      });
+      const what = enable ? "now push to Home Assistant" : "no longer push";
+      this._push = `${result.done} rule${result.done === 1 ? "" : "s"} ${what}`
+        + (result.failures.length ? `; failed: ${result.failures.join("; ")}` : "");
+    } catch (err) {
+      this._push = (err as { message?: string })?.message ?? String(err);
+    }
+  }
 
   static getConfigForm() {
     return {
@@ -83,7 +102,8 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
           a.name.localeCompare(b.name),
       );
     const firing = rules.filter((r) => r.devices_on > 0).length;
-    const hooked = entry.alerts.filter((r) => r.webhook).length;
+    const hooked = entry.alerts.filter((r) => r.webhook_ha).length;
+    const canAct = entry.actions && !!this.hass.user?.is_admin;
     const lastId = entry.fleet_entities.fleet_alert;
     const last = lastId ? this.hass.states[lastId] : undefined;
     const lastAttrs = (last?.attributes ?? {}) as Record<string, string>;
@@ -115,23 +135,34 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
 
         ${this.hass.user?.is_admin
           ? html`<div class="footer">
-              <button class="link" @click=${this._toggleSetup}>
-                <ha-icon icon="mdi:webhook"></ha-icon>
-                ${hooked
-                  ? `${hooked} of ${entry.alerts.length} rules push to Home Assistant`
-                  : "Push alerts to Home Assistant instantly"}
-                <ha-icon icon=${this._setup !== undefined ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
-              </button>
-              ${this._setup === null ? html`<div class="muted small">Loading…</div>` : nothing}
-              ${this._setup
-                ? html`<div class="setup">
-                    <div class="small">Paste into the controller's terminal. Each alert rule gets an HTTP action that calls Home Assistant; edit <code>find</code> to choose rules.</div>
-                    <pre>${this._setup.script}</pre>
-                    <button class="copy" @click=${this._copy}>
-                      <ha-icon icon=${this._copied ? "mdi:check" : "mdi:content-copy"}></ha-icon>${this._copied ? "Copied" : "Copy script"}
+              ${canAct
+                ? html`<div class="push">
+                    <ha-icon icon="mdi:webhook"></ha-icon>
+                    <span class="small">${hooked
+                      ? `${hooked} of ${entry.alerts.length} rules push to Home Assistant`
+                      : "Alerts reach Home Assistant on the next poll only"}</span>
+                    <button class="copy" ?disabled=${this._push === "busy"} @click=${() => this._pushAlerts(hooked < entry.alerts.length)}>
+                      ${this._push === "busy" ? "Working…" : hooked < entry.alerts.length ? "Push alerts to Home Assistant" : "Stop pushing"}
                     </button>
+                    ${this._push && this._push !== "busy" ? html`<div class="muted small">${this._push}</div>` : nothing}
                   </div>`
-                : nothing}
+                : html`<button class="link" @click=${this._toggleSetup}>
+                      <ha-icon icon="mdi:webhook"></ha-icon>
+                      ${hooked
+                        ? `${hooked} of ${entry.alerts.length} rules push to Home Assistant`
+                        : "Push alerts to Home Assistant instantly"}
+                      <ha-icon icon=${this._setup !== undefined ? "mdi:chevron-up" : "mdi:chevron-down"}></ha-icon>
+                    </button>
+                    ${this._setup === null ? html`<div class="muted small">Loading…</div>` : nothing}
+                    ${this._setup
+                      ? html`<div class="setup">
+                          <div class="small">Paste into the controller's terminal. Each alert rule gets an HTTP action that calls Home Assistant; edit <code>find</code> to choose rules. (With <i>Allow actions on the controller</i> in the options this becomes one click.)</div>
+                          <pre>${this._setup.script}</pre>
+                          <button class="copy" @click=${this._copy}>
+                            <ha-icon icon=${this._copied ? "mdi:check" : "mdi:content-copy"}></ha-icon>${this._copied ? "Copied" : "Copy script"}
+                          </button>
+                        </div>`
+                      : nothing}`}
             </div>`
           : nothing}
       </ha-card>
@@ -148,7 +179,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
         <div class="body">
           <div class="title">
             <span class="name">${rule.name}</span>
-            ${rule.webhook ? html`<ha-icon class="hook" icon="mdi:webhook" title="Pushes to a webhook"></ha-icon>` : nothing}
+            ${rule.webhook ? html`<ha-icon class="hook" icon="mdi:webhook" title=${rule.webhook_ha ? "Pushes to Home Assistant" : "Pushes to another webhook"}></ha-icon>` : nothing}
           </div>
           <div class="muted small">
             ${rule.disabled ? "disabled · " : nothing}${rule.categories.join(", ") || "uncategorised"} ·
@@ -199,6 +230,11 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
         color: var(--primary-color); --mdc-icon-size: 18px;
       }
       .setup { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+      .push { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; --mdc-icon-size: 18px; }
+      .push ha-icon { color: var(--cmr-muted); }
+      .push .copy { align-self: center; }
+      .push .copy[disabled] { opacity: 0.6; cursor: default; }
+      .push > .muted { flex-basis: 100%; }
       pre {
         margin: 0; padding: 10px; border-radius: 8px; background: var(--cmr-surface-2);
         font: 11px/1.45 var(--cmr-mono); white-space: pre-wrap; word-break: break-all; max-height: 180px; overflow: auto;

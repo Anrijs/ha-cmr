@@ -38,6 +38,53 @@ def test_alert_setup_script_points_every_rule_at_the_webhook() -> None:
     assert webhook.webhook_url(None, "abc") == "http://homeassistant.local:8123/api/webhook/abc"
 
 
+def test_alert_http_action_fields() -> None:
+    fields = webhook.alert_http_action("http://ha.local:8123", "abc", 'cpu "hot"', "high")
+    assert fields["action.http-url"] == "http://ha.local:8123/api/webhook/abc"
+    assert fields["action.http-method"] == "post"
+    assert fields["action.http-headers"] == "Content-Type: application/json"
+    body = fields["action.http-body"]
+    assert body.startswith('{"alert":"cpu \\"hot\\"","severity":"high","device":"[identity]"')
+    assert webhook.pushes_to_home_assistant("http://ha.local:8123/api/webhook/abc", "abc")
+    assert not webhook.pushes_to_home_assistant("https://example.invalid/hook", "abc")
+    assert not webhook.pushes_to_home_assistant(None, "abc")
+
+
+async def test_push_alerts_sets_and_clears_http_actions(
+    hass: HomeAssistant, controller: FakeController, make_entry, hass_ws_client
+) -> None:
+    rules = controller.data["cmr/alert"]
+    rules[0]["action.http-url"] = "https://example.invalid/other"  # someone else's webhook, must survive
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+
+    await client.send_json({"id": 1, "type": "cmr/alert_push", "entry_id": entry.entry_id, "enable": True})
+    reply = await client.receive_json()
+    assert reply["success"] and reply["result"] == {"done": len(rules), "failures": []}
+    assert all("test-webhook-id" in rule["action.http-url"] for rule in rules)
+    assert all(rule["action.http-method"] == "post" for rule in rules)
+    await hass.async_block_till_done()
+    assert all(rule.webhook_url and "test-webhook-id" in rule.webhook_url for rule in entry.runtime_data.data.alerts.values())
+
+    # Stop: only our actions are cleared.
+    rules[1]["action.http-url"] = "https://example.invalid/other"
+    await entry.runtime_data.async_refresh()
+    await client.send_json({"id": 2, "type": "cmr/alert_push", "entry_id": entry.entry_id, "enable": False})
+    reply = await client.receive_json()
+    assert reply["success"] and reply["result"]["done"] == len(rules) - 1
+    assert rules[1]["action.http-url"] == "https://example.invalid/other"
+    assert all("action.http-url" not in rule for rule in rules if rule is not rules[1])
+
+
+async def test_push_alerts_refused_without_actions(hass: HomeAssistant, entry, hass_ws_client) -> None:
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/alert_push", "entry_id": entry.entry_id, "enable": True})
+    reply = await client.receive_json()
+    assert not reply["success"] and reply["error"]["code"] == "not_allowed"
+
+
 def test_rest_error_classification() -> None:
     assert isinstance(api._error_for("GET", "cmr", 400, {"message": "no such command"}), api.CmrNotFoundError)
     assert isinstance(api._error_for("GET", "cmr", 400, {"detail": "not enough permissions"}), api.CmrAuthError)

@@ -79,7 +79,17 @@ class FakeController:
             raise CmrNotFoundError(f"{method} {path}: no such command", "no such command")
         if method == "GET":
             return self._get(path)
+        if method == "PATCH":
+            return self._patch(path, payload or {})
         return self._post(path, payload or {})
+
+    def _patch(self, path: str, payload: dict[str, Any]) -> Any:
+        menu, _, item_id = path.rpartition("/")
+        for item in self.data.get(menu, []):
+            if item[".id"] == item_id:
+                item.update(payload)
+                return item
+        raise CmrNotFoundError(f"PATCH {path}: no such item", "no such item")
 
     def _get(self, path: str) -> Any:
         if path == "system/resource":
@@ -123,6 +133,11 @@ class FakeController:
             if payload.get("script", "").startswith("/cmr/device/"):
                 return {"ret": self.device_console_output()}
             return {"ret": self.link_console_output()}
+        if path == "cmr/alert/unset":
+            for rule in self.data["cmr/alert"]:
+                if rule[".id"] == payload.get("numbers"):
+                    rule.pop(payload.get("value-name"), None)
+            return []
         if path == "cmr/device/pair":
             for d in self.devices:
                 if d[".id"] == payload.get("numbers"):

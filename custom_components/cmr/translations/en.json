@@ -62,7 +62,7 @@
     "step": {
       "init": {
         "title": "CMR options",
-        "description": "To get alerts in Home Assistant the moment they fire, run this on the controller. It points every alert rule's HTTP action at Home Assistant; edit `find` to limit it to some rules.\n\n```\n{script}\n```",
+        "description": "To get alerts the moment they fire, use *Push alerts to Home Assistant* on the alerts card: with actions allowed it sets every alert rule's HTTP action for you; otherwise it shows the script to paste into the controller's terminal.",
         "data": {
           "scan_interval": "Polling interval",
           "webhook_base_url": "Home Assistant address, as the controller reaches it",

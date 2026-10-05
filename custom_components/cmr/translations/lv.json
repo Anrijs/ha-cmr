@@ -62,7 +62,7 @@
     "step": {
       "init": {
         "title": "CMR iestatījumi",
-        "description": "Lai brīdinājumi parādītos Home Assistant uzreiz, palaid šo kontrolierī. Tas visiem brīdinājumu noteikumiem iestata HTTP darbību uz Home Assistant; lai ierobežotu noteikumus, labo `find`.\n\n```\n{script}\n```",
+        "description": "Lai brīdinājumi pienāktu uzreiz, lieto *Push alerts to Home Assistant* brīdinājumu kartītē: ja darbības ir atļautas, tā pati iestata katra brīdinājuma noteikuma HTTP darbību; citādi parāda skriptu, ko ielīmēt kontroliera terminālī.",
         "data": {
           "scan_interval": "Aptaujas intervāls",
           "webhook_base_url": "Home Assistant adrese, kā to sasniedz kontrolieris",

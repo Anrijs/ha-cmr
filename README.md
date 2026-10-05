@@ -433,10 +433,14 @@ action:
 ### Alerts in real time
 
 Polling sees alert rules change state within 30 seconds. To get each alert the
-moment it fires, open the alerts card's *Push alerts to Home Assistant* (or the
-integration's options) and paste the generated script into the controller's
-terminal. It sets every alert rule's HTTP action to Home Assistant's webhook,
-with the rule's name and severity in the body; edit its `find` to choose rules.
+moment it fires, press *Push alerts to Home Assistant* on the alerts card.
+With *Allow actions on the controller* on, that sets every alert rule's HTTP
+action to Home Assistant's webhook (POST, JSON body with the rule's name and
+severity) and *Stop pushing* clears exactly those again; rules that point at
+some other webhook are left alone. Without actions, the card shows the
+equivalent script to paste into the controller's terminal; edit its `find`
+to choose rules. The address the controller calls comes from the *Home
+Assistant address* option.
 
 ### Upgrades
 

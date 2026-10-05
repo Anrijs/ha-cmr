@@ -76,6 +76,60 @@ def alert_setup_script(base_url: str | None, webhook_id: str) -> str:
     )
 
 
+_HTTP_FIELDS = ("action.http-url", "action.http-method", "action.http-headers", "action.http-body")
+
+
+def alert_http_action(base_url: str | None, webhook_id: str, name: str, severity: str) -> dict[str, str]:
+    """The HTTP action fields that make one alert rule push to Home Assistant.
+
+    Same payload as the console script, built here as plain REST values.
+    """
+    body = {"alert": name, "severity": severity, **_BODY_FIELDS}
+    return {
+        "action.http-url": webhook_url(base_url, webhook_id),
+        "action.http-method": "post",
+        "action.http-headers": "Content-Type: application/json",
+        "action.http-body": json.dumps(body, separators=(",", ":")),
+    }
+
+
+def pushes_to_home_assistant(http_url: str | None, webhook_id: str) -> bool:
+    return bool(http_url) and webhook_id in str(http_url)
+
+
+async def async_apply_alert_webhooks(
+    api: Any, snapshot: Any, base_url: str | None, webhook_id: str
+) -> tuple[int, list[str]]:
+    """Point every alert rule's HTTP action at this webhook. Returns (set, failures)."""
+    done = 0
+    failures: list[str] = []
+    for rule in snapshot.alerts.values():
+        try:
+            await api.patch(f"cmr/alert/{rule.rest_id}", alert_http_action(base_url, webhook_id, rule.name, rule.severity))
+        except Exception as err:  # noqa: BLE001 - reported per rule, the rest continue
+            failures.append(f"{rule.name}: {getattr(err, 'detail', err)}")
+        else:
+            done += 1
+    return done, failures
+
+
+async def async_remove_alert_webhooks(api: Any, snapshot: Any, webhook_id: str) -> tuple[int, list[str]]:
+    """Clear the HTTP action of the rules that push to this webhook; other webhooks stay."""
+    done = 0
+    failures: list[str] = []
+    for rule in snapshot.alerts.values():
+        if not pushes_to_home_assistant(rule.webhook_url, webhook_id):
+            continue
+        try:
+            for field in _HTTP_FIELDS:
+                await api.post("cmr/alert/unset", {"numbers": rule.rest_id, "value-name": field})
+        except Exception as err:  # noqa: BLE001
+            failures.append(f"{rule.name}: {getattr(err, 'detail', err)}")
+        else:
+            done += 1
+    return done, failures
+
+
 def parse_payload(text: str) -> dict[str, Any]:
     """Decode an alert body, tolerating JSON broken by unescaped quotes."""
     text = text.strip()

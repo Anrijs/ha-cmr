@@ -23,7 +23,13 @@ from .const import DOMAIN
 from .coordinator import CmrConfigEntry
 from .models import is_prerelease
 from .pairing import async_pair
-from .webhook import alert_setup_script, entry_webhook_url
+from .webhook import (
+    alert_setup_script,
+    async_apply_alert_webhooks,
+    async_remove_alert_webhooks,
+    entry_webhook_url,
+    pushes_to_home_assistant,
+)
 
 _DEVICE_ENTITIES = {
     "connected": "binary_sensor",
@@ -50,6 +56,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_subscribe)
     websocket_api.async_register_command(hass, ws_events)
     websocket_api.async_register_command(hass, ws_alert_setup)
+    websocket_api.async_register_command(hass, ws_alert_push)
     websocket_api.async_register_command(hass, ws_pair)
 
 
@@ -128,6 +135,7 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "action_failures": rule.action_failures,
             "disabled": rule.disabled,
             "webhook": rule.webhook_url is not None,
+            "webhook_ha": pushes_to_home_assistant(rule.webhook_url, entry.data["webhook_id"]),
             "entity_id": entity_id("binary_sensor", f"{controller_key}_alert_{rule.rest_id}"),
         }
         for rule in snapshot.alerts.values()
@@ -240,6 +248,35 @@ def ws_alert_setup(
         msg["id"],
         {"url": url, "script": alert_setup_script(base, entry.data["webhook_id"])},
     )
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "cmr/alert_push", vol.Required("entry_id"): str, vol.Required("enable"): bool}
+)
+@websocket_api.async_response
+async def ws_alert_push(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Make every alert rule push to Home Assistant's webhook, or stop them."""
+    entries = _loaded_entries(hass, msg["entry_id"])
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return
+    entry = entries[0]
+    coordinator = entry.runtime_data
+    if not coordinator.allow_upgrades:
+        connection.send_error(msg["id"], "not_allowed", "Actions on the controller are not allowed in the options")
+        return
+    webhook_id = entry.data["webhook_id"]
+    if msg["enable"]:
+        url = entry_webhook_url(hass, entry)
+        base = url.rsplit("/api/webhook/", 1)[0]
+        done, failures = await async_apply_alert_webhooks(coordinator.api, coordinator.data, base, webhook_id)
+    else:
+        done, failures = await async_remove_alert_webhooks(coordinator.api, coordinator.data, webhook_id)
+    await coordinator.async_request_refresh()
+    connection.send_result(msg["id"], {"done": done, "failures": failures})
 
 
 @websocket_api.require_admin

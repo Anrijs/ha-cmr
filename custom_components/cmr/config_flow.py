@@ -41,7 +41,7 @@ from .const import (
 from .coordinator import CmrConfigEntry
 from .insights import DEFAULT_THRESHOLDS, OFFLINE_AFTER
 from .models import CmrDevice
-from .webhook import alert_setup_script, default_base_url
+from .webhook import default_base_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -222,10 +222,7 @@ class CmrOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         options = self.config_entry.options
         base_url = options.get(CONF_WEBHOOK_BASE_URL) or default_base_url(self.hass)
-        placeholders = {
-            "script": alert_setup_script(base_url, self.config_entry.data[CONF_WEBHOOK_ID]),
-            "detail": "",
-        }
+        placeholders = {"detail": ""}
         if user_input is not None:
             url = user_input.get(CONF_CATALOG_URL)
             # Only a new or changed URL is checked, so a catalog that is down
