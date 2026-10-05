@@ -27,9 +27,39 @@ const CARDS: [string, CustomElementConstructor, string, string][] = [
   ["cmr-events-card", CmrEventsCard, "CMR events", "Network timeline from the controller's log and changes, with detected issues."],
 ];
 
-for (const [tag, element] of CARDS) {
-  if (!customElements.get(tag)) customElements.define(tag, element);
+/**
+ * Define the elements only once Home Assistant's own root element exists.
+ *
+ * This script is loaded with the page (extra module URL), in parallel with
+ * the Home Assistant app. Browsers without native scoped custom element
+ * registries (Firefox) get a polyfill from the app that replaces
+ * `customElements.define/get/whenDefined`; elements defined natively before
+ * the polyfill installs are invisible to it, so the dashboard loader never
+ * sees `ll-strategy-dashboard-cmr` and times out. Waiting for `home-assistant`
+ * to be defined means the registry in place is the one the app uses.
+ */
+function registerElements(): void {
+  for (const [tag, element] of CARDS) {
+    if (!customElements.get(tag)) customElements.define(tag, element);
+  }
+  if (!customElements.get("ll-strategy-dashboard-cmr")) {
+    customElements.define("ll-strategy-dashboard-cmr", CmrDashboardStrategy);
+  }
+  if (!customElements.get("cmr-strategy-editor")) {
+    customElements.define("cmr-strategy-editor", CmrStrategyEditor);
+  }
 }
+
+function whenHomeAssistantReady(callback: () => void, waited = 0): void {
+  // Polling (not whenDefined): the polyfill may replace the registry while we wait.
+  if (customElements.get("home-assistant") || waited >= 15000) {
+    callback();
+    return;
+  }
+  setTimeout(() => whenHomeAssistantReady(callback, waited + 25), 25);
+}
+
+whenHomeAssistantReady(registerElements);
 
 window.customCards = window.customCards || [];
 for (const [type, , name, description] of CARDS) {
@@ -38,12 +68,6 @@ for (const [type, , name, description] of CARDS) {
   }
 }
 
-if (!customElements.get("ll-strategy-dashboard-cmr")) {
-  customElements.define("ll-strategy-dashboard-cmr", CmrDashboardStrategy);
-}
-if (!customElements.get("cmr-strategy-editor")) {
-  customElements.define("cmr-strategy-editor", CmrStrategyEditor);
-}
 window.customStrategies = window.customStrategies || [];
 if (!window.customStrategies.some((s) => s.type === "cmr")) {
   window.customStrategies.push({
@@ -68,7 +92,7 @@ console.info(
   "%c CMR %c cards loaded ",
   "background:#3a6ea5;color:#fff;border-radius:3px 0 0 3px",
   "background:#ddd;color:#333;border-radius:0 3px 3px 0",
-  `${timing}registered at ${Math.round(performance.now())} ms`,
+  `${timing}script ran at ${Math.round(performance.now())} ms`,
 );
 
 const STRATEGY_TIMEOUT_TEXT = "Timeout waiting for strategy element ll-strategy-dashboard-cmr";

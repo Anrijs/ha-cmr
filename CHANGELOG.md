@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.1
+- Firefox (and other browsers without native scoped custom element registries): the dashboard always failed with "Timeout waiting for strategy element ll-strategy-dashboard-cmr". The cards and the strategy are now registered once Home Assistant's own elements are, so its registry polyfill sees them.
+
 ## 0.10.0
 - CMR is public with RouterOS 7.26beta1: the integration is now called "MikroTik CMR", and the README names the platform and the RouterOS requirement.
 - Update entities link to MikroTik's changelog for the device's release channel.
