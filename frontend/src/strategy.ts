@@ -191,6 +191,16 @@ export class CmrDashboardStrategy extends HTMLElement {
     try {
       const entries = await withTimeout(cmrStore.once(hass), 8000, [] as CmrEntry[]);
       const entry = pickEntry(entries, config.entry_id);
+      if (!entry && config.entry_id && entries.length) {
+        // Pinned to a controller that isn't loaded right now (starting up,
+        // unreachable, or removed): say so instead of showing another one.
+        return messageDashboard(
+          config,
+          "The controller this dashboard shows isn't loaded right now. If Home Assistant just " +
+            "started, reload in a moment; if the controller was removed, open *Edit dashboard* " +
+            "and pick another one.",
+        );
+      }
       if (!entry) {
         return messageDashboard(
           config,

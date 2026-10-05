@@ -68,7 +68,10 @@ export const cmrStore = new CmrStore();
 /** Pick the configured controller, or the first one. */
 export function pickEntry(entries: CmrEntry[] | undefined, entryId?: string): CmrEntry | undefined {
   if (!entries?.length) return undefined;
-  return entries.find((entry) => entry.entry_id === entryId) ?? entries[0];
+  // A card pinned to one controller never shows another one (e.g. while that
+  // controller's entry is still loading after a restart).
+  if (entryId) return entries.find((entry) => entry.entry_id === entryId);
+  return entries[0];
 }
 
 // ----------------------------------------------------------- rule devices

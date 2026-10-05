@@ -55,4 +55,61 @@ if (!window.customStrategies.some((s) => s.type === "cmr")) {
   });
 }
 
-console.info("%c CMR %c cards loaded ", "background:#3a6ea5;color:#fff;border-radius:3px 0 0 3px", "background:#ddd;color:#333;border-radius:0 3px 3px 0");
+// When this script is fetched (first load after an update, or a busy
+// server) Home Assistant's dashboard loader may give up waiting for the
+// strategy element after 5 s and show "Timeout waiting for strategy element
+// ll-strategy-dashboard-cmr". Once the element exists a reload always works,
+// so do that once per session. The timing goes to the console for bug reports.
+const fetched = performance.getEntriesByType("resource").find((e) => e.name.includes("/cmr_static/cmr.js")) as
+  | PerformanceResourceTiming
+  | undefined;
+const timing = fetched ? `fetched ${Math.round(fetched.startTime)}–${Math.round(fetched.responseEnd)} ms, ` : "";
+console.info(
+  "%c CMR %c cards loaded ",
+  "background:#3a6ea5;color:#fff;border-radius:3px 0 0 3px",
+  "background:#ddd;color:#333;border-radius:0 3px 3px 0",
+  `${timing}registered at ${Math.round(performance.now())} ms`,
+);
+
+const STRATEGY_TIMEOUT_TEXT = "Timeout waiting for strategy element ll-strategy-dashboard-cmr";
+const RELOAD_FLAG = "cmr-strategy-reloaded";
+
+function showsStrategyTimeout(root: Document | ShadowRoot | Element, depth = 0): boolean {
+  if (depth > 12) return false;
+  if (root instanceof Element && root.shadowRoot && showsStrategyTimeout(root.shadowRoot, depth + 1)) return true;
+  for (const child of Array.from(root.children)) {
+    if (child.tagName === "SCRIPT" || child.tagName === "STYLE") continue;
+    if (child.children.length === 0 && child.textContent?.includes(STRATEGY_TIMEOUT_TEXT)) return true;
+    if (showsStrategyTimeout(child, depth + 1)) return true;
+  }
+  return false;
+}
+
+function healStrategyTimeout(attempt = 0): void {
+  if (!showsStrategyTimeout(document)) {
+    // The error appears up to ~5 s after the dashboard starts loading.
+    if (attempt < 6) {
+      setTimeout(() => healStrategyTimeout(attempt + 1), 2000);
+    } else {
+      // Loaded fine: a later timeout (next update) may reload again.
+      try { sessionStorage.removeItem(RELOAD_FLAG); } catch { /* storage unavailable */ }
+    }
+    return;
+  }
+  let reloaded = false;
+  try {
+    reloaded = sessionStorage.getItem(RELOAD_FLAG) === location.pathname;
+    sessionStorage.setItem(RELOAD_FLAG, location.pathname);
+  } catch {
+    // Storage unavailable: still reload once, risking a second error page rather than a loop.
+    reloaded = attempt > 0;
+  }
+  if (reloaded) {
+    console.warn("cmr: the dashboard strategy timed out again after a reload; not retrying");
+    return;
+  }
+  console.warn("cmr: the dashboard strategy timed out before this script registered it; reloading once");
+  location.reload();
+}
+
+healStrategyTimeout();

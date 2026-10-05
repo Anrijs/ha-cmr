@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.2
+- "Timeout waiting for strategy element" after an update: the page now reloads itself once when that happens, and the card script logs its load timing for bug reports.
+- A dashboard pinned to one controller no longer shows another controller while its own is still starting; it says so instead.
+
 ## 0.9.1
 - The overview's device card is compact: only devices needing attention, eight rows, a link to the full table (`compact` option).
 - Label chips show the eight most used labels; the rest open from "+N more" with a search box.

@@ -12,6 +12,9 @@ dev/config/*
 # Local Home Assistant dashboard backups (not part of the project)
 *-backup-*.json
 
+# Private notes: data-source and workaround register, sister-project blueprint
+ARCHITECTURE.md
+
 # Design-hook caches
 .impeccable/hook.cache.json
 frontend/.impeccable/
