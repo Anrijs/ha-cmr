@@ -194,3 +194,17 @@ async def test_console_not_allowed_still_loads(hass: HomeAssistant, controller: 
     assert all(device.alerts is None for device in entry.runtime_data.data.devices.values())
     # Tried once, not on every poll.
     assert sum(path == "execute" for _, path, _ in controller.calls) == 1
+
+
+async def test_up_to_date_device_without_available_version(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    """The controller leaves `available-version` empty on an up-to-date device; that is not "unknown"."""
+    device = controller.device("Site-AP1")
+    device.pop("available-version", None)
+    device["upgrade-available"] = "false"
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id(hass, "update", "S0000000003_update"))
+    assert state and state.state == "off"
+    assert state.attributes["installed_version"] == "7.90_ab12"
+    assert state.attributes["latest_version"] == "7.90_ab12"

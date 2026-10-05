@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.7
+- A device already on its channel's newest version showed its RouterOS update as "Unknown" (the controller reports no available version for it); it now reads up to date.
+
 ## 0.10.6
 - Pushed alerts use the controller's own `[alert-name]`, `[severity]` and `[category]` placeholders, so a renamed rule keeps pushing the right name; the values set at push time stay in the body as a fallback for builds without these placeholders. Pushed alerts carry a `category`.
 - Housekeeping: Wi-Fi dedup bookkeeping only while that feed is on; tests run with the shipped defaults; stricter TypeScript checks.

@@ -95,8 +95,14 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
 
     @property
     def latest_version(self) -> str | None:
+        """The newer version the channel offers, else the installed one (= up to date).
+
+        The controller leaves `available-version` empty for a device that is
+        already on its channel's newest version; without this the entity
+        would read "unknown" exactly for the devices that are fine.
+        """
         device = self.device
-        if device is None or not device.available_version:
+        if device is None or not device.version:
             return None
         return device.available_version if device.update_available else device.version
 
