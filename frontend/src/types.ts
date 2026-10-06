@@ -36,8 +36,10 @@ export interface CmrDevice {
   stale: boolean;
   alerts: AlertCounts | null;
   device_id: string | null;
+  /** A wifi package is installed: the device has radios. */
+  wifi: boolean;
   entities: Record<string, string | null>;
-  /** From the optional product catalog. */
+  /** From the product catalog, when it lists the device. */
   product?: CmrProduct | null;
 }
 
@@ -86,6 +88,8 @@ export interface CmrAlertRule {
   webhook: boolean;
   /** Its HTTP action points at this Home Assistant's webhook. */
   webhook_ha: boolean;
+  /** Pushes to this Home Assistant with an older body; Push alerts again updates it. */
+  webhook_outdated: boolean;
   entity_id: string | null;
 }
 
@@ -141,6 +145,43 @@ export interface CmrEntry {
   layouts: CmrLayout[];
   nodes: CmrNode[];
   links: CmrLink[];
+  /** CMR's WiFi provisioning; null on a controller build without the menu. */
+  wifi: { networks: CmrWifiNetwork[]; radios: CmrWifiRadio[] } | null;
+}
+
+/** Fields shared by CMR WiFi networks and radio items. */
+interface CmrWifiItem {
+  id: string;
+  comment: string | null;
+  disabled: boolean;
+  /** Device labels of the item's selector (band labels split off). */
+  selector: string[];
+  /** Bands its band labels select ("2.4", "5", "6"); empty = every band. */
+  bands: string[];
+  /** Keys of the devices its labels select. */
+  devices: string[];
+}
+
+export interface CmrWifiNetwork extends CmrWifiItem {
+  ssid: string | null;
+  mode: string | null;
+  vlan_id: number | null;
+  hidden: boolean;
+  authentication: string[];
+  encryption: string[];
+  fast_roaming: boolean;
+  mlo: boolean;
+  max_clients: number | null;
+}
+
+export interface CmrWifiRadio extends CmrWifiItem {
+  /** RouterOS channel band, e.g. "5ghz-ax". */
+  band: string | null;
+  frequency: string | null;
+  width: string | null;
+  country: string | null;
+  chains: string | null;
+  tx_power: number | null;
 }
 
 // Minimal view of the frontend's hass object used by the cards.
@@ -152,6 +193,7 @@ export interface HassLike {
   devices?: Record<string, { name?: string | null; name_by_user?: string | null; config_entries?: string[] }>;
   language?: string;
   themes?: { darkMode?: boolean };
+  callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
   connection: {
     subscribeMessage<T>(
       callback: (message: T) => void,

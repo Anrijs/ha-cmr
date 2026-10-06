@@ -11,7 +11,8 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_WEBHOOK_ID
 from .coordinator import CmrConfigEntry
 
-TO_REDACT = {CONF_PASSWORD, CONF_USERNAME, CONF_WEBHOOK_ID, "ids"}
+# WiFi secrets are dropped when read (coordinator.SECRET_PATHS); listed here too in case.
+TO_REDACT = {CONF_PASSWORD, CONF_USERNAME, CONF_WEBHOOK_ID, "ids", "security.passphrase", "security.eap-password"}
 
 
 async def async_get_config_entry_diagnostics(

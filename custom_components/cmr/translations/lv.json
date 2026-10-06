@@ -66,14 +66,12 @@
         "data": {
           "scan_interval": "Aptaujas intervāls",
           "webhook_base_url": "Home Assistant adrese, kā to sasniedz kontrolieris",
-          "allow_upgrades": "Ļaut darbības kontrolierī (atjauninājumi, pārošana)",
-          "activity_log": "Home Assistant aktivitāšu žurnāls",
-          "catalog_url": "Produktu kataloga URL"
+          "allow_upgrades": "Ļaut darbības kontrolierī (atjauninājumi, pārstartēšana, pārošana)",
+          "activity_log": "Home Assistant aktivitāšu žurnāls"
         },
         "data_description": {
-          "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt, katram atjaunināšanas noteikumam pogu un Apstiprināt ierīcēm, kas gaida pārošanu. Rūtera lietotājam vajag `write` politiku.",
-          "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss.",
-          "catalog_url": "Neobligāts. Produktu katalogs, kas ierīcēm pievieno attēlus un produktu nosaukumus; atstāj tukšu, lai izslēgtu. Attēli tad ielādējas no kataloga attēlu servera."
+          "allow_upgrades": "Katram programmatūras atjauninājumam pievieno Instalēt, katrai ierīcei pogu Pārstartēt, katram atjaunināšanas noteikumam pogu un Apstiprināt ierīcēm, kas gaida pārošanu. Rūtera lietotājam vajag `write` politiku.",
+          "activity_log": "Kuri kontroliera notikumi parādās arī Home Assistant aktivitāšu žurnālā. Integrācijas paša laika joslā vienmēr ir viss."
         },
         "sections": {
           "detection": {
@@ -91,10 +89,6 @@
           }
         }
       }
-    },
-    "error": {
-      "catalog_unreachable": "Nevar ielādēt produktu katalogu: {detail}",
-      "catalog_empty": "Produktu katalogs neatgrieza nevienu produktu ar attēlu."
     }
   },
   "entity": {
@@ -195,6 +189,9 @@
       },
       "run_rule": {
         "name": "Palaist atjaunināšanas noteikumu"
+      },
+      "reboot": {
+        "name": "Pārstartēt"
       }
     }
   },
@@ -210,6 +207,9 @@
     },
     "command_failed": {
       "message": "Kontrolieris noraidīja komandu: {detail}"
+    },
+    "reboot_failed": {
+      "message": "Kontrolieris atteicās pārstartēt {device}: {detail}"
     },
     "rule_would_downgrade": {
       "message": "{rule} netiek palaists: kanāls pārvietotu {devices} uz vecāku versiju."

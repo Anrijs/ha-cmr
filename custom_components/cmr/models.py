@@ -276,7 +276,7 @@ def parse_links(value: Any) -> list[PortLink]:
 
 
 # ---------------------------------------------------------------------------
-# Product catalog (optional photos and names)
+# Product catalog (photos, names and port counts)
 # ---------------------------------------------------------------------------
 
 
@@ -667,6 +667,120 @@ class CmrLink:
         )
 
 
+# ---------------------------------------------------------------------------
+# CMR WiFi provisioning (`/cmr/wifi`, `/cmr/wifi/radio`)
+# ---------------------------------------------------------------------------
+
+# A band label in a WiFi item's `labels` selects the radios of one band; the
+# other labels select devices, with the usual grammar.
+WIFI_BANDS = {"2ghz": "2.4", "5ghz": "5", "6ghz": "6"}
+# Never kept: REST returns the network passphrase in clear to a user with the
+# `sensitive` policy (seen 2026-10-06), and raw responses end up in diagnostics.
+_SECRET_FIELD = re.compile(r"passphrase|password", re.IGNORECASE)
+
+
+def strip_secrets(item: Any) -> Any:
+    """A REST item without its passphrase and password fields."""
+    if not isinstance(item, dict):
+        return item
+    return {key: value for key, value in item.items() if not _SECRET_FIELD.search(key)}
+
+
+def split_wifi_labels(selector: Any) -> tuple[list[str], list[str]]:
+    """A WiFi item's `labels` as (device selector items, bands)."""
+    devices: list[str] = []
+    bands: list[str] = []
+    for item in split_list(selector):
+        band = WIFI_BANDS.get(item.lstrip("+-").lower())
+        if band:
+            bands.append(band)
+        else:
+            devices.append(item)
+    return devices, bands
+
+
+def wifi_targets(selector: list[str], devices: Any) -> list[CmrDevice]:
+    """The devices a WiFi item applies to; without device labels, every device."""
+    if not selector:
+        return list(devices)
+    joined = ",".join(selector)
+    return [device for device in devices if device.matches_labels(joined)]
+
+
+@dataclass(frozen=True)
+class CmrWifiNetwork:
+    """A WiFi network CMR writes to the access points its labels select."""
+
+    rest_id: str
+    ssid: str | None
+    comment: str | None
+    disabled: bool
+    selector: list[str]
+    bands: list[str]
+    mode: str | None
+    vlan_id: int | None
+    hidden: bool
+    authentication: list[str]
+    encryption: list[str]
+    fast_roaming: bool
+    mlo: bool
+    max_clients: int | None
+
+    @classmethod
+    def from_rest(cls, raw: dict[str, Any]) -> CmrWifiNetwork:
+        selector, bands = split_wifi_labels(raw.get("labels"))
+        return cls(
+            rest_id=str(raw.get(".id", "")),
+            ssid=raw.get("ssid") or None,
+            comment=raw.get("comment") or None,
+            disabled=to_bool(raw.get("disabled")),
+            selector=selector,
+            bands=bands,
+            mode=raw.get("mode") or None,
+            vlan_id=to_int(raw.get("vlan-id")),
+            hidden=to_bool(raw.get("hide-ssid")),
+            authentication=split_list(raw.get("security.authentication-types")),
+            encryption=split_list(raw.get("security.encryption")),
+            fast_roaming=to_bool(raw.get("security.ft")),
+            mlo=to_bool(raw.get("mlo")),
+            max_clients=to_int(raw.get("max-clients")),
+        )
+
+
+@dataclass(frozen=True)
+class CmrWifiRadio:
+    """Radio settings CMR applies to the radios its labels select."""
+
+    rest_id: str
+    comment: str | None
+    disabled: bool
+    selector: list[str]
+    bands: list[str]
+    band: str | None
+    frequency: str | None
+    width: str | None
+    country: str | None
+    chains: str | None
+    tx_power: int | None
+
+    @classmethod
+    def from_rest(cls, raw: dict[str, Any]) -> CmrWifiRadio:
+        selector, bands = split_wifi_labels(raw.get("labels"))
+        return cls(
+            rest_id=str(raw.get(".id", "")),
+            comment=raw.get("comment") or None,
+            disabled=to_bool(raw.get("disabled")),
+            selector=selector,
+            bands=bands,
+            band=raw.get("channel.band") or None,
+            frequency=raw.get("channel.frequency") or None,
+            width=raw.get("channel.width") or None,
+            country=raw.get("configuration.country") or None,
+            chains=raw.get("configuration.chains") or None,
+            tx_power=to_int(raw.get("configuration.tx-power")),
+        )
+
+
 @dataclass
 class CmrSnapshot:
     """Everything read from the controller in one poll."""
@@ -679,6 +793,8 @@ class CmrSnapshot:
     layouts: list[CmrLayout]
     nodes: list[CmrNode]
     links: list[CmrLink]
+    wifi_networks: list[CmrWifiNetwork] = field(default_factory=list)
+    wifi_radios: list[CmrWifiRadio] = field(default_factory=list)
 
     @property
     def controller(self) -> CmrDevice | None:
@@ -716,6 +832,8 @@ def parse_snapshot(raw: dict[str, Any]) -> CmrSnapshot:
         layouts=[CmrLayout.from_rest(item) for item in _items(raw.get("cmr/layout"))],
         nodes=[CmrNode.from_rest(item) for item in _items(raw.get("cmr/layout/node"))],
         links=[CmrLink.from_rest(item) for item in _items(raw.get("cmr/layout/link"))],
+        wifi_networks=[CmrWifiNetwork.from_rest(item) for item in _items(raw.get("cmr/wifi"))],
+        wifi_radios=[CmrWifiRadio.from_rest(item) for item in _items(raw.get("cmr/wifi/radio"))],
     )
 
 

@@ -119,3 +119,88 @@ async def test_install_uses_the_channel_unless_another_version_is_asked(
 
     await hass.services.async_call("update", "install", {"entity_id": access_point, "version": "7.90.1"}, blocking=True)
     assert ("POST", "cmr/device/upgrade", {"numbers": "*7", "duration": "2s", "channel": "7.90.1"}) in controller.calls
+
+
+async def test_failed_install_ends_with_its_job(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    """A pinned version the controller doesn't have fails at once with "no upgrade
+    available". The entity stops showing an install when that job is done, so the
+    user can retry right away instead of after the 20-minute timeout."""
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.cmr.const import DOMAIN
+
+    controller.install_job_state = "done"
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    access_point = er.async_get(hass).async_get_entity_id("update", DOMAIN, "S0000000006_update")
+
+    for _ in range(2):  # the second install would be refused while one is "in progress"
+        await hass.services.async_call("update", "install", {"entity_id": access_point, "version": "7.90.1"}, blocking=True)
+        await entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+        assert hass.states.get(access_point).attributes["in_progress"] is False
+
+
+async def test_install_keeps_its_target_while_the_device_reboots(
+    hass: HomeAssistant, controller: FakeController, make_entry
+) -> None:
+    """A rebooting device loses its available-version; the entity keeps the target
+    instead of briefly reading "up to date"."""
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.cmr.const import DOMAIN
+
+    controller.install_job_state = "processing"
+    gateway_raw = controller.device("Site-GW")
+    gateway_raw["available-version"] = "7.91"
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    gateway = er.async_get(hass).async_get_entity_id("update", DOMAIN, "S0000000002_update")
+
+    await hass.services.async_call("update", "install", {"entity_id": gateway}, blocking=True)
+    gateway_raw["connected"] = "false"
+    gateway_raw.pop("available-version")
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    state = hass.states.get(gateway)
+    assert state.attributes["in_progress"] is True
+    assert state.attributes["latest_version"] == "7.91"
+
+    gateway_raw.update(connected="true", version="7.91")
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    state = hass.states.get(gateway)
+    assert state.attributes["in_progress"] is False
+    assert (state.state, state.attributes["installed_version"]) == ("off", "7.91")
+
+
+async def test_reboot_button(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.cmr.const import DOMAIN
+
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    reboot = registry.async_get_entity_id("button", DOMAIN, "S0000000006_reboot")
+    assert hass.states.get(reboot).attributes["device_class"] == "restart"
+
+    await hass.services.async_call("button", "press", {"entity_id": reboot}, blocking=True)
+    assert ("POST", "cmr/device/reboot", {"numbers": "*7"}) in controller.calls
+
+    # An offline device can't be rebooted.
+    controller.device("Site-AP2")["connected"] = "false"
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get(reboot).state == "unavailable"
+
+
+async def test_no_reboot_button_without_actions(hass: HomeAssistant, entry) -> None:
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.cmr.const import DOMAIN
+
+    assert er.async_get(hass).async_get_entity_id("button", DOMAIN, "S0000000006_reboot") is None

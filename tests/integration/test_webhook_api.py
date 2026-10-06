@@ -23,12 +23,14 @@ def test_parse_payload_tolerates_broken_json() -> None:
 def test_normalize_alert() -> None:
     alert = webhook.normalize_alert({"alert": "cpu>95%", "severity": "HIGH", "device": "unknown", "identity": "AP1", "version": ""})
     assert alert == {
-        "alert": "cpu>95%", "severity": "high", "category": None, "device": "AP1", "serial": None, "address": None,
-        "version": None, "upgrade_version": None, "message": None,
+        "alert": "cpu>95%", "rule_id": None, "severity": "high", "category": None, "device": "AP1", "serial": None,
+        "address": None, "version": None, "available_version": None, "upgrade_version": None, "upgrade_state": None,
+        "upgrade_error": None, "iface": None, "iface_change": None, "job_devices": None, "job_upgraded": None,
+        "job_run_time": None, "message": None, "test": False,
     }
     assert webhook.normalize_alert({})["severity"] == "medium"
     assert webhook.normalize_alert({"severity": "bogus"})["severity"] == "medium"
-    # Placeholders a build doesn't substitute come back in brackets: fall back to the baked values.
+    # Bodies set before 0.12 carry the rule's name and severity as they were then.
     old = webhook.normalize_alert({"alert": "[alert-name]", "severity": "[severity]", "category": "[category]",
                                    "rule": "cpu>95%", "rule_severity": "high", "device": "(empty)"})
     assert (old["alert"], old["severity"], old["category"], old["device"]) == ("cpu>95%", "high", None, None)
@@ -39,25 +41,60 @@ def test_alert_setup_script_points_every_rule_at_the_webhook() -> None:
     script = webhook.alert_setup_script("http://ha.local:8123/", "abc")
     assert 'action.http-url="http://ha.local:8123/api/webhook/abc"' in script
     assert script.startswith(":foreach a in=[/cmr/alert find]")
-    # The controller fills the rule's name and severity itself; the baked values are the fallback.
+    # The controller fills in the rule's name and severity; the body carries the rule's id.
     assert '\\"alert\\":\\"[alert-name]\\"' in script and '\\"severity\\":\\"[severity]\\"' in script
-    assert '\\"rule_severity\\":\\"" . $s . "\\"' in script
-    body = webhook.alert_http_action("http://ha.local:8123", "abc", "cpu>95%", "high")["action.http-body"]
-    assert '"alert":"[alert-name]"' in body and '"rule":"cpu>95%"' in body
+    assert 'action.http-body=("{\\"rule_id\\":\\"" . $a . "\\",\\"alert\\"' in script
+    assert '\\"upgrade_error\\":\\"[upgrade-error]\\"' in script and "rule_severity" not in script
+    body = webhook.alert_http_action("http://ha.local:8123", "abc", "*4")["action.http-body"]
+    assert body.startswith('{"rule_id":"*4","alert":"[alert-name]"')
     assert webhook.webhook_url(None, "abc") == "http://homeassistant.local:8123/api/webhook/abc"
 
 
 def test_alert_http_action_fields() -> None:
-    fields = webhook.alert_http_action("http://ha.local:8123", "abc", 'cpu "hot"', "high")
+    fields = webhook.alert_http_action("http://ha.local:8123", "abc", "*4")
     assert fields["action.http-url"] == "http://ha.local:8123/api/webhook/abc"
     assert fields["action.http-method"] == "post"
     assert fields["action.http-headers"] == "Content-Type: application/json"
     body = fields["action.http-body"]
-    assert body.startswith('{"alert":"[alert-name]","severity":"[severity]","category":"[category]","device":"[identity]"')
-    assert body.endswith('"rule":"cpu \\"hot\\"","rule_severity":"high"}')
+    assert body.startswith('{"rule_id":"*4","alert":"[alert-name]","severity":"[severity]","category":"[category]"')
+    assert body.endswith('"job_run_time":"[job-run-time]","message":"[message]"}')
     assert webhook.pushes_to_home_assistant("http://ha.local:8123/api/webhook/abc", "abc")
     assert not webhook.pushes_to_home_assistant("https://example.invalid/hook", "abc")
     assert not webhook.pushes_to_home_assistant(None, "abc")
+
+
+def test_alert_summary_for_alerts_without_a_log_message() -> None:
+    """Values as a 7.26beta1 controller sent them (2026-10-06)."""
+    summary = lambda **body: webhook.normalize_alert(body)["message"]  # noqa: E731
+    assert summary(upgrade_error="no upgrade available", upgrade_state="pending") == "Upgrade failed: no upgrade available"
+    assert summary(upgrade_version="7.26beta1", upgrade_error="", upgrade_state="done") == "Upgraded to 7.26beta1"
+    # A pinned upgrade reports no version.
+    assert summary(upgrade_version="unknown", upgrade_error="", upgrade_state="done") == "Upgrade done"
+    assert summary(job_devices="1", job_upgraded="1", job_run_time="106") == "1 of 1 devices upgraded in 1 min 46 s"
+    # A job that ends without installing anything has no end or run time yet.
+    assert summary(job_devices="1", job_upgraded="0", job_run_time="unknown") == "0 of 1 devices upgraded"
+    assert summary(iface="ether1", iface_change="not-running") == "ether1 link down"
+    assert summary(message="login failure for user admin", upgrade_state="unknown") == "login failure for user admin"
+    assert summary(upgrade_state="unknown", iface="unknown") is None
+
+
+async def test_test_push_is_logged_not_fired(hass: HomeAssistant, entry, hass_client) -> None:
+    """The alert's Test sends `[placeholder]` for every value: it proves the webhook
+    works, so it lands in the timeline and fires no alert event."""
+    import json
+
+    fired = []
+    hass.bus.async_listen(EVENT_ALERT, fired.append)
+    rule = next(iter(entry.runtime_data.data.alerts.values()))
+    body = json.loads(webhook.alert_http_action(None, "test-webhook-id", rule.rest_id)["action.http-body"])
+    test_body = {key: value if key == "rule_id" else webhook.TEST_VALUE for key, value in body.items()}
+    client = await hass_client()
+    assert (await client.post("/api/webhook/test-webhook-id", json=test_body)).status == 200
+    await hass.async_block_till_done()
+    assert fired == []
+    last = entry.runtime_data.eventlog.events[-1]
+    assert last["title"] == f"Test push from alert {rule.name}"
+    assert not last["notable"]
 
 
 async def test_push_alerts_sets_and_clears_http_actions(

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0
+- Wi-Fi view and card: the Wi-Fi networks and radio settings CMR applies (bands, security, VLAN, channel), the access points each reaches, and warnings for setups the CMR guide says don't work (a network without a VLAN leaves its clients without network access; radio settings without a band label reach every band). Passphrases are dropped as they arrive, also from diagnostics. Live client counts aren't available from the controller's API yet.
+- A *Reboot* button per device, also on the device's card on the map (after a confirmation).
+- New setups start with *Allow actions on the controller* on: a router user with `write` is the expected setup. A read-only user turns it off in the options; existing entries keep their setting.
+- Pushed alerts carry the upgrade result, the job's counts and run time and the interface change, so the timeline says "Upgrade failed: no upgrade available" or "1 of 1 devices upgraded in 1 min 46 s". The rule's name and severity now come from the controller (verified on 7.26beta1), and the rule is matched by its id, so a renamed rule still maps. The alerts card offers *Update* for rules set up by an earlier version. A rule's *Test* on the controller shows in the timeline as a test push and no longer fires `cmr_alert` or the alert event entities.
+- *Install*: a job that fails at once (for example a pinned version the controller doesn't have, "no upgrade available") ends the install on the update entity right away instead of after 20 minutes, so it can be retried; while the device reboots the entity keeps showing the target version.
+- Upgrades card: a one-off install job reads "Install …" instead of "? → all", and *Run now* on it says that it simply runs now.
+- Brand icon, served by Home Assistant 2026.3+ from the integration itself.
+- The product catalog is always on: product photos, names and front panels come from MikroTik's public product list without setting anything up. The *Product catalog URL* option is gone; a URL saved there is ignored.
+
 ## 0.11.1
 - *Install* failed with "no upgrade available" when the controller didn't already have the new version's packages, for example on the CMR controller itself (the only device with the `cmr` package). It pinned the exact version, and the controller installs a pinned version only from packages it already has. Install now upgrades through the device's channel like the controller's own Upgrade button, which downloads what is needed; only an explicitly requested other version is pinned.
 - Upgrades card: a failed pinned job explains why, and the controller's own upgrade no longer shows as stuck in "rebooting" (it restarts before the job can record the result).

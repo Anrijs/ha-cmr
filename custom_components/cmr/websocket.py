@@ -25,7 +25,7 @@ from .actions import async_cancel_job, async_job_devices, async_rebuild_links, a
 from .api import CmrApiError, CmrNotFoundError
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
-from .models import parse_job_devices
+from .models import CmrSnapshot, CmrWifiNetwork, CmrWifiRadio, parse_job_devices, wifi_targets
 from .pairing import async_pair
 from .webhook import (
     alert_setup_script,
@@ -42,6 +42,7 @@ _DEVICE_ENTITIES = {
     "version": "sensor",
     "active_alerts": "sensor",
     "alert": "event",
+    "reboot": "button",
 }
 _FLEET_ENTITIES = {
     "devices": "sensor",
@@ -101,6 +102,16 @@ def _acting_coordinator(connection: websocket_api.ActiveConnection, msg: dict[st
     return coordinator
 
 
+def _wifi_item(item: CmrWifiNetwork | CmrWifiRadio, snapshot: CmrSnapshot) -> dict[str, Any]:
+    """A WiFi network or radio item, with the keys of the devices it applies to."""
+    fields = asdict(item)
+    return {
+        "id": fields.pop("rest_id"),
+        **fields,
+        "devices": [device.key for device in wifi_targets(item.selector, snapshot.devices.values())],
+    }
+
+
 def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any]:
     """Everything the cards need about one controller."""
     coordinator = entry.runtime_data
@@ -154,6 +165,8 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "product": (matched[d.key] or {}).get("code"),
             # Several catalog variants fit: the photo is right, the name a guess.
             "product_ambiguous": bool((matched[d.key] or {}).get("ambiguous")),
+            # A wifi package is installed (wifi-qcom, wifi-qcom-be, …): the device has radios.
+            "wifi": any(package.startswith("wifi") for package in d.packages),
             "entities": {
                 name: entity_id(platform, f"{d.key}_{name}")
                 for name, platform in _DEVICE_ENTITIES.items()
@@ -180,6 +193,9 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "disabled": rule.disabled,
             "webhook": rule.webhook_url is not None,
             "webhook_ha": pushes_to_home_assistant(rule.webhook_url, entry.data["webhook_id"]),
+            # Pushes to us with a body from before 0.12 (no rule id, no upgrade/job fields).
+            "webhook_outdated": pushes_to_home_assistant(rule.webhook_url, entry.data["webhook_id"])
+            and '"rule_id"' not in str(rule.raw.get("action.http-body") or ""),
             "entity_id": entity_id("binary_sensor", f"{controller_key}_alert_{rule.rest_id}"),
         }
         for rule in snapshot.alerts.values()
@@ -223,6 +239,11 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             {"id": job.get(".id"), **{k.replace("-", "_"): v for k, v in job.items() if not k.startswith(".")}}
             for job in snapshot.upgrade_jobs
         ],
+        # CMR's WiFi provisioning (no passphrases); None on a build without the menu.
+        "wifi": None if "cmr/wifi" in coordinator.missing_menus else {
+            "networks": [_wifi_item(item, snapshot) for item in snapshot.wifi_networks],
+            "radios": [_wifi_item(item, snapshot) for item in snapshot.wifi_radios],
+        },
         "layouts": [{"name": layout.name, "comment": layout.comment} for layout in snapshot.layouts],
         "nodes": nodes,
         "links": [

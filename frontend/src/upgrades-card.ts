@@ -150,7 +150,9 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
         @keydown=${(e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), toggle())}>
         <ha-icon icon=${JOB_ICON[status] ?? "mdi:circle-outline"} title=${status}></ha-icon>
         <div class="what">
-          <div><span class="mono">${job.channel ?? "?"}</span> → ${split(job.labels).join(", ") || "all"}
+          <div>${split(job.labels).length
+            ? html`<span class="mono">${job.channel ?? "?"}</span> → ${split(job.labels).join(", ")}`
+            : html`Install ${job.channel ? html`<span class="mono">${job.channel}</span>` : "from each device's channel"}`}
             ${RUNNING.has(status) ? html`<span class="chip update">${status}</span>` : nothing}</div>
           <div class="muted small">${when}</div>
         </div>
@@ -199,7 +201,9 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
       ${confirm
         ? html`<div class="confirm">
             <span>${confirm === "run_next"
-              ? "Run this job now? It starts as a new job, and this one stays scheduled."
+              ? split(job.labels).length
+                ? "Run this job now? It starts as a new job, and this one stays scheduled."
+                : "Run this install now instead of at its scheduled time?"
               : UNDERWAY.has(state)
                 ? "Stop this job? Devices not upgraded yet are marked cancelled; an install already under way can still finish when its device reboots."
                 : "Cancel this job?"}</span>

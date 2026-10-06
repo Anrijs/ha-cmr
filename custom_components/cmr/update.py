@@ -20,7 +20,7 @@ from .api import CmrApiError
 from .const import CONF_ALLOW_UPGRADES, DOMAIN
 from .coordinator import CmrConfigEntry
 from .entity import CmrDeviceEntity, async_add_per_device
-from .models import is_newer
+from .models import CmrDevice, is_newer
 
 FIRMWARE = UpdateEntityDescription(
     key="update",
@@ -60,6 +60,8 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
 
     _installing_to: str | None = None
     _installing_since = dt_util.utc_from_timestamp(0)
+    # Job ids that existed before our install, to tell its own job apart.
+    _jobs_before: frozenset[str] = frozenset()
 
     @property
     def supported_features(self) -> UpdateEntityFeature:
@@ -73,7 +75,7 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
 
     @property
     def entity_picture(self) -> str | None:
-        """The product photo, when a catalog is set (no brand icon exists)."""
+        """The product photo, when the catalog has the device (no brand icon exists)."""
         device = self.device
         catalog = self.coordinator.catalog
         product = catalog.product_for(device) if catalog and device else None
@@ -107,6 +109,9 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
         device = self.device
         if device is None or not device.version:
             return None
+        if self._install_running(device):
+            # A rebooting device has no available-version; keep showing the target.
+            return self._installing_to
         return device.available_version if device.update_available else device.version
 
     @property
@@ -114,17 +119,47 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
         device = self.device
         if device is None:
             return False
-        if (
-            self._installing_to
-            and device.version != self._installing_to
-            and dt_util.utcnow() - self._installing_since < _INSTALL_TIMEOUT
-        ):
+        if self._install_running(device):
             return True
-        self._installing_to = None
         return any(
             str(job.get("state", "")) in _RUNNING and device.matches_labels(job.get("labels"))
             for job in self.coordinator.data.upgrade_jobs
         )
+
+    def _install_running(self, device: CmrDevice) -> bool:
+        """Our own install is still under way.
+
+        It ends when the device runs the target version, when the job it
+        created has finished (a failed job, e.g. "no upgrade available",
+        leaves the version unchanged), or after a timeout as a last resort.
+        """
+        if not self._installing_to:
+            return False
+        if (
+            device.version == self._installing_to
+            or dt_util.utcnow() - self._installing_since >= _INSTALL_TIMEOUT
+            or any(
+                str(job.get("state", "")) in ("done", "cancelled")
+                for job in self._own_jobs()
+            )
+        ):
+            self._installing_to = None
+            return False
+        return True
+
+    def _own_jobs(self) -> list[dict[str, Any]]:
+        """Jobs that appeared after our install and could be its job.
+
+        `/cmr/device/upgrade` jobs carry no label selector (rule jobs do) and
+        name only a pinned version as their channel.
+        """
+        return [
+            job
+            for job in self.coordinator.data.upgrade_jobs
+            if str(job.get(".id")) not in self._jobs_before
+            and not job.get("labels")
+            and job.get("channel") in (None, "", self._installing_to)
+        ]
 
     @property
     def release_summary(self) -> str | None:
@@ -165,6 +200,7 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
             # Only an explicitly requested other version is pinned: a pinned
             # version must already be on the controller, it isn't downloaded.
             payload["channel"] = target
+        jobs_before = frozenset(str(job.get(".id")) for job in self.coordinator.data.upgrade_jobs)
         try:
             await self.coordinator.api.post("cmr/device/upgrade", payload)
         except CmrApiError as err:
@@ -176,5 +212,6 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
             ) from err
         self._installing_to = target
         self._installing_since = dt_util.utcnow()
+        self._jobs_before = jobs_before
         self.async_write_ha_state()
         await self.coordinator.async_request_refresh()

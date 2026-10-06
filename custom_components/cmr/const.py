@@ -12,8 +12,6 @@ CONF_WEBHOOK_BASE_URL: Final = "webhook_base_url"
 CONF_ALLOW_UPGRADES: Final = "allow_upgrades"
 # Which events go to Home Assistant's activity log: notable, all or off.
 CONF_ACTIVITY_LOG: Final = "activity_log"
-# Optional product catalog with photos (empty: off).
-CONF_CATALOG_URL: Final = "catalog_url"
 # Options section with the issue-detection thresholds (keys: insights.RULES
 # kinds, plus the offline delay).
 CONF_DETECTION: Final = "detection"

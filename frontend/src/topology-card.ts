@@ -152,6 +152,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _autoHeight: { state: true },
     _alert: { state: true },
     _rebuild: { state: true },
+    _reboot: { state: true },
     _pinned: { state: true },
     _find: { state: true },
     _copied: { state: true },
@@ -177,6 +178,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   private _touch = false;
   /** The Rebuild links bar for one layout: asking, running, or its outcome. */
   declare _rebuild?: { layout: string; state: "confirm" | "busy" | "done" | "error"; text?: string };
+  /** Reboot from the popover: asking, sent, or refused, for one device. */
+  declare _reboot?: { key: string; state: "confirm" | "busy" | "done" | "error"; text?: string };
   private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
   private _memo?: SceneMemo;
@@ -1190,11 +1193,22 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     </div>`;
   }
 
-  /** Onward from the popover: install the update, the device in Home Assistant, the device table. */
+  /** Onward from the popover: install the update, the device in Home Assistant, the device table, reboot. */
   private _popoverActions(d: CmrDevice): TemplateResult {
     const devicesView = this._config.views?.devices;
     const e = d.entities;
-    return html`<div class="pop-actions">
+    const reboot = this._reboot?.key === d.key ? this._reboot : undefined;
+    if (reboot?.state === "confirm") {
+      return html`<div class="pop-confirm">
+        <span>Reboot <b>${d.identity}</b>? It is back in about a minute; its clients lose the connection meanwhile.</span>
+        <div class="pop-actions">
+          <button class="pill on" @click=${() => this._rebootDevice(d.key, e.reboot!)}><ha-icon icon="mdi:restart"></ha-icon>Reboot</button>
+          <button class="pill" @click=${() => (this._reboot = undefined)}>Cancel</button>
+        </div>
+      </div>`;
+    }
+    return html`${reboot ? html`<div class="pop-note ${reboot.state}">${reboot.text}</div>` : nothing}
+    <div class="pop-actions">
       ${d.update_available && e.update
         ? html`<button class="pill on" @click=${() => moreInfo(this, e.update)}><ha-icon icon="mdi:arrow-up-circle"></ha-icon>Update</button>`
         : nothing}
@@ -1207,7 +1221,21 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       ${e.connected
         ? html`<button class="pill" @click=${() => moreInfo(this, e.connected)}>History</button>`
         : nothing}
+      ${e.reboot && d.connected && !d.pending && reboot?.state !== "busy"
+        ? html`<button class="pill" @click=${() => (this._reboot = { key: d.key, state: "confirm" })}>
+            <ha-icon icon="mdi:restart"></ha-icon>Reboot</button>`
+        : nothing}
     </div>`;
+  }
+
+  private async _rebootDevice(key: string, entityId: string): Promise<void> {
+    this._reboot = { key, state: "busy", text: "Asking the controller to reboot it…" };
+    try {
+      await this.hass.callService("button", "press", { entity_id: entityId });
+      this._reboot = { key, state: "done", text: "Rebooting. It shows offline until it is back, in about a minute." };
+    } catch (err) {
+      this._reboot = { key, state: "error", text: (err as { message?: string })?.message ?? String(err) };
+    }
   }
 
   private async _copy(text: string): Promise<void> {
@@ -1365,6 +1393,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       }
       .pop-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
       .pop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; --mdc-icon-size: 16px; }
+      .pop-confirm { margin-top: 10px; font-size: 13px; line-height: 1.4; }
+      .pop-note { margin-top: 10px; font-size: 12.5px; color: var(--cmr-muted); }
+      .pop-note.error { color: var(--cmr-offline); }
       .copy {
         all: unset; cursor: pointer; margin-left: 6px; color: var(--cmr-muted); font-size: 11px;
         --mdc-icon-size: 14px; vertical-align: -2px;

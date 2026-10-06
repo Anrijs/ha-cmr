@@ -107,8 +107,8 @@ async def _async_options_updated(hass: HomeAssistant, entry: CmrConfigEntry) -> 
     coordinator.update_interval = timedelta(seconds=entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
     if coordinator.eventlog is not None:
         coordinator.eventlog.configure()
-    # The webhook address, catalog URL and activity-log mode are read from the
-    # options whenever they are used.
+    # The webhook address and activity-log mode are read from the options
+    # whenever they are used.
 
 
 async def async_remove_config_entry_device(

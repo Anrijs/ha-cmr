@@ -420,6 +420,24 @@ class CmrEventLog:
         for listener in list(self._listeners):
             listener([stored])
 
+    def add_test_push(self, alert: dict[str, Any]) -> None:
+        """The controller ran an alert rule's Test: its webhook reaches Home Assistant."""
+        event = {
+            "time": dt_util.utcnow(),
+            "source": "push",
+            "category": "cmr",
+            "severity": "info",
+            "title": f"Test push from alert {alert.get('alert')}",
+            "message": "The controller reached Home Assistant. Nothing fired; no automation was triggered.",
+            "data": {"alert": alert.get("alert"), "rule_id": alert.get("rule_id"), "event": "test"},
+            "device_key": None,
+            "device_name": None,
+        }
+        stored = self._add(event, replay=False)
+        self._save()
+        for listener in list(self._listeners):
+            listener([stored])
+
     def _add(self, event: dict[str, Any], *, replay: bool) -> dict[str, Any]:
         stored = {
             **event,

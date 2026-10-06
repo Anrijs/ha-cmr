@@ -15,8 +15,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
-from .const import CONF_ALLOW_UPGRADES, CONF_CATALOG_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
-from .models import CmrSnapshot, parse_device_alerts, parse_link_details, parse_snapshot
+from .const import CONF_ALLOW_UPGRADES, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .models import CmrSnapshot, parse_device_alerts, parse_link_details, parse_snapshot, strip_secrets
 
 if TYPE_CHECKING:
     from .catalog import ProductCatalog
@@ -34,7 +34,11 @@ OPTIONAL_PATHS = (
     "cmr/layout",
     "cmr/layout/node",
     "cmr/layout/link",
+    "cmr/wifi",
+    "cmr/wifi/radio",
 )
+# Menus whose items can hold secrets (a WiFi passphrase), dropped as they arrive.
+SECRET_PATHS = frozenset({"cmr/wifi", "cmr/wifi/radio"})
 
 # Fields the controller computes on print and leaves out of REST responses
 # (also when asked for by name). They are read from the console output of
@@ -84,6 +88,11 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self._console_ok: bool | None = None
         # Rule id -> (when read, device keys it is active on); see async_alert_devices.
         self._alert_devices: dict[str, tuple[datetime, list[str]]] = {}
+
+    @property
+    def missing_menus(self) -> frozenset[str]:
+        """Optional menus this controller doesn't have (an older build)."""
+        return frozenset(self._missing)
 
     @property
     def console_ok(self) -> bool:
@@ -144,7 +153,7 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
                 else:
                     raise result
                 continue
-            raw[path] = result
+            raw[path] = [strip_secrets(item) for item in result] if path in SECRET_PATHS and isinstance(result, list) else result
         await self._merge_console_fields(raw)
         if not self._platform_read:
             try:
@@ -158,8 +167,8 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self.last_poll = dt_util.utcnow()
         snapshot = parse_snapshot(raw)
         if self.catalog is not None:
-            # A no-op unless the catalog is a day old or its URL changed.
-            await self.catalog.async_refresh(self.config_entry.options.get(CONF_CATALOG_URL))
+            # A no-op unless the catalog is a day old.
+            await self.catalog.async_refresh()
         if self.eventlog is not None:
             try:
                 await self.eventlog.async_process(self.api, self.data, snapshot)

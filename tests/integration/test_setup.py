@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
@@ -122,6 +123,44 @@ async def test_websocket_subscribe_payload(hass: HomeAssistant, entry, hass_ws_c
     remote = next(e for e in wifi if e["device_name"] == "Remote-AP" and e["data"]["event"] == "connected")
     assert remote["source"] == "wifi" and remote["data"]["bssid"] == "D0:EA:11:AE:17:FE"
     assert remote["device_key"] == "S0000000007"
+
+
+async def test_wifi_provisioning_payload(
+    hass: HomeAssistant, controller: FakeController, make_entry, hass_ws_client, hass_client
+) -> None:
+    """CMR WiFi items reach the cards with the devices they apply to and never
+    with their passphrase (REST returns it in clear to a `sensitive` user)."""
+    controller.data["cmr/wifi"] = [{
+        ".id": "*2", "labels": "house,+ap,+5ghz", "ssid": "Office", "vlan-id": "10",
+        "security.authentication-types": "wpa2-psk,wpa3-psk", "security.passphrase": "office-secret",
+        "security.eap-password": "eap-secret",
+    }]
+    controller.data["cmr/wifi/radio"] = [{".id": "*1", "labels": "+2ghz", "channel.band": "2ghz-ax", "channel.frequency": "2412"}]
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/subscribe"})
+    assert (await client.receive_json())["success"]
+    (payload,) = (await client.receive_json())["event"]["entries"]
+    (network,) = payload["wifi"]["networks"]
+    assert (network["ssid"], network["bands"], network["vlan_id"]) == ("Office", ["5"], 10)
+    assert sorted(network["devices"]) == ["S0000000005", "S0000000006"]  # house AND ap
+    (radio,) = payload["wifi"]["radios"]
+    assert radio["bands"] == ["2.4"] and len(radio["devices"]) == 7  # no device labels: every device
+    assert {d["identity"]: d["wifi"] for d in payload["devices"]}["Site-GW"] is False
+    assert "secret" not in json.dumps(payload)
+    diagnostics = await get_diagnostics_for_config_entry(hass, hass_client, entry)
+    assert "secret" not in json.dumps(diagnostics)
+
+
+async def test_no_wifi_menu(hass: HomeAssistant, entry, hass_ws_client) -> None:
+    """A build without `/cmr/wifi` (the fixture) says so instead of showing an empty list."""
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/subscribe"})
+    assert (await client.receive_json())["success"]
+    (payload,) = (await client.receive_json())["event"]["entries"]
+    assert payload["wifi"] is None
 
 
 async def test_diagnostics_redact_secrets(hass: HomeAssistant, entry, hass_client) -> None:

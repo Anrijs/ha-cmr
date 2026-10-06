@@ -4,15 +4,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-import pytest
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_SCAN_INTERVAL, CONF_SSL, CONF_USERNAME, CONF_VERIFY_SSL
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
-from custom_components.cmr import config_flow
-from custom_components.cmr.catalog import CatalogError
 from custom_components.cmr.const import CONF_ALLOW_UPGRADES, CONF_WEBHOOK_ID, DOMAIN
 
 from .conftest import FakeController
@@ -37,6 +33,7 @@ async def test_user_flow_creates_entry(hass: HomeAssistant, controller: FakeCont
     entry = result["result"]
     assert entry.unique_id == "S0000000001"  # the controller's serial
     assert entry.data[CONF_WEBHOOK_ID]
+    assert entry.options[CONF_ALLOW_UPGRADES] is True  # write users are the expected setup
     assert entry.state is config_entries.ConfigEntryState.LOADED
 
 
@@ -100,29 +97,6 @@ async def test_other_options_apply_without_reload(hass: HomeAssistant, entry) ->
     assert coordinator.update_interval == timedelta(seconds=120)
     assert coordinator.eventlog.engine.rules["wifi_flapping"].threshold == 2
     assert coordinator.eventlog.engine.offline_after == timedelta(minutes=5)
-
-
-async def test_options_validate_catalog_url(hass: HomeAssistant, entry, monkeypatch: pytest.MonkeyPatch) -> None:
-    async def failing(session, url):
-        raise CatalogError("HTTP 404")
-
-    monkeypatch.setattr(config_flow, "async_fetch_products", failing)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {**OPTIONS, "catalog_url": "https://example.invalid/catalog"}
-    )
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"catalog_url": "catalog_unreachable"}
-    assert result["description_placeholders"]["detail"] == "HTTP 404"
-
-    async def empty(session, url):
-        return []
-
-    monkeypatch.setattr(config_flow, "async_fetch_products", empty)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {**OPTIONS, "catalog_url": "https://example.invalid/catalog"}
-    )
-    assert result["errors"] == {"catalog_url": "catalog_empty"}
 
 
 async def test_reconfigure_same_controller(hass: HomeAssistant, entry, controller: FakeController) -> None:

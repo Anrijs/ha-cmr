@@ -66,6 +66,9 @@ class FakeController:
         # Alert rule id -> device ids it fires on (`show-devices on-only=yes`).
         self.alert_devices: dict[str, list[str]] = {"*1": ["*7"]}
         self.has_job_devices = True
+        # Set to a job state ("done", "processing") to have `/cmr/device/upgrade`
+        # create a job the way the real controller does (no labels; a channel only when pinned).
+        self.install_job_state: str | None = None
         # Upgrade job id -> `show-devices` rows, as the controller prints them over REST.
         self.job_devices: dict[str, list[dict[str, str]]] = {
             "*4": [
@@ -161,7 +164,16 @@ class FakeController:
                 if d[".id"] == payload.get("numbers"):
                     d.pop("pending", None)  # approved: the device is managed from now on
             return [{"device": payload.get("numbers"), "status": "paired"}]
-        if path in ("cmr/upgrade/version-check", "cmr/upgrade/trigger", "cmr/device/upgrade"):
+        if path == "cmr/device/upgrade" and self.install_job_state:
+            job = {".id": f"*{len(self.data['cmr/upgrade/job']) + 100:X}", "state": self.install_job_state,
+                   "schedule-time": stamp(0), "start-time": stamp(0)}
+            if "channel" in payload:
+                job["channel"] = payload["channel"]
+            if self.install_job_state == "done":
+                job["success"] = "0/1"  # e.g. a pinned version the controller doesn't have
+            self.data["cmr/upgrade/job"].append(job)
+            return []
+        if path in ("cmr/upgrade/version-check", "cmr/upgrade/trigger", "cmr/device/upgrade", "cmr/device/reboot"):
             return []
         if path == "cmr/upgrade/job/show-devices":
             if not self.has_job_devices:
@@ -221,6 +233,17 @@ def _wifi_logs(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) 
 
     if "wifi_logs" in request.keywords:
         monkeypatch.setattr(eventlog, "WIFI_LOGS_ENABLED", True)
+
+
+@pytest.fixture(autouse=True)
+def _no_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The product catalog is never fetched from the internet; tests that need it patch their own."""
+    from custom_components.cmr import catalog
+
+    async def fetch(_session: Any, _url: str) -> list[dict[str, Any]]:
+        return []
+
+    monkeypatch.setattr(catalog, "async_fetch_products", fetch)
 
 
 @pytest.fixture

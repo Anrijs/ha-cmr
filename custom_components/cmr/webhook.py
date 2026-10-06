@@ -24,16 +24,16 @@ from .const import (
 )
 from .coordinator import CmrConfigEntry
 from .logparse import find_device
-from .models import CmrSnapshot
+from .models import CmrAlertRule, CmrSnapshot, to_int
 
 _LOGGER = logging.getLogger(__name__)
 
 # JSON fields the generated alert script sends; values are the controller's alert
-# placeholders, substituted per device by the controller. The rule's name,
-# severity and categories are placeholders too (documented for 7.26), so a
-# renamed rule keeps pushing the right name; `rule`/`rule_severity` carry the
-# values as they were when the action was set, for builds that leave the
-# bracketed placeholders unsubstituted.
+# placeholders, substituted per device by the controller (verified on 7.26beta1,
+# 2026-10-06). One that doesn't apply to the rule arrives as `unknown`, one
+# without a value as `(empty)`. The body also carries the rule's `.id`, baked in
+# when the action is set: a renamed rule still maps, and the alert's Test, which
+# sends `[placeholder]` for every value, can still name its rule.
 _BODY_FIELDS = {
     "alert": "[alert-name]",
     "severity": "[severity]",
@@ -42,9 +42,25 @@ _BODY_FIELDS = {
     "serial": "[serial]",
     "address": "[address]",
     "version": "[version]",
+    "available_version": "[available-version]",
     "upgrade_version": "[upgrade-version]",
+    "upgrade_state": "[upgrade-state]",
+    "upgrade_error": "[upgrade-error]",
+    "iface": "[iface-name]",
+    "iface_change": "[iface-change]",
+    "job_devices": "[job-device-count]",
+    "job_upgraded": "[job-success-count]",
+    "job_run_time": "[job-run-time]",
     "message": "[message]",
 }
+# What the controller's alert Test sends in place of every placeholder.
+TEST_VALUE = "[placeholder]"
+_IFACE_CHANGES = {"running": "link up", "not-running": "link down", "added": "added", "removed": "removed"}
+# Body fields passed through as they are (None when they don't apply).
+_EVENT_FIELDS = (
+    "available_version", "upgrade_version", "upgrade_state", "upgrade_error",
+    "iface", "iface_change", "job_devices", "job_upgraded", "job_run_time",
+)
 _PAIR = re.compile(r'"([\w-]+)"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
@@ -64,20 +80,14 @@ def webhook_url(base_url: str | None, webhook_id: str) -> str:
 def alert_setup_script(base_url: str | None, webhook_id: str) -> str:
     """Controller script that points every CMR alert rule at this webhook.
 
-    The rule's own name and severity are baked into each body, since the
-    controller has no placeholder for them.
+    Each body carries the rule's own `.id` (see `_BODY_FIELDS`).
     """
     fields = "".join(
         f',\\"{key}\\":\\"{placeholder}\\"' for key, placeholder in _BODY_FIELDS.items()
     )
-    body = (
-        '("{\\"rule\\":\\"" . $n . "\\",\\"rule_severity\\":\\"" . $s . "\\"'
-        f'{fields}}}")'
-    )
+    body = f'("{{\\"rule_id\\":\\"" . $a . "\\"{fields}}}")'
     return (
         ":foreach a in=[/cmr/alert find] do={\n"
-        "  :local n [/cmr/alert get $a name]\n"
-        "  :local s [/cmr/alert get $a severity]\n"
         f'  /cmr/alert set $a action.http-url="{webhook_url(base_url, webhook_id)}" '
         'action.http-method=post action.http-headers="Content-Type: application/json" '
         f"action.http-body={body}\n"
@@ -88,12 +98,12 @@ def alert_setup_script(base_url: str | None, webhook_id: str) -> str:
 _HTTP_FIELDS = ("action.http-url", "action.http-method", "action.http-headers", "action.http-body")
 
 
-def alert_http_action(base_url: str | None, webhook_id: str, name: str, severity: str) -> dict[str, str]:
+def alert_http_action(base_url: str | None, webhook_id: str, rule_id: str) -> dict[str, str]:
     """The HTTP action fields that make one alert rule push to Home Assistant.
 
     Same payload as the console script, built here as plain REST values.
     """
-    body = {**_BODY_FIELDS, "rule": name, "rule_severity": severity}
+    body = {"rule_id": rule_id, **_BODY_FIELDS}
     return {
         "action.http-url": webhook_url(base_url, webhook_id),
         "action.http-method": "post",
@@ -114,7 +124,7 @@ async def async_apply_alert_webhooks(
     failures: list[str] = []
     for rule in snapshot.alerts.values():
         try:
-            await api.patch(f"cmr/alert/{rule.rest_id}", alert_http_action(base_url, webhook_id, rule.name, rule.severity))
+            await api.patch(f"cmr/alert/{rule.rest_id}", alert_http_action(base_url, webhook_id, rule.rest_id))
         except Exception as err:  # noqa: BLE001 - reported per rule, the rest continue
             failures.append(f"{rule.name}: {getattr(err, 'detail', err)}")
         else:
@@ -152,14 +162,38 @@ def parse_payload(text: str) -> dict[str, Any]:
     return decoded if isinstance(decoded, dict) else {"message": decoded}
 
 
-def fleet_alert(snapshot: CmrSnapshot, alert: dict[str, Any]) -> bool:
-    """A system alert (a finished upgrade job): CMR gives it no device context."""
-    rule = next((r for r in snapshot.alerts.values() if r.name == alert.get("alert")), None)
-    return bool(rule and rule.scope == "system")
+def pushed_rule(snapshot: CmrSnapshot, alert: dict[str, Any]) -> CmrAlertRule | None:
+    """The rule an alert came from: by the `.id` in its body, else by name."""
+    rules = snapshot.alerts.values()
+    return next((r for r in rules if alert.get("rule_id") and r.rest_id == alert["rule_id"]), None) or next(
+        (r for r in rules if r.name == alert.get("alert")), None
+    )
+
+
+def alert_summary(alert: dict[str, Any]) -> str | None:
+    """A line for alerts that carry no log message: upgrades, jobs, interfaces."""
+    if alert.get("upgrade_error"):
+        return f"Upgrade failed: {alert['upgrade_error']}"
+    if alert.get("upgrade_state") == "done":
+        return f"Upgraded to {alert['upgrade_version']}" if alert.get("upgrade_version") else "Upgrade done"
+    if alert.get("job_devices"):
+        text = f"{alert.get('job_upgraded') or 0} of {alert['job_devices']} devices upgraded"
+        seconds = to_int(alert.get("job_run_time"))
+        if seconds is not None:
+            minutes, seconds = divmod(seconds, 60)
+            text += f" in {minutes} min {seconds} s" if minutes else f" in {seconds} s"
+        return text
+    if alert.get("iface") and alert.get("iface_change"):
+        return f"{alert['iface']} {_IFACE_CHANGES.get(alert['iface_change'], alert['iface_change'])}"
+    return None
 
 
 def normalize_alert(payload: dict[str, Any]) -> dict[str, Any]:
-    """Map a pushed alert to the event schema; inapplicable values become None."""
+    """Map a pushed alert to the event schema; inapplicable values become None.
+
+    `test` marks the alert's Test action, which sends `[placeholder]` instead of
+    every value. `rule`/`rule_severity` are read from bodies set before 0.12.
+    """
 
     def value(key: str) -> str | None:
         raw = payload.get(key)
@@ -171,17 +205,21 @@ def normalize_alert(payload: dict[str, Any]) -> dict[str, Any]:
 
     severity = (value("severity") or value("rule_severity") or "medium").lower()
     category = value("category")
-    return {
+    alert: dict[str, Any] = {
         "alert": value("alert") or value("rule") or "alert",
+        "rule_id": value("rule_id"),
         "severity": severity if severity in SEVERITIES else "medium",
         "category": category.split(",")[0].strip() if category else None,
         "device": value("device") or value("identity"),
         "serial": value("serial"),
         "address": value("address"),
         "version": value("version"),
-        "upgrade_version": value("upgrade_version"),
+        **{key: value(key) for key in _EVENT_FIELDS},
         "message": value("message"),
+        "test": any(str(v) == TEST_VALUE for v in payload.values()),
     }
+    alert["message"] = alert["message"] or alert_summary(alert)
+    return alert
 
 
 @callback
@@ -194,12 +232,22 @@ def async_register_webhook(hass: HomeAssistant, entry: CmrConfigEntry) -> None:
         alert = normalize_alert(payload)
         coordinator = entry.runtime_data
         device = None
+        rule = pushed_rule(coordinator.data, alert) if coordinator.data else None
+        if rule is not None and alert["alert"] == "alert":
+            alert["alert"] = rule.name  # the name placeholder didn't come through
+        if alert["test"]:
+            # The alert's Test: proof that the controller reaches us, not an alert.
+            _LOGGER.debug("Test push from alert rule %s", alert["alert"])
+            if coordinator.eventlog is not None:
+                coordinator.eventlog.add_test_push(alert)
+            return web.Response(status=200, text="ok")
+        del alert["test"]
         if coordinator.data:
             snapshot = coordinator.data
             device = snapshot.devices.get(alert["serial"] or "") or snapshot.device_by_identity(
                 alert["device"]
             )
-            if device is None and not fleet_alert(snapshot, alert):
+            if device is None and not (rule and rule.scope == "system"):
                 # No usable placeholders: the device may still be named in the text.
                 text = " ".join(alert.get(k) or "" for k in ("device", "address", "message"))
                 device = snapshot.devices.get(find_device(text, snapshot.named_devices()) or "")

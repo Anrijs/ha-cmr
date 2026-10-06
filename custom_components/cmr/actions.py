@@ -1,4 +1,4 @@
-"""Controller commands run on request from the cards: layouts and upgrade jobs.
+"""Controller commands run on request: layouts, upgrade jobs, device reboots.
 
 Plain functions over `CmrApi`, without Home Assistant imports (portable like
 `api.py`). The websocket commands check the actions option and admin rights.
@@ -33,5 +33,11 @@ async def async_cancel_job(api: CmrApi, job_id: str) -> Any:
 
 
 async def async_run_next(api: CmrApi, job_id: str) -> Any:
-    """Run a scheduled job now, as a new job; the scheduled one stays scheduled."""
+    """Run a scheduled job now. A rule's job starts as a new job and stays
+    scheduled; a one-off job (`/cmr/device/upgrade schedule-time=…`) simply runs."""
     return await api.post("cmr/upgrade/job/run-next", {".id": job_id})
+
+
+async def async_reboot(api: CmrApi, device_id: str) -> Any:
+    """Reboot a device; the command returns at once, the device is back in about a minute."""
+    return await api.post("cmr/device/reboot", {"numbers": device_id})

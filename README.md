@@ -22,13 +22,13 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
    Then create a user for Home Assistant and enable the REST API on that router:
 
    ```
-   /user group add name=homeassistant policy=read,api,rest-api comment="Home Assistant"
+   /user group add name=homeassistant policy=read,write,api,rest-api comment="Home Assistant"
    /user add name=homeassistant group=homeassistant address=<home-assistant-ip>/32 password=<choose one>
    /ip service set www-ssl disabled=no
    ```
 
-   Add `write` to the group's policy if Home Assistant should be able to start
-   upgrades and approve pairings. Details and a certificate recipe:
+   `write` lets Home Assistant install updates, reboot devices and approve
+   pairings; leave it out for a read-only setup. Details and a certificate recipe:
    [1. Prepare the controller](#1-prepare-the-controller).
 2. **Install:** in Home Assistant open **HACS → ⋮ → Custom repositories**,
    add `https://github.com/trakais/ha-cmr` as type *Integration*, then search
@@ -38,11 +38,11 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
    turn *Use HTTPS* on and *Verify the HTTPS certificate* off (self-signed).
 4. **Dashboard:** reload the browser page, then Settings → Dashboards →
    **Add dashboard** → *MikroTik CMR network* and pick the controller. You get
-   the Network overview, Events, Devices and Topology views.
-5. **Optional:** the integration's *Configure* button turns on *Allow actions
-   on the controller* (upgrades, pairing approval — needs `write`, then
-   reload the integration), and the alerts card's *Push alerts to Home
-   Assistant* makes alerts arrive instantly instead of on the next poll.
+   the Network overview, Events, Devices, Topology and Wi-Fi views.
+5. **Optional:** the alerts card's *Push alerts to Home Assistant* makes
+   alerts arrive instantly instead of on the next poll. *Allow actions on the
+   controller* (installs, reboots, pairing approval) is on for new setups; with
+   a read-only user, turn it off under the integration's *Configure*.
 
 ## Contents
 
@@ -70,8 +70,9 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
   code, serial, RouterOS version, link to its web interface), grouped under the
   controller. Newly paired devices appear on their own.
 - Per device: *Connected*, *Up since*, *RouterOS version*, a **RouterOS update**
-  entity (listed in Settings → Updates), an *Alert* event entity, and
-  diagnostic sensors (address, channel, upgrade rule, packages, labels).
+  entity (listed in Settings → Updates), a *Reboot* button, an *Alert* event
+  entity, and diagnostic sensors (address, channel, upgrade rule, packages,
+  labels).
 - For the fleet: managed devices, devices online, updates available, active
   alert rules, last upgrade job, *Network issues*, *Network trouble*, and one
   problem sensor per alert rule.
@@ -79,9 +80,9 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
   links, repeated reboots, login failures…), with issues in **Settings →
   Repairs**.
 - **Instant alerts** from the controller's alert rules through a webhook.
-- **Upgrades** (opt-in): install a RouterOS update on one device, run an
-  upgrade rule, check for new versions, with guards against accidental
-  downgrades.
+- **Actions** (need `write` on the router user): install a RouterOS update on
+  one device, reboot a device, run an upgrade rule, check for new versions,
+  approve pairings, with guards against accidental downgrades.
 
 **Cards** (bundled with the integration and loaded automatically)
 
@@ -93,8 +94,9 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
 | Alerts | Alert rules by severity, which are active, how often event alerts fired, the webhook setup script |
 | Upgrades | Upgrade rules as a rollout pipeline, recent jobs |
 | Events | Detected issues and the network timeline, with filters |
+| Wi-Fi | The Wi-Fi networks and radio settings CMR applies, the access points they reach, and setups that leave clients without a network |
 
-**A generated dashboard** with Network, Events, Devices and Topology views,
+**A generated dashboard** with Network, Events, Devices, Topology and Wi-Fi views,
 built from whatever fleet the controller manages.
 
 ## How it fits together
@@ -161,7 +163,8 @@ flowchart LR
 
 ## What needs what
 
-Every feature reads the controller over REST; only upgrades need write access.
+Every feature reads the controller over REST; actions (installs, reboots,
+pairing, rebuilding links, cancelling jobs) need write access.
 
 | Feature | Reads from the controller | Router user policies |
 |---|---|---|
@@ -169,10 +172,12 @@ Every feature reads the controller over REST; only upgrades need write access.
 | Alert rule sensors, alerts card | `/cmr/alert` | same |
 | Upgrades card, last job | `/cmr/upgrade`, `/cmr/upgrade/job` | same |
 | Topology map | `/cmr/layout`, `/cmr/layout/node`, `/cmr/layout/link` | same |
+| Wi-Fi card | `/cmr/wifi`, `/cmr/wifi/radio` (passphrases are discarded on arrival) | same |
 | Port names, PoE, SFP, traffic on cables; per-device alert counters | `/execute` running `/cmr/layout/link/print detail` and `/cmr/device/print detail` | same (works read-only) |
 | Timeline and issues | `/log` (new lines only), `/system/clock` | same |
 | Instant alerts | Controller calls `POST /api/webhook/<id>` | (the controller must reach Home Assistant) |
 | Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow actions on the controller* option |
+| Reboot a device | `/cmr/device/reboot` | **+ `write`**, and the *Allow actions on the controller* option |
 | Rebuild a layout's links (map) | `/cmr/layout/rebuild-links` | **+ `write`**, and the *Allow actions on the controller* option |
 | A job's devices, state and reason (upgrades card) | `/cmr/upgrade/job/show-devices` | `read`, `api`, `rest-api` |
 | Cancel a job, run a scheduled job now | `/cmr/upgrade/job/remove`, `/cmr/upgrade/job/run-next` | **+ `write`**, and the *Allow actions on the controller* option |
@@ -200,19 +205,25 @@ present (they are part of the default configuration).
 Run on the controller (its terminal, or SSH). Replace the
 addresses with yours.
 
-**A user for Home Assistant.** Read-only is enough for everything except
-upgrades:
+**A user for Home Assistant.** With `write`, Home Assistant can also install
+updates, reboot devices and approve pairings, which is the expected setup:
 
 ```
-/user group add name=homeassistant policy=read,api,rest-api comment="Home Assistant"
+/user group add name=homeassistant policy=read,write,api,rest-api comment="Home Assistant"
 /user add name=homeassistant group=homeassistant address=<home-assistant-ip>/32 password=<choose one>
 ```
 
-To let Home Assistant start upgrades, add `write`:
+For a read-only setup, leave out `write` and turn off *Allow actions on the
+controller* in the integration's options; monitoring, the map, alerts and the
+timeline all work read-only:
 
 ```
-/user group set homeassistant policy=read,write,api,rest-api
+/user group set homeassistant policy=read,api,rest-api
 ```
+
+Don't add `sensitive`: Home Assistant doesn't need it, and with it the REST
+API returns the Wi-Fi passphrases of CMR's networks (the integration discards
+them as they arrive).
 
 To take a policy away again, negate it (`policy=read,!write,api,rest-api`); a
 shorter list doesn't remove a policy that is already set.
@@ -321,9 +332,8 @@ have them yet.
 |---|---|---|
 | Polling interval | 30 s | How often the controller is read (10–600 s) |
 | Home Assistant address | Home Assistant's internal URL | The address the controller uses for alert webhooks |
-| Allow actions on the controller | off | Adds *Install* to update entities, the upgrade buttons, and *Approve* for devices waiting to be paired; needs `write` |
+| Allow actions on the controller | on (new setups) | Adds *Install* to update entities, a *Reboot* button per device, the upgrade buttons, and *Approve* for devices waiting to be paired; needs `write` |
 | Home Assistant activity log | Notable events | Which timeline events also appear in the activity log: notable, all, or none |
-| Product catalog URL | empty (off) | Optional catalog that adds product photos and names to devices (map, device table, status card, update entities). Photos load from the catalog's image server. A new URL is checked when you save |
 | Issue detection (collapsed section) | 5 Wi-Fi drops / 15 min, 3 link flaps / 30 min, 3 disconnects / 1 h, 2 reboots / 24 h, 5 login failures / 10 min, 1 failed alert action / 1 h, offline after 15 min | How many occurrences inside each rule's window raise an issue; 0 turns a rule off |
 
 Options apply immediately, except *Allow actions on the controller*, which reloads
@@ -336,7 +346,7 @@ its entities and history.
 ### The generated dashboard
 
 Settings → Dashboards → **Add dashboard** → the *MikroTik CMR network* dashboard (under
-*Community dashboards*). It has four views:
+*Community dashboards*). It has five views:
 
 - **Network:** status, topology, devices, alerts, events (notable ones),
   upgrades.
@@ -344,6 +354,11 @@ Settings → Dashboards → **Add dashboard** → the *MikroTik CMR network* das
 - **Devices:** the device table; for fleets of up to 24 devices also a
   24-hour connectivity timeline and a section per device.
 - **Topology:** the map, full screen.
+- **Wi-Fi:** the Wi-Fi networks and radio settings CMR applies and the access
+  points they reach, with warnings for setups the CMR guide says don't work
+  (a network without a VLAN leaves its clients without network access; radio
+  settings without a band label reach every band). Live client counts aren't
+  available from the controller's API yet.
 
 It regenerates from the fleet every time it opens. To customise it, use *Take
 control* in the dashboard menu.
@@ -396,16 +411,20 @@ controller when you have several.
   max_items: 20
   device: Office-AP         # only events about this device (its identity)
   hide_categories: [api]    # the default; API logins are routine
+
+- type: custom:cmr-wifi-card
+  title: Wi-Fi
 ```
 
 On the map: click a building to open its layout, hover a cable for its
 ports, PoE and traffic. Hover a device for its details and the cables it uses;
-with the product catalog on, a drawing of its front panel lights those ports
-and marks the ones that power a device (the catalog gives port counts, so the
-arrangement is an approximation). Click or tap a device for the same card with
-its address to copy and links to install its update, its Home Assistant device
-page and its row in *Devices*. Pinch or Ctrl/⌘-scroll zooms, drag (one finger
-on a phone) pans, double-click zooms in on that spot, ⤢ shows the whole map.
+when the product catalog lists the model, a drawing of its front panel lights
+those ports and marks the ones that power a device (the catalog gives port
+counts, so the arrangement is an approximation). Click or tap a device for
+the same card with its address to copy and links to install its update, its
+Home Assistant device page and its row in *Devices*, and, with actions
+allowed, *Reboot*. Pinch or Ctrl/⌘-scroll zooms, drag (one finger on a phone)
+pans, double-click zooms in on that spot, ⤢ shows the whole map.
 Zoomed far out, devices become status dots, then names, then full cards.
 *Find on map* dims everything that doesn't match a name, address or label
 (Enter zooms to the matches), and the amber ! button zooms to whatever needs
@@ -444,6 +463,7 @@ Entity ids follow the device identity, e.g. for a device named `Office-AP`:
 | Active alerts | `sensor.office_ap_active_alerts` |
 | RouterOS update | `update.office_ap_routeros` |
 | Last alert (pushed) | `event.office_ap_alert` |
+| Reboot (with actions allowed) | `button.office_ap_reboot` |
 
 Each device also has diagnostic sensors (RouterOS version, channel version,
 update channel, upgrade rule, address, packages, labels, connected since).
@@ -463,7 +483,7 @@ allowed `button.<controller>_check_for_new_versions` and
 
 | Event | When | Useful data |
 |---|---|---|
-| `cmr_alert` | The controller pushed an alert | `alert`, `severity`, `device`, `message` |
+| `cmr_alert` | The controller pushed an alert (not for a rule's *Test*) | `alert`, `severity`, `device`, `message`; where they apply `upgrade_error`, `upgrade_state`, `upgrade_version`, `job_devices`, `job_upgraded`, `iface`, `iface_change` |
 | `cmr_issue` | An issue was detected or cleared | `action` (`raised`/`resolved`), `kind`, `title`, `detail`, `device_id` |
 | `cmr_event` | A notable timeline event | `category`, `severity`, `title`, `device_name`, `device_id` |
 
@@ -544,12 +564,15 @@ Polling sees alert rules change state within 30 seconds. To get each alert the
 moment it fires, press *Push alerts to Home Assistant* on the alerts card.
 With *Allow actions on the controller* on, that sets every alert rule's HTTP
 action to Home Assistant's webhook (POST, JSON body with the rule's name,
-severity and category, filled in by the controller for each alert) and
+severity and category and, where the alert has them, the upgrade result, the
+job's counts and the interface change, all filled in by the controller) and
 *Stop pushing* clears exactly those again; rules that point at
 some other webhook are left alone. Without actions, the card shows the
 equivalent script to paste into the controller's terminal; edit its `find`
 to choose rules. The address the controller calls comes from the *Home
-Assistant address* option.
+Assistant address* option. Rules set up by an earlier version keep working;
+the card offers *Update* to give them the newer fields. The controller's
+*Test* on a rule shows in the timeline as a test push and triggers nothing.
 
 Which devices a state alert is active on is read through `/execute` (the
 console's list carries device ids), like the device alert counters (the user
@@ -574,15 +597,20 @@ With *Allow actions on the controller* on and `write` on the router user:
   any different version as an upgrade); the button's attributes list the
   devices that would upgrade or downgrade.
 - **Check for new versions** asks the controller to check its channels now.
+- **Reboot** (a device's button, or *Reboot* on its card on the map, after a
+  confirmation) restarts it through the controller; it is back in about a
+  minute.
 
-Progress shows on the update entity while the job runs, and in the upgrades
+Progress shows on the update entity while the job runs (a job that fails,
+for example with *no upgrade available*, ends it at once), and in the upgrades
 card's job list. Select a job there to see its devices with the controller's
 state and reason for each, for example *no upgrade available*, which CMR
 counts as a failed device upgrade. A scheduled job lists its devices once it
 starts. Administrators also get:
 
-- **Run now** on a scheduled job: it starts as a new job, and the scheduled
-  one stays scheduled.
+- **Run now** on a scheduled job: a rule's job starts as a new job and the
+  scheduled one stays scheduled; a one-off install runs now instead of at its
+  time.
 - **Cancel job** on a scheduled, queued or running job. A running job stops,
   and its devices that aren't upgraded yet are marked cancelled; an install
   already under way can still finish when its device reboots.
@@ -649,8 +677,10 @@ names or comments.
 
 - Everything stays on your network: the integration talks only to the
   controller, and the controller only to Home Assistant (webhook). The one
-  exception is the optional product catalog: Home Assistant fetches it once a
-  day, and browsers load the photos from its image server.
+  exception is the product catalog, which adds product photos, names and port
+  counts to devices: Home Assistant fetches MikroTik's public product list
+  from `api.mikrotik.com` once a day, and browsers load the photos from
+  `cdn.mikrotik.com`. Without internet access the cards simply go without them.
 - Each poll makes about ten small REST requests; the log is read from the last
   seen line on, filtered by the controller.
 - The timeline and issue state are stored in Home Assistant's `.storage`

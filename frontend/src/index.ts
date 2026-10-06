@@ -8,6 +8,7 @@ import { CmrDashboardStrategy } from "./strategy";
 import { CmrStrategyEditor } from "./strategy-editor";
 import { CmrTopologyCard } from "./topology-card";
 import { CmrUpgradesCard } from "./upgrades-card";
+import { CmrWifiCard } from "./wifi-card";
 
 declare global {
   interface Window {
@@ -25,6 +26,7 @@ const CARDS: [string, CustomElementConstructor, string, string][] = [
   ["cmr-alerts-card", CmrAlertsCard, "CMR alerts", "Alert rules, which are active, and pushing alerts to Home Assistant."],
   ["cmr-upgrades-card", CmrUpgradesCard, "CMR upgrades", "Upgrade rules as a rollout pipeline, plus recent jobs."],
   ["cmr-events-card", CmrEventsCard, "CMR events", "Network timeline from the controller's log and changes, with detected issues."],
+  ["cmr-wifi-card", CmrWifiCard, "CMR Wi-Fi", "The Wi-Fi networks and radio settings CMR applies, and the access points they reach."],
 ];
 
 /**

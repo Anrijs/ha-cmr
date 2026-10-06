@@ -66,14 +66,12 @@
         "data": {
           "scan_interval": "Polling interval",
           "webhook_base_url": "Home Assistant address, as the controller reaches it",
-          "allow_upgrades": "Allow actions on the controller (upgrades, pairing)",
-          "activity_log": "Home Assistant activity log",
-          "catalog_url": "Product catalog URL"
+          "allow_upgrades": "Allow actions on the controller (upgrades, reboots, pairing)",
+          "activity_log": "Home Assistant activity log"
         },
         "data_description": {
-          "allow_upgrades": "Adds Install to each RouterOS update, a button per upgrade rule, and Approve for devices waiting to be paired. Needs the `write` policy on the router user.",
-          "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything.",
-          "catalog_url": "Optional. A product catalog that adds photos and product names to devices; leave empty to turn it off. Photos then load from the catalog's image server."
+          "allow_upgrades": "Adds Install to each RouterOS update, a Reboot button per device, a button per upgrade rule, and Approve for devices waiting to be paired. Needs the `write` policy on the router user.",
+          "activity_log": "Which controller events also appear in Home Assistant's activity log. The integration's own timeline always keeps everything."
         },
         "sections": {
           "detection": {
@@ -91,10 +89,6 @@
           }
         }
       }
-    },
-    "error": {
-      "catalog_unreachable": "Can't load the product catalog: {detail}",
-      "catalog_empty": "The product catalog returned no products with photos."
     }
   },
   "entity": {
@@ -195,6 +189,9 @@
       },
       "run_rule": {
         "name": "Run upgrade rule"
+      },
+      "reboot": {
+        "name": "Reboot"
       }
     }
   },
@@ -213,6 +210,9 @@
     },
     "command_failed": {
       "message": "The controller refused the command: {detail}"
+    },
+    "reboot_failed": {
+      "message": "The controller refused to reboot {device}: {detail}"
     },
     "rule_would_downgrade": {
       "message": "Not running {rule}: its channel would move {devices} to an older version."

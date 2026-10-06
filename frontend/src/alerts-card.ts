@@ -143,6 +143,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
       );
     const firing = rules.filter((r) => r.devices_on > 0).length;
     const hooked = entry.alerts.filter((r) => r.webhook_ha).length;
+    const outdated = entry.alerts.filter((r) => r.webhook_outdated).length;
     const canAct = entry.actions && !!this.hass.user?.is_admin;
     const lastId = entry.fleet_entities.fleet_alert;
     const last = lastId ? this.hass.states[lastId] : undefined;
@@ -195,6 +196,10 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
                     <button class="copy" ?disabled=${this._push === "busy"} @click=${() => this._pushAlerts(hooked < entry.alerts.length)}>
                       ${this._push === "busy" ? "Working…" : hooked < entry.alerts.length ? "Push alerts to Home Assistant" : "Stop pushing"}
                     </button>
+                    ${outdated && hooked === entry.alerts.length && this._push !== "busy"
+                      ? html`<button class="copy" title="Adds upgrade results, job counts and interface changes to the pushed alerts"
+                          @click=${() => this._pushAlerts(true)}>Update ${outdated} rule${outdated === 1 ? "" : "s"}</button>`
+                      : nothing}
                     ${this._push && this._push !== "busy" ? html`<div class="muted small">${this._push}</div>` : nothing}
                   </div>`
                 : html`<button class="link" @click=${this._toggleSetup}>

@@ -10,14 +10,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from custom_components.cmr import catalog
-from custom_components.cmr.catalog import CACHE_FORMAT, ProductCatalog
+from custom_components.cmr.catalog import CACHE_FORMAT, CATALOG_URL, ProductCatalog
 
-URL = "https://example.invalid/catalog"
 OLD = {"code": "RB5009UPr+S+IN", "name": "RB5009", "image": "s.png", "image_large": "l.png"}
 
 
 def _cache(**extra: Any) -> dict[str, Any]:
-    data = {"url": URL, "fetched": dt_util.utcnow().isoformat(), "products": [OLD], **extra}
+    data = {"url": CATALOG_URL, "fetched": dt_util.utcnow().isoformat(), "products": [OLD], **extra}
     return {"version": 1, "minor_version": 1, "key": "cmr.catalog", "data": data}
 
 
@@ -34,7 +33,7 @@ async def test_cache_format(
 
     monkeypatch.setattr(catalog, "async_fetch_products", fetch)
     products = ProductCatalog(hass)
-    await products.async_refresh(URL)
+    await products.async_refresh()
     assert len(calls) == fetches
     # A cache in the current format and less than a day old is used as it is.
     assert ("ports" in products.products[0]) == bool(fetches)

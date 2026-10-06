@@ -339,3 +339,22 @@ def test_alert_rule_kind_and_scope():
     # Only a finished upgrade job is a system alert.
     assert rule(**{"upgrade-job-done": "success"}).scope == "system"
     assert rule(**{"upgrade-done": "success"}).scope == "device"
+
+
+def test_wifi_items():
+    """Shapes as REST returned them on 7.26beta1 (2026-10-06)."""
+    raw = {
+        ".id": "*2", "comment": "office", "disabled": "false", "hide-ssid": "false", "labels": "house,+ap,+5ghz",
+        "security.authentication-types": "wpa2-psk,wpa3-psk", "security.encryption": "ccmp", "security.ft": "true",
+        "security.passphrase": "secret", "ssid": "Office", "vlan-id": "10",
+    }
+    assert models.strip_secrets(raw) == {k: v for k, v in raw.items() if k != "security.passphrase"}
+    network = models.CmrWifiNetwork.from_rest(models.strip_secrets(raw))
+    assert (network.ssid, network.selector, network.bands, network.vlan_id) == ("Office", ["house", "+ap"], ["5"], 10)
+    assert network.authentication == ["wpa2-psk", "wpa3-psk"] and network.fast_roaming and not network.hidden
+    radio = models.CmrWifiRadio.from_rest({
+        ".id": "*1", "channel.band": "5ghz-ax", "channel.frequency": "5180", "channel.width": "20/40/80mhz",
+        "configuration.chains": "0,1", "configuration.country": "Latvia", "disabled": "true", "labels": "+2ghz",
+    })
+    assert (radio.selector, radio.bands, radio.band, radio.frequency, radio.disabled) == ([], ["2.4"], "5ghz-ax", "5180", True)
+    assert models.split_wifi_labels("-6GHZ,office") == (["office"], ["6"])

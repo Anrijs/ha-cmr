@@ -1,9 +1,9 @@
-"""Optional product catalog: photos and names for managed devices.
+"""Product catalog: photos, names and port counts for managed devices.
 
-The catalog URL is an integration option (off when empty). It must return
-JSON shaped `{"data": [{"product_code", "product_name", "product_status",
-"url", "images": {"small": [...], "large": [...]}}, ...]}`. The list is
-fetched at most once a day and shared by all controllers.
+MikroTik's public product API returns JSON shaped `{"data": [{"product_code",
+"product_name", "product_status", "url", "images": {"small": [...],
+"large": [...]}, "parameters": [...]}, ...]}`. The list is fetched at most once
+a day and shared by all controllers.
 """
 
 from __future__ import annotations
@@ -24,6 +24,11 @@ from .models import CmrDevice, compact_product, match_product
 
 _LOGGER = logging.getLogger(__name__)
 
+# Read-only product specs; the API key is public and carries no rights.
+CATALOG_URL = (
+    "https://api.mikrotik.com/parameters"
+    "?apiKey=03e64c40-2f1a-44bd-b03f-f2bcf8530d53-976715c0-9518-4e4e-906e-5ad78bfa8fbc"
+)
 REFRESH = timedelta(days=1)
 STORE_VERSION = 1
 # Bumped when compact_product() keeps more fields, so an older cache is
@@ -54,25 +59,22 @@ class ProductCatalog:
         self.hass = hass
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.catalog")
         self.products: list[dict[str, Any]] = []
-        self._url: str | None = None
         self._fetched = None
         self._loaded = False
 
-    async def async_refresh(self, url: str | None) -> None:
-        """Load the cache, and refetch when the URL changed or a day passed."""
-        if not url:
-            return
+    async def async_refresh(self) -> None:
+        """Load the cache, and refetch when a day passed (or it came from another URL)."""
+        url = CATALOG_URL
         if not self._loaded:
             self._loaded = True
             cached = await self._store.async_load() or {}
             if cached.get("url") == url:
                 self.products = cached.get("products", [])
-                self._url = url
                 fetched = cached.get("fetched")
                 fresh = fetched and cached.get("format") == CACHE_FORMAT
                 self._fetched = dt_util.parse_datetime(fetched) if fresh else None
         now = dt_util.utcnow()
-        if self._url == url and self._fetched and now - self._fetched < REFRESH:
+        if self._fetched and now - self._fetched < REFRESH:
             return
         try:
             products = await async_fetch_products(async_get_clientsession(self.hass), url)
@@ -81,10 +83,10 @@ class ProductCatalog:
             self._fetched = now  # don't retry every poll
             return
         if not products:
-            _LOGGER.warning("Product catalog at %s returned no products", url)
+            _LOGGER.warning("Product catalog returned no products")
             self._fetched = now
             return
-        self.products, self._url, self._fetched = products, url, now
+        self.products, self._fetched = products, now
         _LOGGER.debug("Product catalog: %d products", len(products))
         self._store.async_delay_save(
             lambda: {"url": url, "fetched": now.isoformat(), "format": CACHE_FORMAT, "products": products}, 5

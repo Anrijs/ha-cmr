@@ -41,7 +41,7 @@ function deviceSection(device: CmrDevice, hass: HassLike, alertsPushed: boolean)
   }
   if (live(e.uptime)) cards.push({ type: "tile", entity: e.uptime, name: "Up since" });
   if (live(e.update)) {
-    // The update entity carries the product photo when a catalog is set.
+    // The update entity carries the product photo when the catalog has the device.
     cards.push({ type: "tile", entity: e.update, name: "RouterOS", show_entity_picture: true, grid_options: { columns: 12 } });
   }
   if (live(e.active_alerts)) cards.push({ type: "tile", entity: e.active_alerts, name: "Alerts" });
@@ -165,6 +165,17 @@ function topologyView(base: Card): Card {
   };
 }
 
+function wifiView(base: Card): Card {
+  return {
+    title: "Wi-Fi",
+    path: "wifi",
+    icon: "mdi:wifi",
+    type: "sections",
+    max_columns: 2,
+    sections: [{ type: "grid", column_span: 2, cards: [{ ...base, type: "custom:cmr-wifi-card", grid_options: { columns: "full" } }] }],
+  };
+}
+
 function messageDashboard(config: StrategyConfig, message: string): Card {
   return {
     title: config.title ?? "Network",
@@ -217,7 +228,7 @@ export class CmrDashboardStrategy extends HTMLElement {
       const network = networkView(entry, base);
       return {
         title: config.title ?? entry.title,
-        views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base)],
+        views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base), wifiView(base)],
       };
     } catch (err) {
       console.error("cmr: dashboard strategy failed", err);

@@ -26,11 +26,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.util.ssl import client_context, client_context_no_verify
 
 from .api import CmrApi, CmrApiError, CmrAuthError, CmrConnectionError, CmrNotFoundError
-from .catalog import CatalogError, async_fetch_products
 from .const import (
     CONF_ACTIVITY_LOG,
     CONF_ALLOW_UPGRADES,
-    CONF_CATALOG_URL,
     CONF_DETECTION,
     CONF_OFFLINE_MINUTES,
     CONF_WEBHOOK_BASE_URL,
@@ -140,6 +138,10 @@ class CmrConfigFlow(ConfigFlow, domain=DOMAIN):
                     return self.async_create_entry(
                         title=f"CMR {controller.identity}",
                         data={**user_input, CONF_WEBHOOK_ID: webhook.async_generate_id()},
+                        # A user with `write` is the expected setup: upgrades,
+                        # reboots and pairing from Home Assistant. A read-only
+                        # user turns this off in the options.
+                        options={CONF_ALLOW_UPGRADES: True},
                     )
         return self.async_show_form(
             step_id="user",
@@ -233,30 +235,15 @@ _COUNT = selector.NumberSelector(selector.NumberSelectorConfig(min=0, max=100, m
 
 
 class CmrOptionsFlow(OptionsFlow):
-    """Polling, upgrades, the alert webhook, the catalog and issue detection."""
+    """Polling, upgrades, the alert webhook, the activity log and issue detection."""
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
         options = self.config_entry.options
         base_url = options.get(CONF_WEBHOOK_BASE_URL) or default_base_url(self.hass)
-        placeholders = {"detail": ""}
-        if user_input is not None:
-            url = user_input.get(CONF_CATALOG_URL)
-            # Only a new or changed URL is checked, so a catalog that is down
-            # for the moment never blocks saving the other options.
-            if url and url != options.get(CONF_CATALOG_URL):
-                try:
-                    products = await async_fetch_products(async_get_clientsession(self.hass), url)
-                except CatalogError as err:
-                    errors[CONF_CATALOG_URL] = "catalog_unreachable"
-                    placeholders["detail"] = str(err)
-                else:
-                    if not products:
-                        errors[CONF_CATALOG_URL] = "catalog_empty"
-            if not errors:
-                return self.async_create_entry(data=user_input)
 
         detection = options.get(CONF_DETECTION) or {}
         schema = vol.Schema(
@@ -277,10 +264,6 @@ class CmrOptionsFlow(OptionsFlow):
                     CONF_ALLOW_UPGRADES,
                     default=options.get(CONF_ALLOW_UPGRADES, False),
                 ): bool,
-                vol.Optional(
-                    CONF_CATALOG_URL,
-                    description={"suggested_value": options.get(CONF_CATALOG_URL, "")},
-                ): selector.TextSelector(selector.TextSelectorConfig(type=selector.TextSelectorType.URL)),
                 vol.Required(
                     CONF_ACTIVITY_LOG,
                     default=options.get(CONF_ACTIVITY_LOG, "notable"),
@@ -312,9 +295,4 @@ class CmrOptionsFlow(OptionsFlow):
                 ),
             }
         )
-        return self.async_show_form(
-            step_id="init",
-            data_schema=self.add_suggested_values_to_schema(schema, user_input),
-            errors=errors,
-            description_placeholders=placeholders,
-        )
+        return self.async_show_form(step_id="init", data_schema=schema)

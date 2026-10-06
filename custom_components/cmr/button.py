@@ -1,10 +1,10 @@
-"""Buttons: check for new RouterOS versions, run an upgrade rule now."""
+"""Buttons: check for new RouterOS versions, run an upgrade rule now, reboot a device."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.components.button import ButtonDeviceClass, ButtonEntity, ButtonEntityDescription
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -13,7 +13,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .api import CmrApiError
 from .const import CONF_ALLOW_UPGRADES, DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
-from .entity import CmrEntity
+from .actions import async_reboot
+from .entity import CmrDeviceEntity, CmrEntity, async_add_per_device
 
 CHECK_VERSIONS = ButtonEntityDescription(
     key="check_versions",
@@ -21,6 +22,12 @@ CHECK_VERSIONS = ButtonEntityDescription(
     entity_category=EntityCategory.CONFIG,
 )
 RUN_RULE = ButtonEntityDescription(key="run_rule", translation_key="run_rule")
+REBOOT = ButtonEntityDescription(
+    key="reboot",
+    translation_key="reboot",
+    device_class=ButtonDeviceClass.RESTART,
+    entity_category=EntityCategory.CONFIG,
+)
 
 
 async def async_setup_entry(
@@ -51,6 +58,7 @@ async def async_setup_entry(
 
     add_rules()
     entry.async_on_unload(coordinator.async_add_listener(add_rules))
+    async_add_per_device(entry, async_add_entities, lambda key: [CmrRebootButton(coordinator, key, REBOOT)])
 
 
 class CmrCheckVersionsButton(CmrEntity, ButtonEntity):
@@ -150,5 +158,28 @@ class CmrRunRuleButton(CmrEntity, ButtonEntity):
                 translation_domain=DOMAIN,
                 translation_key="command_failed",
                 translation_placeholders={"detail": err.detail},
+            ) from err
+        await self.coordinator.async_request_refresh()
+
+
+class CmrRebootButton(CmrDeviceEntity, ButtonEntity):
+    """Reboot one device through the controller (`/cmr/device/reboot`)."""
+
+    @property
+    def available(self) -> bool:
+        device = self.device
+        return super().available and device is not None and device.connected and not device.pending
+
+    async def async_press(self) -> None:
+        device = self.device
+        if device is None:
+            raise HomeAssistantError(translation_domain=DOMAIN, translation_key="device_gone")
+        try:
+            await async_reboot(self.coordinator.api, device.rest_id)
+        except CmrApiError as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="reboot_failed",
+                translation_placeholders={"device": device.identity, "detail": err.detail},
             ) from err
         await self.coordinator.async_request_refresh()
