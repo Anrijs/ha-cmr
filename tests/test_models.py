@@ -263,6 +263,30 @@ def test_product_matching():
     assert models.match_product(products, None, None) is None
 
 
+def test_discontinued_products_only_as_a_fallback():
+    """The full catalog (`is_history`) lists discontinued products as "Archived";
+    a board name falls back to them only when no current product fits."""
+    item = lambda code, name, status: {  # noqa: E731
+        "product_code": code, "product_name": name, "product_status": status, "images": {"small": [f"{code}.png"]},
+    }
+    # Listed first on purpose: list order must not let them win.
+    products = [p for p in (models.compact_product(i) for i in [
+        item("RB951Ui-2HnD", "hAP", "Archived"),
+        item("RB5009UG+S+IN", "RB5009UG+S+IN", "Archived"),
+        item("RB5009UPr+S", "RB5009UPr+S", "Archived"),
+        item("C53UiG+5HPaxD2HPaxD-OLD", "hAP ax³", "Archived"),
+        *CATALOG,
+    ]) if p]
+    # A discontinued model gets its photo and name.
+    assert models.match_product(products, "hAP", None)["code"] == "RB951Ui-2HnD"
+    assert models.match_product(products, "RB5009UG+S+", None)["code"] == "RB5009UG+S+IN"
+    # A current product keeps its match: same name, or a shorter archived code.
+    assert models.match_product(products, "hAP ax^3", None)["code"] == "C53UiG+5HPaxD2HPaxD"
+    assert models.match_product(products, "RB5009UPr+S", None)["code"] == "RB5009UPr+S+IN"
+    # The exact code from the auto-labels wins whatever the status.
+    assert models.match_product(products, "hAP ax^3", "C53UiG+5HPaxD2HPaxD-OLD")["code"] == "C53UiG+5HPaxD2HPaxD-OLD"
+
+
 def _params(**values):
     return [{"name": name, "data": data, "group_name": "Ethernet"} for name, data in values.items()]
 

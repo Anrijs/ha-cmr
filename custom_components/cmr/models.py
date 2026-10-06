@@ -386,7 +386,9 @@ def match_product(products: list[dict[str, Any]], board: str | None, model_code:
 
     Board names are often the code without a variant suffix
     ("RB5009UPr+S+" for "RB5009UPr+S+IN"), so they match as a prefix; the
-    shortest such code wins.
+    shortest such code wins. The catalog also lists discontinued products
+    (status "Archived"); a board name only falls back to them when no current
+    product fits, so an old model never takes over a current one's match.
     """
     if model_code:
         exact = [p for p in products if p["code"] == model_code]
@@ -395,6 +397,13 @@ def match_product(products: list[dict[str, Any]], board: str | None, model_code:
     key = _product_key(board)
     if not key:
         return None
+    current = [p for p in products if str(p.get("status") or "").lower() != "archived"]
+    archived = [p for p in products if str(p.get("status") or "").lower() == "archived"]
+    return _match_board(current, key) or _match_board(archived, key)
+
+
+def _match_board(products: list[dict[str, Any]], key: str) -> dict[str, Any] | None:
+    """A product whose name is the board name, else whose code starts with it."""
     by_name = [p for p in products if _product_key(p["name"]) == key]
     if by_name:
         return by_name[0]

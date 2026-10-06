@@ -573,6 +573,9 @@ to choose rules. The address the controller calls comes from the *Home
 Assistant address* option. Rules set up by an earlier version keep working;
 the card offers *Update* to give them the newer fields. The controller's
 *Test* on a rule shows in the timeline as a test push and triggers nothing.
+Setting or clearing the HTTP action changes the rule, and the controller
+then runs the actions of an active state alert again (its log line, script
+and push), so alerts that are active arrive once more.
 
 Which devices a state alert is active on is read through `/execute` (the
 console's list carries device ids), like the device alert counters (the user

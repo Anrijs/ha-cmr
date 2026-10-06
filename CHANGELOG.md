@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+- Discontinued devices get their product photo, name and front panel too: the catalog is now fetched with MikroTik's discontinued products. A board name falls back to a discontinued product only when no current one fits, so existing matches stay as they are; the cached catalog keeps serving until the new one is downloaded.
+- README: pushing or clearing alert HTTP actions makes the controller run the actions of active state alerts again.
+
 ## 0.12.0
 - Wi-Fi view and card: the Wi-Fi networks and radio settings CMR applies (bands, security, VLAN, channel), the access points each reaches, and warnings for setups the CMR guide says don't work (a network without a VLAN leaves its clients without network access; radio settings without a band label reach every band). Passphrases are dropped as they arrive, also from diagnostics. Live client counts aren't available from the controller's API yet.
 - A *Reboot* button per device, also on the device's card on the map (after a confirmation).

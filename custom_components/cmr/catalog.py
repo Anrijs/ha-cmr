@@ -25,14 +25,18 @@ from .models import CmrDevice, compact_product, match_product
 _LOGGER = logging.getLogger(__name__)
 
 # Read-only product specs; the API key is public and carries no rights.
+# Without `is_history`/`is_active` the list has only current products, so
+# discontinued devices (status "Archived") would get no photo or name.
 CATALOG_URL = (
     "https://api.mikrotik.com/parameters"
     "?apiKey=03e64c40-2f1a-44bd-b03f-f2bcf8530d53-976715c0-9518-4e4e-906e-5ad78bfa8fbc"
+    "&is_history&is_active"
 )
 REFRESH = timedelta(days=1)
 STORE_VERSION = 1
 # Bumped when compact_product() keeps more fields, so an older cache is
-# refetched at once (its photos still serve until the fetch succeeds).
+# refetched at once (its photos still serve until the fetch succeeds; the
+# same goes for a cache from another URL).
 CACHE_FORMAT = 2
 
 
@@ -68,11 +72,10 @@ class ProductCatalog:
         if not self._loaded:
             self._loaded = True
             cached = await self._store.async_load() or {}
-            if cached.get("url") == url:
-                self.products = cached.get("products", [])
-                fetched = cached.get("fetched")
-                fresh = fetched and cached.get("format") == CACHE_FORMAT
-                self._fetched = dt_util.parse_datetime(fetched) if fresh else None
+            self.products = cached.get("products", [])
+            fetched = cached.get("fetched")
+            fresh = fetched and cached.get("format") == CACHE_FORMAT and cached.get("url") == url
+            self._fetched = dt_util.parse_datetime(fetched) if fresh else None
         now = dt_util.utcnow()
         if self._fetched and now - self._fetched < REFRESH:
             return

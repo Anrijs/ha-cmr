@@ -37,3 +37,22 @@ async def test_cache_format(
     assert len(calls) == fetches
     # A cache in the current format and less than a day old is used as it is.
     assert ("ports" in products.products[0]) == bool(fetches)
+
+
+async def test_cache_from_another_url_serves_until_refetched(
+    hass: HomeAssistant, hass_storage: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A new catalog URL (e.g. one that adds discontinued products) refetches at
+    once, and the old photos keep serving if that fetch fails."""
+    hass_storage["cmr.catalog"] = _cache(url="https://api.example.invalid/old", format=CACHE_FORMAT)
+    calls: list[str] = []
+
+    async def failing(_session, url: str) -> list[dict[str, Any]]:
+        calls.append(url)
+        raise catalog.CatalogError("offline")
+
+    monkeypatch.setattr(catalog, "async_fetch_products", failing)
+    products = ProductCatalog(hass)
+    await products.async_refresh()
+    assert calls == [CATALOG_URL]
+    assert products.products == [OLD]
