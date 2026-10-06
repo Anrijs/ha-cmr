@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+- Alerts follow CMR's two kinds of rules: a state alert (thresholds, connected/disconnected, update available) is *active* while it matches and is what the cards count; an event alert (reboots, finished upgrades and jobs, interface changes, log lines) fires per occurrence and never stays active, so its row shows how often it fired and explains why it lists no devices, and the timeline reports its occurrences from each poll unless it pushes them itself. *Alert rules firing* is now *Active alert rules* (existing entity ids stay). A finished-upgrade-job alert is recognised by its outcome value too (`success`/`fail`), so it no longer picks up a device from its text.
+- Map: hovering a device lists the cables it uses (port, far end, PoE) and, with the product catalog on, draws its front panel from the catalog's port counts: linked ports lit, PoE-out ports marked, SFP and QSFP cages apart. The catalog cache is refetched once to pick up the port data.
+- Map: *Rebuild links* (administrators, with actions allowed) creates a layout's links from the ports the controller detected, without the controller's GUI.
+- Upgrades card: select a job to see its devices with the controller's state and reason for each (e.g. *no upgrade available*, which CMR counts as failed). Administrators can run a scheduled job now or cancel a scheduled, queued or running job.
+- Upgrades card: a rule step with more than 12 devices lists them by version transition ("306× 7.24.2 → 7.24.5", most first) instead of a row of icons; each opens the matching devices.
+- Events: CMR's own log lines (upgrades, alert actions) belong to the device they name instead of the controller, and so do pushed alerts that arrive without device placeholders (finished-job alerts stay fleet-wide). The events card's device filter is a search field with suggestions and accepts part of a name.
+- Lighter dashboard updates: layouts and map nodes are sent again only when they change (links still every poll, for their counters), each catalog product once per controller, and fields no card reads are gone. The status card shows its counts from the fleet sensors while the first update is on its way.
+- Map for big fleets and phones: zoomed out, devices are status dots, then names, then cards; a click or tap opens a device card with its address to copy and links to its update, its device page and the device table (a double-click zooms instead); *Find on map* and *Zoom to problems*; one-finger pan and two-finger pinch on touch screens; on a phone the map opens readable from its left edge, 240 px to 60 % of the screen tall.
+
 ## 0.10.9
 - The "pre-release" marker on versions is gone from the map tooltip, status card and device table: it was our own reading of the version string, not a RouterOS notion, and the channel is shown anyway.
 - The integration's own HTTP session is a plain aiohttp session (closed on reload and at shutdown), which removes a Home Assistant warning about closing a helper-created session.

@@ -23,6 +23,8 @@ from .const import (
     SIGNAL_ALERT,
 )
 from .coordinator import CmrConfigEntry
+from .logparse import find_device
+from .models import CmrSnapshot
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -150,6 +152,12 @@ def parse_payload(text: str) -> dict[str, Any]:
     return decoded if isinstance(decoded, dict) else {"message": decoded}
 
 
+def fleet_alert(snapshot: CmrSnapshot, alert: dict[str, Any]) -> bool:
+    """A system alert (a finished upgrade job): CMR gives it no device context."""
+    rule = next((r for r in snapshot.alerts.values() if r.name == alert.get("alert")), None)
+    return bool(rule and rule.scope == "system")
+
+
 def normalize_alert(payload: dict[str, Any]) -> dict[str, Any]:
     """Map a pushed alert to the event schema; inapplicable values become None."""
 
@@ -191,6 +199,10 @@ def async_register_webhook(hass: HomeAssistant, entry: CmrConfigEntry) -> None:
             device = snapshot.devices.get(alert["serial"] or "") or snapshot.device_by_identity(
                 alert["device"]
             )
+            if device is None and not fleet_alert(snapshot, alert):
+                # No usable placeholders: the device may still be named in the text.
+                text = " ".join(alert.get(k) or "" for k in ("device", "address", "message"))
+                device = snapshot.devices.get(find_device(text, snapshot.named_devices()) or "")
         alert["device_key"] = device.key if device else None
         _LOGGER.debug("Alert from controller: %s", alert)
         hass.bus.async_fire(EVENT_ALERT, {**alert, "entry_id": entry.entry_id})

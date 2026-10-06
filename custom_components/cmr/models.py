@@ -174,7 +174,7 @@ class AlertSummary:
 
 
 def parse_alert_summary(value: Any) -> AlertSummary | None:
-    """Parse e.g. "0/11 1/7/3/0" (0 of 11 matching rules firing)."""
+    """Parse e.g. "0/11 1/7/3/0" (0 of 11 matching rules active; event alerts never are)."""
     numbers = [int(n) for n in re.findall(r"\d+", str(value or ""))]
     if len(numbers) != 6:
         return None
@@ -286,6 +286,83 @@ def _product_key(text: str | None) -> str:
     return re.sub(r"[^a-z0-9+]", "", text)
 
 
+# Catalog port counts by parameter name, fastest Ethernet first: RouterOS
+# numbers the multi-gigabit ports before the gigabit ones (ether1 is the
+# 2.5G port of an RB5009 or a hAP ax³). The "... with PoE-out" and
+# "... with Reverse PoE" counts describe some of these same ports.
+_ETHER_PARAMS = (
+    (re.compile(r"^number of 1g/2\.5g/5g/10g ethernet ports$"), "10G"),
+    (re.compile(r"^number of 2\.5g ethernet ports$"), "2.5G"),
+    (re.compile(r"^10/100/1000 ethernet ports$"), "1G"),
+    (re.compile(r"^10/100 ethernet ports$"), "100M"),
+)
+# Cages in the order they sit on a front panel, left to right.
+_CAGE_PARAMS = (
+    (re.compile(r"^sfp ports$"), "sfp"),
+    (re.compile(r"^sfp\+ ports$"), "sfp+"),
+    (re.compile(r"combo"), "combo"),
+    (re.compile(r"\bsfp28 ports$"), "sfp28"),
+    (re.compile(r"\bsfp56 ports$"), "sfp56"),
+    (re.compile(r"\bqsfp\+ ports$"), "qsfp+"),
+    (re.compile(r"\bqsfp28 ports$"), "qsfp28"),
+    (re.compile(r"\bqsfp56 ports$"), "qsfp56"),
+    (re.compile(r"\bqsfp56-dd ports$"), "qsfp56-dd"),
+)
+_POE_RANGE = re.compile(r"ether\s*(\d+)(?:\s*-\s*(?:ether\s*)?(\d+))?", re.IGNORECASE)
+
+
+def _leading_int(value: Any) -> int:
+    match = re.match(r"\s*(\d+)", str(value or ""))
+    return int(match.group(1)) if match else 0
+
+
+def port_spec(parameters: Any) -> dict[str, Any] | None:
+    """The front-panel ports a catalog entry lists, for drawing the device.
+
+    `ether` is `[speed, count]` groups in ether-number order, `mgmt` a lone
+    10/100 management port numbered after them (`ether49` on a CRS354, `ether1`
+    on an all-fiber switch), `cages` the SFP/QSFP groups and `poe_out` the
+    ether numbers that can power a device, as `[first, last]` ranges.
+    """
+    ether: dict[str, int] = {}
+    cages: dict[str, int] = {}
+    poe_out: list[list[int]] = []
+    for param in parameters if isinstance(parameters, list) else []:
+        if not isinstance(param, dict):
+            continue
+        name = str(param.get("name") or "").strip().lower()
+        data = param.get("data")
+        if name == "poe-out ports":
+            for first, last in _POE_RANGE.findall(str(data or "")):
+                poe_out.append([int(first), int(last or first)])
+            continue
+        if "poe" in name:
+            continue
+        for pattern, speed in _ETHER_PARAMS:
+            if pattern.search(name) and (count := _leading_int(data)):
+                ether[speed] = ether.get(speed, 0) + count
+                break
+        else:
+            for pattern, kind in _CAGE_PARAMS:
+                if pattern.search(name) and (count := _leading_int(data)):
+                    cages[kind] = cages.get(kind, 0) + count
+                    break
+    groups = [[speed, ether[speed]] for _, speed in _ETHER_PARAMS if speed in ether]
+    mgmt = 0
+    # One 10/100 port next to many faster ones is the management port.
+    if ether.get("100M") == 1 and sum(ether.values()) - 1 + sum(cages.values()) >= 4:
+        groups = [g for g in groups if g[0] != "100M"]
+        mgmt = 1
+    if not groups and not cages and not mgmt:
+        return None
+    return {
+        "ether": groups,
+        "mgmt": mgmt,
+        "cages": [[kind, cages[kind]] for _, kind in _CAGE_PARAMS if kind in cages],
+        "poe_out": sorted(poe_out),
+    }
+
+
 def compact_product(item: dict[str, Any]) -> dict[str, Any] | None:
     images = item.get("images") or {}
     small = [u for u in images.get("small") or [] if isinstance(u, str)]
@@ -300,6 +377,7 @@ def compact_product(item: dict[str, Any]) -> dict[str, Any] | None:
         "url": item.get("url"),
         "image": (small or large)[0],
         "image_large": (large or small)[0],
+        "ports": port_spec(item.get("parameters")),
     }
 
 
@@ -452,6 +530,22 @@ class CmrDevice:
         )
 
 
+# Event conditions (CMR guide, "Alert rules"): a rule with one of them runs its
+# actions for every occurrence and never stays active, so it never adds to
+# `devices-on` and `show-devices` never lists a device for it. Rules with only
+# state conditions (cpu/mem/hdd/health thresholds, `connected`,
+# `disconnected-more-than`, `upgrade-available`) stay active while they match.
+EVENT_CONDITIONS = (
+    "interface-change", "upgrade-done", "upgrade-job-done", "rebooted",
+    "unpaired-device-connected", "log-topics", "log-regex",
+)
+
+
+def _condition_set(value: Any) -> bool:
+    """An event condition is on unless it is absent or an explicit no."""
+    return value not in (None, "") and str(value).strip().lower() not in ("false", "no")
+
+
 @dataclass
 class CmrAlertRule:
     """An alert rule (`/cmr/alert`)."""
@@ -487,6 +581,16 @@ class CmrAlertRule:
             webhook_url=raw.get("action.http-url") or None,
             raw=raw,
         )
+
+    @property
+    def kind(self) -> str:
+        """`state` (stays active while it matches) or `event` (fires per occurrence)."""
+        return "event" if any(_condition_set(self.raw.get(name)) for name in EVENT_CONDITIONS) else "state"
+
+    @property
+    def scope(self) -> str:
+        """`system` for a finished upgrade job (no device context), else `device`."""
+        return "system" if _condition_set(self.raw.get("upgrade-job-done")) else "device"
 
 
 @dataclass
@@ -585,6 +689,10 @@ class CmrSnapshot:
             return None
         return next((d for d in self.devices.values() if d.identity == identity), None)
 
+    def named_devices(self) -> list[tuple[str, str, str | None]]:
+        """(key, identity, address) of every device, for `logparse.find_device`."""
+        return [(d.key, d.identity, d.address) for d in self.devices.values()]
+
 
 def _items(value: Any) -> list[dict[str, Any]]:
     if isinstance(value, list):
@@ -609,3 +717,51 @@ def parse_snapshot(raw: dict[str, Any]) -> CmrSnapshot:
         nodes=[CmrNode.from_rest(item) for item in _items(raw.get("cmr/layout/node"))],
         links=[CmrLink.from_rest(item) for item in _items(raw.get("cmr/layout/link"))],
     )
+
+
+# ---------------------------------------------------------------------------
+# Upgrade job coverage (`/cmr/upgrade/job/show-devices`)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class JobDevice:
+    """One device of an upgrade job, with CMR's own state and reason."""
+
+    identity: str
+    address: str | None
+    state: str | None
+    # CMR's reason, e.g. "no upgrade available" (which CMR counts as a failure).
+    error: str | None
+    current_version: str | None
+    upgrade_version: str | None
+    channel: str | None
+    device_key: str | None = None
+
+
+def parse_job_devices(rows: Any, snapshot: CmrSnapshot | None = None) -> list[JobDevice]:
+    """Rows of `show-devices`; `device` is "identity@address" (the controller: identity alone)."""
+    out = []
+    for row in _items(rows):
+        identity, at, address = str(row.get("device") or "").rpartition("@")
+        if not at:
+            identity, address = address, ""
+        key = None
+        if snapshot is not None:
+            # Identities can repeat; the address tells such devices apart.
+            same = [d for d in snapshot.devices.values() if d.identity == identity]
+            match = next((d for d in same if address and d.address == address), same[0] if same else None)
+            key = match.key if match else None
+        out.append(
+            JobDevice(
+                identity=identity,
+                address=address or None,
+                state=row.get("state") or None,
+                error=row.get("error") or None,
+                current_version=row.get("current-version") or None,
+                upgrade_version=row.get("upgrade-version") or None,
+                channel=row.get("channel") or None,
+                device_key=key,
+            )
+        )
+    return out

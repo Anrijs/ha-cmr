@@ -1,5 +1,6 @@
 import { css, html, nothing, svg, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
 import { RuleDevices } from "./data";
+import { frontPanelStyles, portSummary, renderFrontPanel, usedPorts } from "./ports";
 import {
   CmrEntryCard,
   ENTRY_FIELD,
@@ -8,12 +9,15 @@ import {
   deepLinkParams,
   deviceStatus,
   deviceVisual,
+  deviceMatches,
   formatDuration,
   labelsFrom,
   modelCode,
   modelName,
   moreInfo,
+  navigate,
   pairingHint,
+  viewPath,
   type Status,
 } from "./shared";
 import type { CmrDevice, CmrEntry, CmrLink, CmrNode, PortEnd } from "./types";
@@ -31,7 +35,15 @@ interface TopologyConfig {
   show_comments?: boolean;
   /** Icons for layout (building) nodes by name, e.g. { House: "mdi:home" }. */
   icons?: Record<string, string>;
+  /** Dashboard views to link into (the strategy sets `devices`). */
+  views?: { devices?: string };
 }
+
+// Level of detail by zoom: status dots below DOTS_BELOW, names only below
+// NAMES_BELOW, full cards above. A click waits CLICK_DELAY ms for a double-click.
+const DOTS_BELOW = 0.4;
+const NAMES_BELOW = 0.7;
+const CLICK_DELAY = 250;
 
 const NODE_W = 184;
 const NODE_H = 62;
@@ -139,6 +151,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _view: { state: true },
     _autoHeight: { state: true },
     _alert: { state: true },
+    _rebuild: { state: true },
+    _pinned: { state: true },
+    _find: { state: true },
+    _copied: { state: true },
   };
 
   declare _path: string[];
@@ -149,6 +165,18 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   declare _autoHeight?: number;
   /** Alert rule id from the page URL: its devices stay lit, the rest dim. */
   declare _alert: string;
+  /** The device popover opened by a click or tap; stays until closed. */
+  declare _pinned?: { node: PlacedNode; x: number; y: number };
+  /** Find on map: matching nodes stay lit, the rest dim. */
+  declare _find: string;
+  declare _copied: boolean;
+  private _openTimer?: number;
+  private _pointers = new Map<number, { x: number; y: number }>();
+  private _pinch?: { dist: number; k: number; wx: number; wy: number };
+  /** The last pointer was a finger: no hover tooltips, a tap opens the popover. */
+  private _touch = false;
+  /** The Rebuild links bar for one layout: asking, running, or its outcome. */
+  declare _rebuild?: { layout: string; state: "confirm" | "busy" | "done" | "error"; text?: string };
   private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
   private _memo?: SceneMemo;
@@ -164,10 +192,18 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._path = [];
     this._view = { x: 0, y: 0, k: 1 };
     this._alert = "";
+    this._find = "";
+    this._copied = false;
   }
 
-  /** Keys of the devices the highlighted rule fires on, set during render. */
+  /** Keys of the devices the highlighted rule is active on, set during render. */
   private _lit?: Set<string>;
+  /** Ids of the nodes Find on map matches, set during render. */
+  private _found?: Set<string>;
+
+  private _nodeMatches(node: PlacedNode, needle: string): boolean {
+    return node.name.toLowerCase().includes(needle) || (!!node.device && deviceMatches(node.device, needle));
+  }
 
   private _onLocation = (): void => {
     const alert = deepLinkParams().alert;
@@ -412,8 +448,12 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const { width, height } = this._scene(this._entry);
     const vw = viewport.clientWidth;
     if (!vw || !width) return;
-    const min = this._config?.height ?? 440;
-    const max = Math.max(min, this._config?.max_height ?? Math.round(window.innerHeight * 0.85));
+    // On a phone the configured height would fill the screen: 240 px to 60 % of it.
+    const phone = vw < 600;
+    const min = phone ? 240 : (this._config?.height ?? 440);
+    const max = phone
+      ? Math.max(min, Math.round(window.innerHeight * 0.6))
+      : Math.max(min, this._config?.max_height ?? Math.round(window.innerHeight * 0.85));
     const wanted = Math.round(Math.min(max, Math.max(min, (vw * height) / width)));
     if (this._autoHeight === undefined || Math.abs(wanted - this._autoHeight) > 4) this._autoHeight = wanted;
   }
@@ -425,9 +465,12 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const vw = viewport.clientWidth;
     const vh = viewport.clientHeight;
     if (!vw || !vh) return;
-    const k = Math.min(vw / width, vh / height, 1.2);
+    const fitAll = Math.min(vw / width, vh / height, 1.2);
+    // On a phone a wide layout fitted whole is unreadable: show it as tall as
+    // the map allows, at most at full-card size, from its left edge, and pan.
+    const k = vw < 600 ? Math.max(fitAll, Math.min(vh / height, NAMES_BELOW)) : fitAll;
     this._fitK = k;
-    const next = { k, x: (vw - width * k) / 2, y: (vh - height * k) / 2 };
+    const next = { k, x: width * k > vw ? 0 : (vw - width * k) / 2, y: (vh - height * k) / 2 };
     if (Math.abs(next.k - this._view.k) > 0.001 || Math.abs(next.x - this._view.x) > 0.5 || Math.abs(next.y - this._view.y) > 0.5) {
       this._view = next;
     }
@@ -444,19 +487,75 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   /** Scale the view by `factor`, keeping the viewport point (px, py) fixed. */
   private _zoomAt(px: number, py: number, factor: number): void {
     const { x, y, k } = this._view;
-    const nk = Math.min(4, Math.max(Math.min(0.25, this._fitK * 0.8), k * factor));
+    const nk = Math.min(4, Math.max(this._minK(), k * factor));
     this._view = { k: nk, x: px - ((px - x) * nk) / k, y: py - ((py - y) * nk) / k };
     this._userMoved = true;
     this._clearHover();
+    this._pinned = undefined;
+  }
+
+  private _minK(): number {
+    return Math.min(0.25, this._fitK * 0.8);
+  }
+
+  /** Show these nodes as large as fits (Find on map, Zoom to problems). */
+  private _zoomTo(nodes: PlacedNode[]): void {
+    const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
+    if (!viewport || !nodes.length) return;
+    const margin = 40;
+    const x0 = Math.min(...nodes.map((n) => n.x)) - NODE_W / 2 - margin;
+    const x1 = Math.max(...nodes.map((n) => n.x)) + NODE_W / 2 + margin;
+    const y0 = Math.min(...nodes.map((n) => n.y)) - NODE_H / 2 - margin;
+    const y1 = Math.max(...nodes.map((n) => n.y)) + NODE_H / 2 + margin;
+    const vw = viewport.clientWidth;
+    const vh = viewport.clientHeight;
+    const k = Math.max(this._minK(), Math.min(vw / (x1 - x0), vh / (y1 - y0), 1.2));
+    this._view = { k, x: vw / 2 - ((x0 + x1) / 2) * k, y: vh / 2 - ((y0 + y1) / 2) * k };
+    this._userMoved = true;
+    this._clearHover();
+    this._pinned = undefined;
+  }
+
+  /** Point (px, py) in viewport coordinates of a pointer event. */
+  private _local(ev: PointerEvent): { x: number; y: number } {
+    const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top };
   }
 
   private _onPointerDown(ev: PointerEvent): void {
-    if (ev.pointerType === "touch" || ev.button !== 0) return;
+    if (ev.pointerType === "mouse" && ev.button !== 0) return;
+    this._touch = ev.pointerType === "touch";
+    // The popover is a control of its own; elsewhere a press closes it.
+    if ((ev.target as HTMLElement).closest(".tooltip.pinned, .controls, .find")) return;
     this._clearHover();
+    this._pointers.set(ev.pointerId, this._local(ev));
+    if (this._pointers.size === 2) {
+      // Two fingers: pinch around the point between them.
+      const [a, b] = [...this._pointers.values()];
+      const { x, y, k } = this._view;
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      this._pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, k, wx: (mid.x - x) / k, wy: (mid.y - y) / k };
+      if (this._drag) this._drag.moved = true; // no click at the end of a pinch
+      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+      return;
+    }
     this._drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, vx: this._view.x, vy: this._view.y, moved: false };
   }
 
   private _onPointerMove(ev: PointerEvent): void {
+    if (ev.pointerType === "mouse") this._touch = false;
+    if (this._pointers.has(ev.pointerId)) this._pointers.set(ev.pointerId, this._local(ev));
+    const pinch = this._pinch;
+    if (pinch && this._pointers.size >= 2) {
+      const [a, b] = [...this._pointers.values()];
+      const k = Math.min(4, Math.max(this._minK(), (pinch.k * Math.hypot(a.x - b.x, a.y - b.y)) / pinch.dist));
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      // The world point first under the fingers stays under them.
+      this._view = { k, x: mid.x - pinch.wx * k, y: mid.y - pinch.wy * k };
+      this._userMoved = true;
+      this._pinned = undefined;
+      return;
+    }
     const drag = this._drag;
     if (!drag || drag.id !== ev.pointerId) return;
     const dx = ev.clientX - drag.x;
@@ -466,13 +565,29 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     drag.moved = true;
     this._userMoved = true;
     this._hover = undefined;
+    this._pinned = undefined;
     this._view = { ...this._view, x: drag.vx + dx, y: drag.vy + dy };
   }
 
   private _onPointerUp(ev: PointerEvent): void {
+    this._pointers.delete(ev.pointerId);
+    if (this._pinch) {
+      if (this._pointers.size < 2) {
+        this._pinch = undefined;
+        // The finger still down pans on from where it is now.
+        const [rest] = [...this._pointers.entries()];
+        const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+        this._drag = rest
+          ? { id: rest[0], x: rest[1].x + rect.left, y: rest[1].y + rect.top, vx: this._view.x, vy: this._view.y, moved: true }
+          : undefined;
+      }
+      return;
+    }
     if (this._drag?.moved && ev.type === "pointerup") {
       // Swallow the click that ends a drag (a cancelled pointer fires no click).
       ev.currentTarget?.addEventListener("click", (e) => e.stopPropagation(), { capture: true, once: true });
+    } else if (!this._drag?.moved && ev.type === "pointerup" && !(ev.target as HTMLElement).closest(".node, .tooltip.pinned, .controls, .find")) {
+      this._pinned = undefined; // a tap on the empty map closes the popover
     }
     this._drag = undefined;
   }
@@ -484,7 +599,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   /** Double-click: zoom in on that spot (the fit button shows everything again). */
   private _onDoubleClick(ev: MouseEvent): void {
-    if ((ev.target as HTMLElement).closest(".controls")) return;
+    window.clearTimeout(this._openTimer); // a double-click on a node zooms, it doesn't open it
+    if ((ev.target as HTMLElement).closest(".controls, .tooltip.pinned, .find")) return;
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
     this._zoomAt(ev.clientX - rect.left, ev.clientY - rect.top, 2);
   }
@@ -496,14 +612,22 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   // ------------------------------------------------------------- actions
 
+  /** A click on a node acts after CLICK_DELAY, unless a double-click (zoom) follows. */
+  private _click(node: PlacedNode, ev: MouseEvent): void {
+    ev.stopPropagation();
+    window.clearTimeout(this._openTimer);
+    this._openTimer = window.setTimeout(() => this._open(node), CLICK_DELAY);
+  }
+
   private _open(node: PlacedNode): void {
     if (node.kind === "site" && node.target) {
       this._path = [...(this._path.length ? this._path : [this._currentLayout(this._entry!)]), node.target];
       this._hover = undefined;
+      this._pinned = undefined;
     } else if (node.device) {
-      // With an update waiting, the update entity's dialog has the Install button.
-      const e = node.device.entities;
-      moreInfo(this, (node.device.update_available ? e.update : undefined) ?? e.connected ?? e.update);
+      this._pinned = { node, ...this._placeBeside(node, 56) };
+      this._hover = undefined;
+      this._copied = false;
     }
   }
 
@@ -518,7 +642,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _onKey = (ev: KeyboardEvent): void => {
-    if (ev.key === "Escape") this._clearHover();
+    if (ev.key !== "Escape") return;
+    this._clearHover();
+    this._pinned = undefined;
   };
 
   private _clearHover = (): void => {
@@ -534,23 +660,30 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _showHover(node: PlacedNode, ev: Event): void {
-    if (this._drag?.moved) return;
-    const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
-    if (!viewport) return;
+    // A finger has no hover: a tap opens the popover instead.
+    if (this._drag?.moved || this._touch || this._pinned) return;
+    if (!this.renderRoot.querySelector(".viewport")) return;
+    this._hover = { node, ...this._placeBeside(node) };
+    ev.stopPropagation();
+  }
+
+  /** Where a card about `node` goes: beside it, inside the viewport (`extra`: the popover's actions). */
+  private _placeBeside(node: PlacedNode, extra = 0): { x: number; y: number } {
+    const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport")!;
     const { x, y, k } = this._view;
     // Beside the node (the map is wider than tall), kept inside the viewport.
     const width = 300;
-    const height = node.device?.product?.image_large ? 340 : 230;
+    const product = node.device?.product;
+    const links = node.device ? Math.min(9, usedPorts(this._entry!, node.device, this._memoFor(this._entry!).byKey).length) : 0;
+    const height = (product?.image_large ? 340 : 230) + (product?.ports ? 70 : 0) + links * 18 + extra;
     const right = (node.x + NODE_W / 2) * k + x + 12;
     const left = (node.x - NODE_W / 2) * k + x - 12 - width;
     const fitsRight = right + width <= viewport.clientWidth - 8;
     const top = (node.y * k + y) - height / 2;
-    this._hover = {
-      node,
-      x: fitsRight || left < 8 ? Math.min(right, viewport.clientWidth - width - 8) : left,
+    return {
+      x: Math.max(8, fitsRight || left < 8 ? Math.min(right, viewport.clientWidth - width - 8) : left),
       y: Math.max(8, Math.min(top, viewport.clientHeight - height - 8)),
     };
-    ev.stopPropagation();
   }
 
   // -------------------------------------------------------------- render
@@ -569,10 +702,17 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const legendKinds = LEGEND_KINDS.filter((kind) => links.some((l) => l.kind === kind));
     const { x, y, k } = this._view;
     const layoutInfo = entry.layouts.find((l) => l.name === scene.layout);
-    // Highlight from "Show on map": the rule's devices stay lit, the rest dim.
+    // Highlight from "Show on map": where the rule's state alert is active stays lit, the rest dims.
     const rule = this._alert ? entry.alerts.find((r) => r.id === this._alert) : undefined;
     const ruleState = rule ? (rule.devices_on > 0 ? this._ruleDevices.get(this.hass, entry.entry_id, rule.id) : []) : undefined;
     this._lit = Array.isArray(ruleState) ? new Set(ruleState) : undefined;
+    const needle = this._find.trim().toLowerCase();
+    const found = needle ? scene.nodes.filter((node) => this._nodeMatches(node, needle)) : [];
+    this._found = needle ? new Set(found.map((node) => node.id)) : undefined;
+    const problems = scene.nodes.filter((node) =>
+      node.device ? deviceStatus(node.device) !== "ok" : node.site ? node.site.status !== "ok" : false,
+    );
+    const lod = k < DOTS_BELOW ? "lod-dot" : k < NAMES_BELOW ? "lod-text" : "lod-full";
 
     return html`
       <ha-card>
@@ -590,6 +730,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             )}
           </div>
           <div class="spacer"></div>
+          ${this._canRebuild(entry, scene)
+            ? html`<button class="tool" title="Rebuild links from detected ports" aria-label="Rebuild links"
+                @click=${() => (this._rebuild = { layout: scene.layout, state: "confirm" })}>
+                <ha-icon icon="mdi:cable-data"></ha-icon></button>`
+            : nothing}
           ${roots.length > 1
             ? html`<div class="roots">
                 ${roots.map(
@@ -603,14 +748,15 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           ? html`<div class="hl">
               <ha-icon icon="mdi:bell-alert-outline"></ha-icon>
               <span>${Array.isArray(ruleState)
-                ? `${ruleState.length} device${ruleState.length === 1 ? "" : "s"} where "${rule.name}" fires`
+                ? `${ruleState.length} device${ruleState.length === 1 ? "" : "s"} where "${rule.name}" is active`
                 : ruleState === "loading"
-                  ? `Finding the devices where "${rule.name}" fires…`
-                  : `The devices where "${rule.name}" fires can't be listed (console access)`}</span>
+                  ? `Finding the devices where "${rule.name}" is active…`
+                  : `The devices where "${rule.name}" is active can't be listed (console access)`}</span>
               <span class="spacer"></span>
               <button class="hl-close" title="Show every device" @click=${() => (this._alert = "")}><ha-icon icon="mdi:close"></ha-icon></button>
             </div>`
           : nothing}
+        ${this._rebuild?.layout === scene.layout ? this._renderRebuild(this._rebuild) : nothing}
         ${this.renderStale(entry)}
         <div
           class="viewport"
@@ -624,8 +770,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           @mouseleave=${this._clearHover}
         >
           <div
-            class="world"
-            style="width:${scene.width}px;height:${scene.height}px;transform:translate(${x}px,${y}px) scale(${k})"
+            class="world ${lod}"
+            style="width:${scene.width}px;height:${scene.height}px;transform:translate(${x}px,${y}px) scale(${k});--inv:${1 / k}"
           >
             <svg class="wires" width=${scene.width} height=${scene.height}>
               ${links.map((info) => this._renderLink(info))}
@@ -637,12 +783,29 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           ${scene.nodes.length
             ? nothing
             : html`<div class="nothing">${scene.layout === AUTO ? "No devices on the controller yet." : "This layout has no nodes yet."}</div>`}
-          ${this._hover ? this._renderTooltip(this._hover) : nothing}
-          ${this._hoverLink && !this._hover ? this._renderLinkTooltip(this._hoverLink) : nothing}
+          ${this._pinned ? this._renderTooltip(this._pinned, true) : nothing}
+          ${this._hover && !this._pinned ? this._renderTooltip(this._hover) : nothing}
+          ${this._hoverLink && !this._hover && !this._pinned ? this._renderLinkTooltip(this._hoverLink) : nothing}
+          ${scene.nodes.length > 1
+            ? html`<div class="find">
+                <ha-icon icon="mdi:magnify"></ha-icon>
+                <input type="search" placeholder="Find on map" aria-label="Find on map" .value=${this._find}
+                  @input=${(e: Event) => (this._find = (e.target as HTMLInputElement).value)}
+                  @keydown=${(e: KeyboardEvent) => {
+                    if (e.key === "Enter") this._zoomTo(found);
+                    if (e.key === "Escape") this._find = "";
+                  }} />
+                ${needle ? html`<span class="hits">${found.length}</span>` : nothing}
+              </div>`
+            : nothing}
           <div class="controls">
             <button title="Zoom in (or double-click the map)" @click=${() => this._zoom(1.6)}><ha-icon icon="mdi:plus"></ha-icon></button>
             <button title="Zoom out" @click=${() => this._zoom(1 / 1.6)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <button title="Show the whole map" @click=${this._resetView}><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon></button>
+            ${problems.length
+              ? html`<button class="problems" title="Zoom to what needs attention (${problems.length})" @click=${() => this._zoomTo(problems)}>
+                  <ha-icon icon="mdi:alert-circle-outline"></ha-icon></button>`
+              : nothing}
           </div>
           <div class="legend">
             ${(["ok", "update", "alert", "offline"] as Status[]).map(
@@ -656,6 +819,45 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         </div>
       </ha-card>
     `;
+  }
+
+  /** Rebuild links needs actions, an administrator and two devices on a real layout. */
+  private _canRebuild(entry: CmrEntry, scene: Scene): boolean {
+    return entry.actions && !!this.hass.user?.is_admin && scene.layout !== AUTO
+      && scene.nodes.filter((n) => n.kind === "device").length > 1;
+  }
+
+  private _renderRebuild(bar: NonNullable<CmrTopologyCard["_rebuild"]>): TemplateResult {
+    const close = html`<button class="hl-close" title="Close" @click=${() => (this._rebuild = undefined)}>
+      <ha-icon icon="mdi:close"></ha-icon></button>`;
+    if (bar.state === "confirm") {
+      return html`<div class="hl rebuild">
+        <ha-icon icon="mdi:cable-data"></ha-icon>
+        <span>Create the links of <b>${bar.layout}</b> from the ports the controller detected between its devices?</span>
+        <span class="spacer"></span>
+        <button class="pill on" @click=${() => this._rebuildLinks(bar.layout)}>Rebuild links</button>
+        ${close}
+      </div>`;
+    }
+    return html`<div class="hl rebuild ${bar.state}">
+      <ha-icon icon=${bar.state === "error" ? "mdi:alert-circle-outline" : "mdi:cable-data"}></ha-icon>
+      <span>${bar.state === "busy" ? `Rebuilding the links of ${bar.layout}…` : bar.text}</span>
+      <span class="spacer"></span>
+      ${bar.state === "busy" ? nothing : close}
+    </div>`;
+  }
+
+  private async _rebuildLinks(layout: string): Promise<void> {
+    this._rebuild = { layout, state: "busy" };
+    try {
+      await this.hass.connection.sendMessagePromise({ type: "cmr/rebuild_links", entry_id: this._entry!.entry_id, layout });
+      this._rebuild = {
+        layout, state: "done",
+        text: "Links rebuilt. Connections the controller can't see (a VPN, a switch it doesn't manage) stay yours to draw.",
+      };
+    } catch (err) {
+      this._rebuild = { layout, state: "error", text: (err as { message?: string })?.message ?? String(err) };
+    }
   }
 
   private _linkState(a?: PlacedNode, b?: PlacedNode): "up" | "down" | "unknown" {
@@ -862,11 +1064,12 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (node.kind === "site") {
       const site = node.site!;
       return html`
-        <div class="node site status-${site.status}" style=${style} role="button" tabindex="0"
-             aria-label="${node.name}, ${site.online} of ${site.total} online, open layout"
-             @click=${() => this._open(node)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
+        <div class="node site status-${site.status} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style}
+             role="button" tabindex="0" aria-label="${node.name}, ${site.online} of ${site.total} online, open layout"
+             @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
              @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
              @focus=${(e: Event) => this._showHover(node, e)} @blur=${this._clearHover}>
+          <i class="pin"></i>
           <div class="badge"><ha-icon icon=${this._config.icons?.[node.name] ?? DEFAULT_SITE_ICON}></ha-icon></div>
           <div class="text">
             <div class="name">${node.name}</div>
@@ -878,7 +1081,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     if (node.kind === "unknown" || !node.device) {
       return html`
-        <div class="node unknown" style=${style} title="Not a CMR-managed device">
+        <div class="node unknown ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} title="Not a CMR-managed device">
+          <i class="pin"></i>
           <div class="badge"><ha-icon icon="mdi:help-network-outline"></ha-icon></div>
           <div class="text"><div class="name">${node.name}</div><div class="sub">Not managed</div></div>
         </div>
@@ -886,13 +1090,14 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     const device = node.device;
     const status = deviceStatus(device);
-    const dim = this._lit && !this._lit.has(device.key);
+    const dim = (this._lit && !this._lit.has(device.key)) || (this._found && !this._found.has(node.id));
     return html`
       <div class="node device status-${status} ${device.controller ? "controller" : ""} ${dim ? "dim" : ""}" style=${style}
            role="button" tabindex="0" aria-label="${device.identity}, ${STATUS_LABEL[status]}"
-           @click=${() => this._open(node)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
+           @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
            @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
            @focus=${(e: Event) => this._showHover(node, e)} @blur=${this._clearHover}>
+        <i class="pin"></i>
         ${deviceVisual(device)}
         <div class="text">
           <div class="name">${device.identity}</div>
@@ -906,12 +1111,16 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${device.controller
           ? html`<span class="crown" title="CMR controller"><ha-icon icon="mdi:crown-outline"></ha-icon></span>`
           : nothing}
-        ${device.alerts?.on ? html`<span class="count" title="Alerts firing">${device.alerts.on}</span>` : nothing}
+        ${device.alerts?.on ? html`<span class="count" title="Active alerts">${device.alerts.on}</span>` : nothing}
       </div>
     `;
   }
 
-  private _renderTooltip(hover: { node: PlacedNode; x: number; y: number }): TemplateResult {
+  /**
+   * A node's card: on hover a read-only tooltip; `pinned` (after a click or
+   * tap) the device popover, with the address to copy and onward links.
+   */
+  private _renderTooltip(hover: { node: PlacedNode; x: number; y: number }, pinned = false): TemplateResult {
     const { node } = hover;
     let body: TemplateResult;
     if (node.kind === "site") {
@@ -924,12 +1133,17 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       `;
     } else if (node.device) {
       const d = node.device;
+      const entry = this._entry!;
+      const used = usedPorts(entry, d, this._memoFor(entry).byKey);
       body = html`
         <div class="tt-title">${d.identity}${d.controller ? html` <span class="chip">controller</span>` : nothing}</div>
         ${d.product?.image_large
           ? html`<div class="tt-photo"><img src=${d.product.image_large} alt="" referrerpolicy="no-referrer" /></div>`
           : nothing}
         <div class="muted">${[modelName(d), modelCode(d), d.arch].filter(Boolean).join(" · ")}</div>
+        ${d.product?.ports
+          ? html`${renderFrontPanel(d.product, used)}<div class="muted tt-ports">${portSummary(d.product.ports)}</div>`
+          : nothing}
         <table>
           <tr><td>Status</td><td class="status-${deviceStatus(d)}"><i class="dot"></i> ${STATUS_LABEL[deviceStatus(d)]}${pairingHint(d) ? ` (${pairingHint(d)})` : ""}${d.stale ? " · stale data" : ""}</td></tr>
           ${d.connected && d.connected_time != null ? html`<tr><td>Connected</td><td>for ${formatDuration(d.connected_time)}</td></tr>` : nothing}
@@ -937,20 +1151,77 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           <tr><td>Channel</td><td>${d.channel ?? "–"}${d.available_version && d.available_version !== d.version
             ? html` <span class="muted">(${d.update_available ? "update to" : "offers"} <span class="mono">${d.available_version}</span>)</span>`
             : nothing}</td></tr>
-          ${d.address ? html`<tr><td>Address</td><td class="mono">${d.address}</td></tr>` : nothing}
+          ${d.address
+            ? html`<tr><td>Address</td><td><span class="mono">${d.address}</span>${pinned && navigator.clipboard
+                ? html`<button class="copy" title="Copy the address" @click=${() => this._copy(d.address!)}>
+                    ${this._copied ? "copied" : html`<ha-icon icon="mdi:content-copy"></ha-icon>`}</button>`
+                : nothing}</td></tr>`
+            : nothing}
           <tr><td>Uptime</td><td>${formatDuration(d.uptime)}</td></tr>
           ${d.labels.length ? html`<tr><td>Labels</td><td>${d.labels.map((l) => html`<span class="chip">${l}</span> `)}</td></tr>` : nothing}
-          ${d.alerts ? html`<tr><td>Alerts</td><td>${d.alerts.on} firing of ${d.alerts.total} rules</td></tr>` : nothing}
+          ${d.alerts ? html`<tr><td>Alerts</td><td>${d.alerts.on} active of ${d.alerts.total} rules</td></tr>` : nothing}
+          ${used.length
+            ? html`<tr><td>Links</td><td>
+                ${used.slice(0, 8).map(
+                  (p) => html`<div>
+                    <span class="mono">${p.interface}</span>${p.poe
+                      ? html` <ha-icon class="inline poe" icon="mdi:flash"></ha-icon>`
+                      : nothing}
+                    → ${p.peer}${p.up === false ? html` <span class="muted">(down)</span>` : nothing}
+                  </div>`,
+                )}
+                ${used.length > 8 ? html`<div class="muted">and ${used.length - 8} more</div>` : nothing}
+              </td></tr>`
+            : nothing}
         </table>
+        ${pinned ? this._popoverActions(d) : nothing}
       `;
     } else {
       return html``;
     }
-    return html`<div class="tooltip" style="left:${Math.max(8, hover.x)}px;top:${hover.y}px">${body}</div>`;
+    // The popover scrolls inside the room below its top edge.
+    const room = pinned ? `;max-height:calc(100% - ${hover.y + 8}px)` : "";
+    return html`<div class="tooltip ${pinned ? "pinned" : ""}" style="left:${Math.max(8, hover.x)}px;top:${hover.y}px${room}"
+        role=${pinned ? "dialog" : nothing} aria-label=${pinned ? node.name : nothing}>
+      ${pinned
+        ? html`<button class="pop-close" title="Close" @click=${() => (this._pinned = undefined)}><ha-icon icon="mdi:close"></ha-icon></button>`
+        : nothing}
+      ${body}
+    </div>`;
+  }
+
+  /** Onward from the popover: install the update, the device in Home Assistant, the device table. */
+  private _popoverActions(d: CmrDevice): TemplateResult {
+    const devicesView = this._config.views?.devices;
+    const e = d.entities;
+    return html`<div class="pop-actions">
+      ${d.update_available && e.update
+        ? html`<button class="pill on" @click=${() => moreInfo(this, e.update)}><ha-icon icon="mdi:arrow-up-circle"></ha-icon>Update</button>`
+        : nothing}
+      ${d.device_id
+        ? html`<button class="pill" @click=${() => navigate(`/config/devices/device/${d.device_id}`)}>Device page</button>`
+        : nothing}
+      ${devicesView
+        ? html`<button class="pill" @click=${() => navigate(viewPath(devicesView, { cmr_search: d.identity }))}>In Devices</button>`
+        : nothing}
+      ${e.connected
+        ? html`<button class="pill" @click=${() => moreInfo(this, e.connected)}>History</button>`
+        : nothing}
+    </div>`;
+  }
+
+  private async _copy(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      this._copied = true;
+    } catch {
+      this._copied = false;
+    }
   }
 
   static styles = [
     baseStyles,
+    frontPanelStyles,
     css`
       .card-header { padding-bottom: 4px; flex-wrap: wrap; }
       .crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; flex-wrap: wrap; }
@@ -969,7 +1240,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       ha-card { display: flex; flex-direction: column; }
       .viewport {
         flex: 1 1 auto;
-        position: relative; overflow: hidden; cursor: grab; touch-action: pan-y pinch-zoom;
+        /* One finger pans the map and two zoom it, as in Home Assistant's own map card. */
+        position: relative; overflow: hidden; cursor: grab; touch-action: none;
         background:
           radial-gradient(circle, var(--cmr-line) 1px, transparent 1.2px) 0 0 / 22px 22px;
         border-top: 1px solid var(--cmr-line);
@@ -1055,6 +1327,49 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         background: var(--cmr-alert); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; padding: 0 4px;
       }
       .node.site { border-style: dashed; border-width: 1.5px; }
+
+      /* Level of detail: zoomed far out a node is a status dot of constant
+         screen size (--inv is 1/zoom), then its name only, then the card. */
+      .node .pin { display: none; }
+      .lod-dot .node { background: none; border-color: transparent; box-shadow: none; }
+      .lod-dot .node > :not(.pin) { visibility: hidden; }
+      .lod-dot .node .pin {
+        display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: calc(12px * var(--inv)); height: calc(12px * var(--inv)); border-radius: 50%;
+        background: var(--status, var(--cmr-muted)); box-shadow: 0 0 0 calc(2px * var(--inv)) var(--cmr-surface);
+      }
+      .lod-dot .port, .lod-dot .comment, .lod-text .port, .lod-text .comment { display: none; }
+      .lod-text .node .badge, .lod-text .node .sub, .lod-text .node .ver, .lod-text .node .chev,
+      .lod-text .node .crown, .lod-text .node .count { display: none; }
+      /* Names only: the status dot (the same one the far zoom draws) leads the name. */
+      .lod-text .node { justify-content: center; border-color: color-mix(in srgb, var(--status, var(--cmr-line)) 45%, var(--cmr-line)); }
+      .lod-text .node .pin {
+        display: block; flex: none; width: 14px; height: 14px; border-radius: 50%;
+        background: var(--status, var(--cmr-muted));
+      }
+      .lod-text .node .name { font-size: 18px; text-align: center; }
+
+      .find {
+        position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; align-items: center; gap: 6px;
+        padding: 4px 8px; border-radius: 10px; background: var(--cmr-surface); border: 1px solid var(--cmr-line);
+        color: var(--cmr-muted); --mdc-icon-size: 16px; cursor: auto;
+      }
+      .find input { all: unset; width: 130px; font-size: 13px; color: var(--primary-text-color); }
+      .find .hits { font-size: 11px; font-variant-numeric: tabular-nums; }
+      .controls .problems { color: var(--cmr-alert); }
+
+      .tooltip.pinned { pointer-events: auto; z-index: 4; overflow: auto; cursor: auto; box-sizing: border-box; }
+      .pop-close {
+        all: unset; cursor: pointer; position: absolute; top: 6px; right: 6px; line-height: 0; padding: 3px;
+        border-radius: 50%; color: var(--cmr-muted); --mdc-icon-size: 18px;
+      }
+      .pop-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
+      .pop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; --mdc-icon-size: 16px; }
+      .copy {
+        all: unset; cursor: pointer; margin-left: 6px; color: var(--cmr-muted); font-size: 11px;
+        --mdc-icon-size: 14px; vertical-align: -2px;
+      }
+      .copy:hover { color: var(--primary-text-color); }
       .node.site .chev { color: var(--cmr-muted); --mdc-icon-size: 20px; }
       .node.unknown { opacity: 0.6; cursor: default; }
       .node.dim { opacity: 0.18; filter: grayscale(1); }
@@ -1066,6 +1381,14 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .hl > ha-icon { color: var(--cmr-alert); }
       .hl-close { all: unset; cursor: pointer; line-height: 0; color: var(--cmr-muted); border-radius: 50%; padding: 2px; }
       .hl-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
+      .hl.rebuild { background: var(--cmr-surface-2); }
+      .hl.rebuild > ha-icon { color: var(--cmr-muted); }
+      .hl.rebuild.error > ha-icon { color: var(--cmr-offline); }
+      .tool {
+        all: unset; cursor: pointer; line-height: 0; padding: 5px; border-radius: 8px;
+        color: var(--cmr-muted); --mdc-icon-size: 18px;
+      }
+      .tool:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
 
       .tooltip {
         position: absolute; z-index: 3; width: 300px; padding: 10px 12px; border-radius: 12px;
@@ -1082,6 +1405,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .tooltip td { padding: 2px 0; vertical-align: top; }
       .tooltip td:first-child { color: var(--cmr-muted); width: 1%; white-space: nowrap; padding-right: 12px; }
       .tooltip td i.dot { display: inline-block; }
+      .tt-ports { text-align: center; font-size: 11px; }
 
       .controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 4px; }
       .controls button {
@@ -1100,7 +1424,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       .wire-sample.k-wireless { border-top: 3px dotted var(--cmr-update); }
       .wire-sample.k-unknown { border-top: 2.5px dashed var(--cmr-muted); }
       .poe-sample { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--cmr-poe); box-shadow: 0 0 4px var(--cmr-poe); }
-      @media (max-width: 600px) { .legend { font-size: 10px; gap: 2px 8px; max-width: calc(100% - 64px); } }
+      @media (max-width: 600px) {
+        .legend { font-size: 10px; gap: 2px 8px; max-width: calc(100% - 64px); }
+        .find input { width: 84px; }
+      }
     `,
   ];
 }

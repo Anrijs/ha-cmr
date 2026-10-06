@@ -21,7 +21,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_SSL, CONF_USERNAM
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cmr.api import CmrApi, CmrAuthError, CmrNotFoundError
+from custom_components.cmr.api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
 from custom_components.cmr.const import CONF_WEBHOOK_ID, DOMAIN
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
@@ -65,6 +65,16 @@ class FakeController:
         self.wifi_logs: list[dict[str, Any]] | None = None
         # Alert rule id -> device ids it fires on (`show-devices on-only=yes`).
         self.alert_devices: dict[str, list[str]] = {"*1": ["*7"]}
+        self.has_job_devices = True
+        # Upgrade job id -> `show-devices` rows, as the controller prints them over REST.
+        self.job_devices: dict[str, list[dict[str, str]]] = {
+            "*4": [
+                {".section": "0", "channel": "development", "current-version": "7.90_ab12",
+                 "device": "Site-AP2@192.0.2.24", "state": "done", "upgrade-version": "7.90_ab12"},
+                {".section": "0", "channel": "development", "current-version": "7.90_ab12",
+                 "device": "Site-AP1@192.0.2.15", "error": "no upgrade available", "state": "pending"},
+            ],
+        }
 
     @property
     def devices(self) -> list[dict[str, Any]]:
@@ -152,6 +162,24 @@ class FakeController:
                     d.pop("pending", None)  # approved: the device is managed from now on
             return [{"device": payload.get("numbers"), "status": "paired"}]
         if path in ("cmr/upgrade/version-check", "cmr/upgrade/trigger", "cmr/device/upgrade"):
+            return []
+        if path == "cmr/upgrade/job/show-devices":
+            if not self.has_job_devices:
+                raise CmrNotFoundError(f"POST {path}: no such command", "no such command")
+            if "numbers" in payload:
+                raise CmrApiError(f"POST {path}: HTTP 400", "unknown parameter numbers")
+            assert payload.get("duration")  # the real command runs until stopped
+            return list(self.job_devices.get(payload.get(".id"), []))
+        if path == "cmr/upgrade/job/remove":
+            for job in self.data["cmr/upgrade/job"]:
+                if job[".id"] == payload.get("numbers"):
+                    job["state"] = "cancelled"
+            return []
+        if path == "cmr/upgrade/job/run-next":
+            return []
+        if path == "cmr/layout/rebuild-links":
+            if payload.get("numbers") not in {layout[".id"] for layout in self.data["cmr/layout"]}:
+                raise CmrNotFoundError(f"POST {path}: no such item", "no such item")
             return []
         raise CmrNotFoundError(f"POST {path}: no such command", "no such command")
 

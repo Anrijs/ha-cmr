@@ -62,7 +62,7 @@ function networkView(entry: CmrEntry, base: Card): Card {
       [
         [fe.devices_online, "Online"],
         [fe.updates_available, "Updates"],
-        [fe.alerts_firing, "Alerts firing"],
+        [fe.alerts_firing, "Alerts active"],
         [fe.network_issues, "Issues"],
       ] as const
     )
@@ -78,7 +78,7 @@ function networkView(entry: CmrEntry, base: Card): Card {
       {
         type: "grid",
         column_span: 3,
-        cards: [{ ...base, type: "custom:cmr-topology-card", height: 480, grid_options: { columns: "full" } }],
+        cards: [{ ...base, type: "custom:cmr-topology-card", height: 480, views: { devices: "devices" }, grid_options: { columns: "full" } }],
       },
       // Two independent columns: a section is a vertical stack, so a short
       // devices card and a tall alerts card no longer leave a gap under the
@@ -96,7 +96,7 @@ function networkView(entry: CmrEntry, base: Card): Card {
         type: "grid",
         cards: [
           { ...base, type: "custom:cmr-alerts-card", views: { devices: "devices", topology: "topology" }, grid_options: { columns: "full" } },
-          { ...base, type: "custom:cmr-upgrades-card", grid_options: { columns: "full" } },
+          { ...base, type: "custom:cmr-upgrades-card", views: { devices: "devices" }, grid_options: { columns: "full" } },
         ],
       },
     ],
@@ -161,7 +161,7 @@ function topologyView(base: Card): Card {
     path: "topology",
     icon: "mdi:sitemap-outline",
     type: "panel",
-    cards: [{ ...base, type: "custom:cmr-topology-card", height: 760 }],
+    cards: [{ ...base, type: "custom:cmr-topology-card", height: 760, views: { devices: "devices" } }],
   };
 }
 

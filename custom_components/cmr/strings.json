@@ -175,7 +175,7 @@
         "name": "Updates available"
       },
       "alerts_firing": {
-        "name": "Alert rules firing"
+        "name": "Active alert rules"
       },
       "last_upgrade_job": {
         "name": "Last upgrade job"

@@ -1,8 +1,8 @@
-var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,Ie=Symbol(),at=new WeakMap,te=class{constructor(i,e,t){if(this._$cssResult$=!0,t!==Ie)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=i,this.t=e}get styleSheet(){let i=this.o,e=this.t;if(ve&&i===void 0){let t=e!==void 0&&e.length===1;t&&(i=at.get(e)),i===void 0&&((this.o=i=new CSSStyleSheet).replaceSync(this.cssText),t&&at.set(e,i))}return i}toString(){return this.cssText}},lt=n=>new te(typeof n=="string"?n:n+"",void 0,Ie),w=(n,...i)=>{let e=n.length===1?n[0]:i.reduce((t,s,r)=>t+(o=>{if(o._$cssResult$===!0)return o.cssText;if(typeof o=="number")return o;throw Error("Value passed to 'css' function must be a 'css' function result: "+o+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+n[r+1],n[0]);return new te(e,n,Ie)},ct=(n,i)=>{if(ve)n.adoptedStyleSheets=i.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(let e of i){let t=document.createElement("style"),s=me.litNonce;s!==void 0&&t.setAttribute("nonce",s),t.textContent=e.cssText,n.appendChild(t)}},Oe=ve?n=>n:n=>n instanceof CSSStyleSheet?(i=>{let e="";for(let t of i.cssRules)e+=t.cssText;return lt(e)})(n):n;var{is:Bt,defineProperty:Vt,getOwnPropertyDescriptor:Wt,getOwnPropertyNames:qt,getOwnPropertySymbols:Yt,getPrototypeOf:Gt}=Object,ge=globalThis,dt=ge.trustedTypes,Xt=dt?dt.emptyScript:"",Jt=ge.reactiveElementPolyfillSupport,ie=(n,i)=>n,Ue={toAttribute(n,i){switch(i){case Boolean:n=n?Xt:null;break;case Object:case Array:n=n==null?n:JSON.stringify(n)}return n},fromAttribute(n,i){let e=n;switch(i){case Boolean:e=n!==null;break;case Number:e=n===null?null:Number(n);break;case Object:case Array:try{e=JSON.parse(n)}catch{e=null}}return e}},ht=(n,i)=>!Bt(n,i),pt={attribute:!0,type:String,converter:Ue,reflect:!1,useDefault:!1,hasChanged:ht};Symbol.metadata??=Symbol("metadata"),ge.litPropertyMetadata??=new WeakMap;var N=class extends HTMLElement{static addInitializer(i){this._$Ei(),(this.l??=[]).push(i)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(i,e=pt){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(i)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(i,e),!e.noAccessor){let t=Symbol(),s=this.getPropertyDescriptor(i,t,e);s!==void 0&&Vt(this.prototype,i,s)}}static getPropertyDescriptor(i,e,t){let{get:s,set:r}=Wt(this.prototype,i)??{get(){return this[e]},set(o){this[e]=o}};return{get:s,set(o){let l=s?.call(this);r?.call(this,o),this.requestUpdate(i,l,t)},configurable:!0,enumerable:!0}}static getPropertyOptions(i){return this.elementProperties.get(i)??pt}static _$Ei(){if(this.hasOwnProperty(ie("elementProperties")))return;let i=Gt(this);i.finalize(),i.l!==void 0&&(this.l=[...i.l]),this.elementProperties=new Map(i.elementProperties)}static finalize(){if(this.hasOwnProperty(ie("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(ie("properties"))){let e=this.properties,t=[...qt(e),...Yt(e)];for(let s of t)this.createProperty(s,e[s])}let i=this[Symbol.metadata];if(i!==null){let e=litPropertyMetadata.get(i);if(e!==void 0)for(let[t,s]of e)this.elementProperties.set(t,s)}this._$Eh=new Map;for(let[e,t]of this.elementProperties){let s=this._$Eu(e,t);s!==void 0&&this._$Eh.set(s,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(i){let e=[];if(Array.isArray(i)){let t=new Set(i.flat(1/0).reverse());for(let s of t)e.unshift(Oe(s))}else i!==void 0&&e.push(Oe(i));return e}static _$Eu(i,e){let t=e.attribute;return t===!1?void 0:typeof t=="string"?t:typeof i=="string"?i.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(i=>this.enableUpdating=i),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(i=>i(this))}addController(i){(this._$EO??=new Set).add(i),this.renderRoot!==void 0&&this.isConnected&&i.hostConnected?.()}removeController(i){this._$EO?.delete(i)}_$E_(){let i=new Map,e=this.constructor.elementProperties;for(let t of e.keys())this.hasOwnProperty(t)&&(i.set(t,this[t]),delete this[t]);i.size>0&&(this._$Ep=i)}createRenderRoot(){let i=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return ct(i,this.constructor.elementStyles),i}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(i=>i.hostConnected?.())}enableUpdating(i){}disconnectedCallback(){this._$EO?.forEach(i=>i.hostDisconnected?.())}attributeChangedCallback(i,e,t){this._$AK(i,t)}_$ET(i,e){let t=this.constructor.elementProperties.get(i),s=this.constructor._$Eu(i,t);if(s!==void 0&&t.reflect===!0){let r=(t.converter?.toAttribute!==void 0?t.converter:Ue).toAttribute(e,t.type);this._$Em=i,r==null?this.removeAttribute(s):this.setAttribute(s,r),this._$Em=null}}_$AK(i,e){let t=this.constructor,s=t._$Eh.get(i);if(s!==void 0&&this._$Em!==s){let r=t.getPropertyOptions(s),o=typeof r.converter=="function"?{fromAttribute:r.converter}:r.converter?.fromAttribute!==void 0?r.converter:Ue;this._$Em=s;let l=o.fromAttribute(e,r.type);this[s]=l??this._$Ej?.get(s)??l,this._$Em=null}}requestUpdate(i,e,t,s=!1,r){if(i!==void 0){let o=this.constructor;if(s===!1&&(r=this[i]),t??=o.getPropertyOptions(i),!((t.hasChanged??ht)(r,e)||t.useDefault&&t.reflect&&r===this._$Ej?.get(i)&&!this.hasAttribute(o._$Eu(i,t))))return;this.C(i,e,t)}this.isUpdatePending===!1&&(this._$ES=this._$EP())}C(i,e,{useDefault:t,reflect:s,wrapped:r},o){t&&!(this._$Ej??=new Map).has(i)&&(this._$Ej.set(i,o??e??this[i]),r!==!0||o!==void 0)||(this._$AL.has(i)||(this.hasUpdated||t||(e=void 0),this._$AL.set(i,e)),s===!0&&this._$Em!==i&&(this._$Eq??=new Set).add(i))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}let i=this.scheduleUpdate();return i!=null&&await i,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(let[s,r]of this._$Ep)this[s]=r;this._$Ep=void 0}let t=this.constructor.elementProperties;if(t.size>0)for(let[s,r]of t){let{wrapped:o}=r,l=this[s];o!==!0||this._$AL.has(s)||l===void 0||this.C(s,void 0,r,l)}}let i=!1,e=this._$AL;try{i=this.shouldUpdate(e),i?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(t){throw i=!1,this._$EM(),t}i&&this._$AE(e)}willUpdate(i){}_$AE(i){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(i)),this.updated(i)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(i){return!0}update(i){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(i){}firstUpdated(i){}};N.elementStyles=[],N.shadowRootOptions={mode:"open"},N[ie("elementProperties")]=new Map,N[ie("finalized")]=new Map,Jt?.({ReactiveElement:N}),(ge.reactiveElementVersions??=[]).push("2.1.2");var qe=globalThis,ut=n=>n,fe=qe.trustedTypes,mt=fe?fe.createPolicy("lit-html",{createHTML:n=>n}):void 0,yt="$lit$",U=`lit$${Math.random().toFixed(9).slice(2)}$`,xt="?"+U,Zt=`<${xt}>`,B=document,re=()=>B.createComment(""),ne=n=>n===null||typeof n!="object"&&typeof n!="function",Ye=Array.isArray,Qt=n=>Ye(n)||typeof n?.[Symbol.iterator]=="function",je=`[ 	
-\f\r]`,se=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,vt=/-->/g,gt=/>/g,F=RegExp(`>|${je}(?:([^\\s"'>=/]+)(${je}*=${je}*(?:[^ 	
-\f\r"'\`<>=]|("|')|))|$)`,"g"),ft=/'/g,_t=/"/g,$t=/^(?:script|style|textarea|title)$/i,Ge=n=>(i,...e)=>({_$litType$:n,strings:i,values:e}),a=Ge(1),le=Ge(2),Hi=Ge(3),V=Symbol.for("lit-noChange"),h=Symbol.for("lit-nothing"),bt=new WeakMap,K=B.createTreeWalker(B,129);function wt(n,i){if(!Ye(n)||!n.hasOwnProperty("raw"))throw Error("invalid template strings array");return mt!==void 0?mt.createHTML(i):i}var ei=(n,i)=>{let e=n.length-1,t=[],s,r=i===2?"<svg>":i===3?"<math>":"",o=se;for(let l=0;l<e;l++){let c=n[l],d,p,u=-1,m=0;for(;m<c.length&&(o.lastIndex=m,p=o.exec(c),p!==null);)m=o.lastIndex,o===se?p[1]==="!--"?o=vt:p[1]!==void 0?o=gt:p[2]!==void 0?($t.test(p[2])&&(s=RegExp("</"+p[2],"g")),o=F):p[3]!==void 0&&(o=F):o===F?p[0]===">"?(o=s??se,u=-1):p[1]===void 0?u=-2:(u=o.lastIndex-p[2].length,d=p[1],o=p[3]===void 0?F:p[3]==='"'?_t:ft):o===_t||o===ft?o=F:o===vt||o===gt?o=se:(o=F,s=void 0);let v=o===F&&n[l+1].startsWith("/>")?" ":"";r+=o===se?c+Zt:u>=0?(t.push(d),c.slice(0,u)+yt+c.slice(u)+U+v):c+U+(u===-2?l:v)}return[wt(n,r+(n[e]||"<?>")+(i===2?"</svg>":i===3?"</math>":"")),t]},oe=class n{constructor({strings:i,_$litType$:e},t){let s;this.parts=[];let r=0,o=0,l=i.length-1,c=this.parts,[d,p]=ei(i,e);if(this.el=n.createElement(d,t),K.currentNode=this.el.content,e===2||e===3){let u=this.el.content.firstChild;u.replaceWith(...u.childNodes)}for(;(s=K.nextNode())!==null&&c.length<l;){if(s.nodeType===1){if(s.hasAttributes())for(let u of s.getAttributeNames())if(u.endsWith(yt)){let m=p[o++],v=s.getAttribute(u).split(U),y=/([.?@])?(.*)/.exec(m);c.push({type:1,index:r,name:y[2],strings:v,ctor:y[1]==="."?Ke:y[1]==="?"?Be:y[1]==="@"?Ve:Z}),s.removeAttribute(u)}else u.startsWith(U)&&(c.push({type:6,index:r}),s.removeAttribute(u));if($t.test(s.tagName)){let u=s.textContent.split(U),m=u.length-1;if(m>0){s.textContent=fe?fe.emptyScript:"";for(let v=0;v<m;v++)s.append(u[v],re()),K.nextNode(),c.push({type:2,index:++r});s.append(u[m],re())}}}else if(s.nodeType===8)if(s.data===xt)c.push({type:2,index:r});else{let u=-1;for(;(u=s.data.indexOf(U,u+1))!==-1;)c.push({type:7,index:r}),u+=U.length-1}r++}}static createElement(i,e){let t=B.createElement("template");return t.innerHTML=i,t}};function J(n,i,e=n,t){if(i===V)return i;let s=t!==void 0?e._$Co?.[t]:e._$Cl,r=ne(i)?void 0:i._$litDirective$;return s?.constructor!==r&&(s?._$AO?.(!1),r===void 0?s=void 0:(s=new r(n),s._$AT(n,e,t)),t!==void 0?(e._$Co??=[])[t]=s:e._$Cl=s),s!==void 0&&(i=J(n,s._$AS(n,i.values),s,t)),i}var Fe=class{constructor(i,e){this._$AV=[],this._$AN=void 0,this._$AD=i,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(i){let{el:{content:e},parts:t}=this._$AD,s=(i?.creationScope??B).importNode(e,!0);K.currentNode=s;let r=K.nextNode(),o=0,l=0,c=t[0];for(;c!==void 0;){if(o===c.index){let d;c.type===2?d=new ae(r,r.nextSibling,this,i):c.type===1?d=new c.ctor(r,c.name,c.strings,this,i):c.type===6&&(d=new We(r,this,i)),this._$AV.push(d),c=t[++l]}o!==c?.index&&(r=K.nextNode(),o++)}return K.currentNode=B,s}p(i){let e=0;for(let t of this._$AV)t!==void 0&&(t.strings!==void 0?(t._$AI(i,t,e),e+=t.strings.length-2):t._$AI(i[e])),e++}},ae=class n{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(i,e,t,s){this.type=2,this._$AH=h,this._$AN=void 0,this._$AA=i,this._$AB=e,this._$AM=t,this.options=s,this._$Cv=s?.isConnected??!0}get parentNode(){let i=this._$AA.parentNode,e=this._$AM;return e!==void 0&&i?.nodeType===11&&(i=e.parentNode),i}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(i,e=this){i=J(this,i,e),ne(i)?i===h||i==null||i===""?(this._$AH!==h&&this._$AR(),this._$AH=h):i!==this._$AH&&i!==V&&this._(i):i._$litType$!==void 0?this.$(i):i.nodeType!==void 0?this.T(i):Qt(i)?this.k(i):this._(i)}O(i){return this._$AA.parentNode.insertBefore(i,this._$AB)}T(i){this._$AH!==i&&(this._$AR(),this._$AH=this.O(i))}_(i){this._$AH!==h&&ne(this._$AH)?this._$AA.nextSibling.data=i:this.T(B.createTextNode(i)),this._$AH=i}$(i){let{values:e,_$litType$:t}=i,s=typeof t=="number"?this._$AC(i):(t.el===void 0&&(t.el=oe.createElement(wt(t.h,t.h[0]),this.options)),t);if(this._$AH?._$AD===s)this._$AH.p(e);else{let r=new Fe(s,this),o=r.u(this.options);r.p(e),this.T(o),this._$AH=r}}_$AC(i){let e=bt.get(i.strings);return e===void 0&&bt.set(i.strings,e=new oe(i)),e}k(i){Ye(this._$AH)||(this._$AH=[],this._$AR());let e=this._$AH,t,s=0;for(let r of i)s===e.length?e.push(t=new n(this.O(re()),this.O(re()),this,this.options)):t=e[s],t._$AI(r),s++;s<e.length&&(this._$AR(t&&t._$AB.nextSibling,s),e.length=s)}_$AR(i=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);i!==this._$AB;){let t=ut(i).nextSibling;ut(i).remove(),i=t}}setConnected(i){this._$AM===void 0&&(this._$Cv=i,this._$AP?.(i))}},Z=class{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(i,e,t,s,r){this.type=1,this._$AH=h,this._$AN=void 0,this.element=i,this.name=e,this._$AM=s,this.options=r,t.length>2||t[0]!==""||t[1]!==""?(this._$AH=Array(t.length-1).fill(new String),this.strings=t):this._$AH=h}_$AI(i,e=this,t,s){let r=this.strings,o=!1;if(r===void 0)i=J(this,i,e,0),o=!ne(i)||i!==this._$AH&&i!==V,o&&(this._$AH=i);else{let l=i,c,d;for(i=r[0],c=0;c<r.length-1;c++)d=J(this,l[t+c],e,c),d===V&&(d=this._$AH[c]),o||=!ne(d)||d!==this._$AH[c],d===h?i=h:i!==h&&(i+=(d??"")+r[c+1]),this._$AH[c]=d}o&&!s&&this.j(i)}j(i){i===h?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,i??"")}},Ke=class extends Z{constructor(){super(...arguments),this.type=3}j(i){this.element[this.name]=i===h?void 0:i}},Be=class extends Z{constructor(){super(...arguments),this.type=4}j(i){this.element.toggleAttribute(this.name,!!i&&i!==h)}},Ve=class extends Z{constructor(i,e,t,s,r){super(i,e,t,s,r),this.type=5}_$AI(i,e=this){if((i=J(this,i,e,0)??h)===V)return;let t=this._$AH,s=i===h&&t!==h||i.capture!==t.capture||i.once!==t.once||i.passive!==t.passive,r=i!==h&&(t===h||s);s&&this.element.removeEventListener(this.name,this,t),r&&this.element.addEventListener(this.name,this,i),this._$AH=i}handleEvent(i){typeof this._$AH=="function"?this._$AH.call(this.options?.host??this.element,i):this._$AH.handleEvent(i)}},We=class{constructor(i,e,t){this.element=i,this.type=6,this._$AN=void 0,this._$AM=e,this.options=t}get _$AU(){return this._$AM._$AU}_$AI(i){J(this,i)}};var ti=qe.litHtmlPolyfillSupport;ti?.(oe,ae),(qe.litHtmlVersions??=[]).push("3.3.3");var kt=(n,i,e)=>{let t=e?.renderBefore??i,s=t._$litPart$;if(s===void 0){let r=e?.renderBefore??null;t._$litPart$=s=new ae(i.insertBefore(re(),r),r,void 0,e??{})}return s._$AI(n),s};var Xe=globalThis,E=class extends N{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){let i=super.createRenderRoot();return this.renderOptions.renderBefore??=i.firstChild,i}update(i){let e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(i),this._$Do=kt(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return V}};E._$litElement$=!0,E.finalized=!0,Xe.litElementHydrateSupport?.({LitElement:E});var ii=Xe.litElementPolyfillSupport;ii?.({LitElement:E});(Xe.litElementVersions??=[]).push("4.2.2");function Et(n){return n?.message??String(n)}var Je=class{constructor(){this.listeners=new Set}subscribe(i,e){return this.listeners.add(e),this.latest&&e(this.latest),this.unsubscribe||(this.unsubscribe=i.connection.subscribeMessage(t=>{this.latest=t.entries,this.listeners.forEach(s=>s(t.entries))},{type:"cmr/subscribe"}),this.unsubscribe.catch(t=>{console.error("cmr: subscription failed",t),this.unsubscribe=void 0,this.listeners.forEach(s=>s([],Et(t)))})),()=>{if(this.listeners.delete(e),this.listeners.size===0&&this.unsubscribe){let t=this.unsubscribe;this.unsubscribe=void 0,this.latest=void 0,t.then(s=>s()).catch(()=>{})}}}once(i){return this.latest?Promise.resolve(this.latest):new Promise((e,t)=>{let s,r=!1;s=this.subscribe(i,(o,l)=>{r||(r=!0,queueMicrotask(()=>s?.()),l?t(new Error(l)):e(o))})})}},_e=new Je;function be(n,i){if(n?.length)return i?n.find(e=>e.entry_id===i):n[0]}var Ct=new Map,si=3e4;async function ri(n,i,e){let t=`${i}/${e}`,s=Ct.get(t);if(s&&Date.now()-s.at<si)return s.keys;let r=await n.connection.sendMessagePromise({type:"cmr/alert_devices",entry_id:i,rule_id:e});return Ct.set(t,{at:Date.now(),keys:r.devices}),r.devices}var R=class{constructor(i){this.onChange=i;this.state=new Map;this.stale=new Set}get(i,e,t){let s=`${e}/${t}`,r=this.state.get(s);return r!==void 0&&!this.stale.has(s)?r:(this.stale.delete(s),r===void 0&&this.state.set(s,"loading"),ri(i,e,t).then(o=>this.state.set(s,o)).catch(o=>this.state.set(s,o?.code==="unsupported"?"unsupported":"error")).finally(()=>this.onChange()),this.state.get(s))}invalidate(){for(let i of this.state.keys())this.stale.add(i)}};function ye(n,i,e){return n.connection.sendMessagePromise({type:"cmr/issue_dismiss",entry_id:i,key:e})}var Ze=class{constructor(i){this.entryId=i;this.listeners=new Set;this.events=[];this.issues=[];this.loaded=!1}subscribe(i,e){return this.listeners.add(e),this.loaded&&e(this.events,this.issues),this.unsubscribe||(this.unsubscribe=i.connection.subscribeMessage(t=>{this.events=t.reset?t.events:[...this.events,...t.events].slice(-1e3),this.issues=t.issues,this.loaded=!0,this.listeners.forEach(s=>s(this.events,this.issues))},{type:"cmr/events/subscribe",limit:1e3,...this.entryId?{entry_id:this.entryId}:{}}),this.unsubscribe.catch(t=>{console.error("cmr: events subscription failed",t),this.unsubscribe=void 0,this.listeners.forEach(s=>s([],[],Et(t)))})),()=>{if(this.listeners.delete(e),this.listeners.size===0&&this.unsubscribe){let t=this.unsubscribe;this.unsubscribe=void 0,this.loaded=!1,this.events=[],t.then(s=>s()).catch(()=>{})}}}},Qe=class{constructor(){this.feeds=new Map}subscribe(i,e,t){let s=e??"",r=this.feeds.get(s);return r||(r=new Ze(e),this.feeds.set(s,r)),r.subscribe(i,t)}},xe=new Qe;function Q(n){return n.controller?"mdi:router-network":"mdi:router"}function $(n){return n.pending||n.remote_pending?"pending":n.connected?n.alerts?.on?"alert":n.update_available?"update":"ok":"offline"}function q(n){return n.pending?"approve on the controller":n.remote_pending?"approve on the device":""}var ee=["offline","pending","alert","update","ok"];async function $e(n,i,e){await n.connection.sendMessagePromise({type:"cmr/pair",entry_id:i,device_key:e})}function St(n,i){return i?[n.identity,n.board,n.model_code,n.address,n.version,...n.labels].filter(Boolean).join(" ").toLowerCase().includes(i):!0}function we(){let n=new URLSearchParams(window.location.search),i=n.get("cmr_status");return{status:i&&ee.includes(i)?i:void 0,version:n.get("cmr_version")??void 0,search:n.get("cmr_search")??void 0,alert:n.get("cmr_alert")??void 0}}function W(n,i={}){let e=window.location.pathname.split("/")[1]||"lovelace",t=Object.entries(i).filter(s=>!!s[1]).map(([s,r])=>`${s}=${encodeURIComponent(r)}`).join("&");return`/${e}/${n}${t?`?${t}`:""}`}var A={ok:"OK",update:"Update available",alert:"Alert firing",pending:"Waiting to pair",offline:"Disconnected"};function ce(n){if(n==null)return"\u2013";let i=Math.floor(n/86400),e=Math.floor(n%86400/3600),t=Math.floor(n%3600/60);return i?`${i}d ${e}h`:e?`${e}h ${t}m`:t?`${t}m`:`${Math.floor(n)}s`}function j(n,i){return n.controller!==i.controller?n.controller?-1:1:n.identity.localeCompare(i.identity)}async function At(n){try{if(navigator.clipboard)return await navigator.clipboard.writeText(n),!0}catch{}let i=document.createElement("textarea");i.value=n,i.setAttribute("readonly",""),i.style.position="fixed",i.style.opacity="0",document.body.appendChild(i),i.select();let e=!1;try{e=document.execCommand("copy")}catch{e=!1}return i.remove(),e}function et(n,i,e){n.dispatchEvent(new CustomEvent(i,{detail:e,bubbles:!0,composed:!0}))}function P(n,i){i&&et(n,"hass-more-info",{entityId:i})}function D(n){history.pushState(null,"",n),window.dispatchEvent(new CustomEvent("location-changed",{detail:{replace:!1}}))}function de(n,i="never"){if(!n)return i;let e=Math.max(0,(Date.now()-new Date(n).getTime())/1e3);return e<10?"just now":e<60?`${Math.round(e)} s ago`:e<3600?`${Math.round(e/60)} min ago`:e<86400?`${Math.round(e/3600)} h ago`:`${Math.round(e/86400)} d ago`}function Pt(n){return n.includes(":")&&!n.startsWith("[")?`http://[${n}]`:`http://${n}`}var z={name:"entry_id",selector:{config_entry:{integration:"cmr"}}};function L(n){return i=>n[i.name]}var S=class extends E{static{this.properties={hass:{attribute:!1},_config:{state:!0},_entry:{state:!0},_error:{state:!0}}}setConfig(i){this._config=i}static getStubConfig(){return{}}connectedCallback(){super.connectedCallback(),this.hass&&!this._unsubscribeStore&&this._subscribeStore()}disconnectedCallback(){super.disconnectedCallback(),this._unsubscribeStore?.(),this._unsubscribeStore=void 0,window.clearInterval(this._staleTicker),this._staleTicker=void 0}willUpdate(i){i.has("hass")&&this.hass&&!this._unsubscribeStore&&this.isConnected&&this._subscribeStore()}_subscribeStore(){this._unsubscribeStore=_e.subscribe(this.hass,(i,e)=>{this._error=e,this._entry=be(i,this._config?.entry_id);let t=!!this._entry&&!this._entry.available;t&&!this._staleTicker&&(this._staleTicker=window.setInterval(()=>this.requestUpdate(),3e4)),!t&&this._staleTicker&&(window.clearInterval(this._staleTicker),this._staleTicker=void 0)})}renderWaiting(i=""){let e=this._error?`Can't read CMR data from Home Assistant (${this._error}). Reload the page.`:"Waiting for the CMR controller\u2026";return a`<ha-card><div class="empty" style=${i}>${e}</div></ha-card>`}renderStale(i){return i.available?h:a`<div class="stale">
-      <ha-icon icon="mdi:lan-disconnect"></ha-icon>Controller unreachable · showing data from ${de(i.last_update)}
-    </div>`}},M=w`
+var fe=globalThis,_e=fe.ShadowRoot&&(fe.ShadyCSS===void 0||fe.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,Be=Symbol(),gt=new WeakMap,ae=class{constructor(s,e,t){if(this._$cssResult$=!0,t!==Be)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=s,this.t=e}get styleSheet(){let s=this.o,e=this.t;if(_e&&s===void 0){let t=e!==void 0&&e.length===1;t&&(s=gt.get(e)),s===void 0&&((this.o=s=new CSSStyleSheet).replaceSync(this.cssText),t&&gt.set(e,s))}return s}toString(){return this.cssText}},ft=r=>new ae(typeof r=="string"?r:r+"",void 0,Be),k=(r,...s)=>{let e=r.length===1?r[0]:s.reduce((t,i,n)=>t+(o=>{if(o._$cssResult$===!0)return o.cssText;if(typeof o=="number")return o;throw Error("Value passed to 'css' function must be a 'css' function result: "+o+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(i)+r[n+1],r[0]);return new ae(e,r,Be)},_t=(r,s)=>{if(_e)r.adoptedStyleSheets=s.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(let e of s){let t=document.createElement("style"),i=fe.litNonce;i!==void 0&&t.setAttribute("nonce",i),t.textContent=e.cssText,r.appendChild(t)}},qe=_e?r=>r:r=>r instanceof CSSStyleSheet?(s=>{let e="";for(let t of s.cssRules)e+=t.cssText;return ft(e)})(r):r;var{is:si,defineProperty:ni,getOwnPropertyDescriptor:ri,getOwnPropertyNames:oi,getOwnPropertySymbols:ai,getPrototypeOf:ci}=Object,be=globalThis,bt=be.trustedTypes,li=bt?bt.emptyScript:"",di=be.reactiveElementPolyfillSupport,ce=(r,s)=>r,We={toAttribute(r,s){switch(s){case Boolean:r=r?li:null;break;case Object:case Array:r=r==null?r:JSON.stringify(r)}return r},fromAttribute(r,s){let e=r;switch(s){case Boolean:e=r!==null;break;case Number:e=r===null?null:Number(r);break;case Object:case Array:try{e=JSON.parse(r)}catch{e=null}}return e}},xt=(r,s)=>!si(r,s),yt={attribute:!0,type:String,converter:We,reflect:!1,useDefault:!1,hasChanged:xt};Symbol.metadata??=Symbol("metadata"),be.litPropertyMetadata??=new WeakMap;var U=class extends HTMLElement{static addInitializer(s){this._$Ei(),(this.l??=[]).push(s)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(s,e=yt){if(e.state&&(e.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(s)&&((e=Object.create(e)).wrapped=!0),this.elementProperties.set(s,e),!e.noAccessor){let t=Symbol(),i=this.getPropertyDescriptor(s,t,e);i!==void 0&&ni(this.prototype,s,i)}}static getPropertyDescriptor(s,e,t){let{get:i,set:n}=ri(this.prototype,s)??{get(){return this[e]},set(o){this[e]=o}};return{get:i,set(o){let a=i?.call(this);n?.call(this,o),this.requestUpdate(s,a,t)},configurable:!0,enumerable:!0}}static getPropertyOptions(s){return this.elementProperties.get(s)??yt}static _$Ei(){if(this.hasOwnProperty(ce("elementProperties")))return;let s=ci(this);s.finalize(),s.l!==void 0&&(this.l=[...s.l]),this.elementProperties=new Map(s.elementProperties)}static finalize(){if(this.hasOwnProperty(ce("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(ce("properties"))){let e=this.properties,t=[...oi(e),...ai(e)];for(let i of t)this.createProperty(i,e[i])}let s=this[Symbol.metadata];if(s!==null){let e=litPropertyMetadata.get(s);if(e!==void 0)for(let[t,i]of e)this.elementProperties.set(t,i)}this._$Eh=new Map;for(let[e,t]of this.elementProperties){let i=this._$Eu(e,t);i!==void 0&&this._$Eh.set(i,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(s){let e=[];if(Array.isArray(s)){let t=new Set(s.flat(1/0).reverse());for(let i of t)e.unshift(qe(i))}else s!==void 0&&e.push(qe(s));return e}static _$Eu(s,e){let t=e.attribute;return t===!1?void 0:typeof t=="string"?t:typeof s=="string"?s.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(s=>this.enableUpdating=s),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(s=>s(this))}addController(s){(this._$EO??=new Set).add(s),this.renderRoot!==void 0&&this.isConnected&&s.hostConnected?.()}removeController(s){this._$EO?.delete(s)}_$E_(){let s=new Map,e=this.constructor.elementProperties;for(let t of e.keys())this.hasOwnProperty(t)&&(s.set(t,this[t]),delete this[t]);s.size>0&&(this._$Ep=s)}createRenderRoot(){let s=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return _t(s,this.constructor.elementStyles),s}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(s=>s.hostConnected?.())}enableUpdating(s){}disconnectedCallback(){this._$EO?.forEach(s=>s.hostDisconnected?.())}attributeChangedCallback(s,e,t){this._$AK(s,t)}_$ET(s,e){let t=this.constructor.elementProperties.get(s),i=this.constructor._$Eu(s,t);if(i!==void 0&&t.reflect===!0){let n=(t.converter?.toAttribute!==void 0?t.converter:We).toAttribute(e,t.type);this._$Em=s,n==null?this.removeAttribute(i):this.setAttribute(i,n),this._$Em=null}}_$AK(s,e){let t=this.constructor,i=t._$Eh.get(s);if(i!==void 0&&this._$Em!==i){let n=t.getPropertyOptions(i),o=typeof n.converter=="function"?{fromAttribute:n.converter}:n.converter?.fromAttribute!==void 0?n.converter:We;this._$Em=i;let a=o.fromAttribute(e,n.type);this[i]=a??this._$Ej?.get(i)??a,this._$Em=null}}requestUpdate(s,e,t,i=!1,n){if(s!==void 0){let o=this.constructor;if(i===!1&&(n=this[s]),t??=o.getPropertyOptions(s),!((t.hasChanged??xt)(n,e)||t.useDefault&&t.reflect&&n===this._$Ej?.get(s)&&!this.hasAttribute(o._$Eu(s,t))))return;this.C(s,e,t)}this.isUpdatePending===!1&&(this._$ES=this._$EP())}C(s,e,{useDefault:t,reflect:i,wrapped:n},o){t&&!(this._$Ej??=new Map).has(s)&&(this._$Ej.set(s,o??e??this[s]),n!==!0||o!==void 0)||(this._$AL.has(s)||(this.hasUpdated||t||(e=void 0),this._$AL.set(s,e)),i===!0&&this._$Em!==s&&(this._$Eq??=new Set).add(s))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}let s=this.scheduleUpdate();return s!=null&&await s,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(let[i,n]of this._$Ep)this[i]=n;this._$Ep=void 0}let t=this.constructor.elementProperties;if(t.size>0)for(let[i,n]of t){let{wrapped:o}=n,a=this[i];o!==!0||this._$AL.has(i)||a===void 0||this.C(i,void 0,n,a)}}let s=!1,e=this._$AL;try{s=this.shouldUpdate(e),s?(this.willUpdate(e),this._$EO?.forEach(t=>t.hostUpdate?.()),this.update(e)):this._$EM()}catch(t){throw s=!1,this._$EM(),t}s&&this._$AE(e)}willUpdate(s){}_$AE(s){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(s)),this.updated(s)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(s){return!0}update(s){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(s){}firstUpdated(s){}};U.elementStyles=[],U.shadowRootOptions={mode:"open"},U[ce("elementProperties")]=new Map,U[ce("finalized")]=new Map,di?.({ReactiveElement:U}),(be.reactiveElementVersions??=[]).push("2.1.2");var Qe=globalThis,$t=r=>r,ye=Qe.trustedTypes,wt=ye?ye.createPolicy("lit-html",{createHTML:r=>r}):void 0,Pt="$lit$",q=`lit$${Math.random().toFixed(9).slice(2)}$`,At="?"+q,pi=`<${At}>`,J=document,de=()=>J.createComment(""),pe=r=>r===null||typeof r!="object"&&typeof r!="function",et=Array.isArray,ui=r=>et(r)||typeof r?.[Symbol.iterator]=="function",Ve=`[ 	
+\f\r]`,le=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,kt=/-->/g,Ct=/>/g,V=RegExp(`>|${Ve}(?:([^\\s"'>=/]+)(${Ve}*=${Ve}*(?:[^ 	
+\f\r"'\`<>=]|("|')|))|$)`,"g"),Et=/'/g,St=/"/g,Lt=/^(?:script|style|textarea|title)$/i,tt=r=>(s,...e)=>({_$litType$:r,strings:s,values:e}),c=tt(1),A=tt(2),ls=tt(3),G=Symbol.for("lit-noChange"),u=Symbol.for("lit-nothing"),Mt=new WeakMap,Y=J.createTreeWalker(J,129);function Tt(r,s){if(!et(r)||!r.hasOwnProperty("raw"))throw Error("invalid template strings array");return wt!==void 0?wt.createHTML(s):s}var hi=(r,s)=>{let e=r.length-1,t=[],i,n=s===2?"<svg>":s===3?"<math>":"",o=le;for(let a=0;a<e;a++){let d=r[a],l,p,h=-1,m=0;for(;m<d.length&&(o.lastIndex=m,p=o.exec(d),p!==null);)m=o.lastIndex,o===le?p[1]==="!--"?o=kt:p[1]!==void 0?o=Ct:p[2]!==void 0?(Lt.test(p[2])&&(i=RegExp("</"+p[2],"g")),o=V):p[3]!==void 0&&(o=V):o===V?p[0]===">"?(o=i??le,h=-1):p[1]===void 0?h=-2:(h=o.lastIndex-p[2].length,l=p[1],o=p[3]===void 0?V:p[3]==='"'?St:Et):o===St||o===Et?o=V:o===kt||o===Ct?o=le:(o=V,i=void 0);let v=o===V&&r[a+1].startsWith("/>")?" ":"";n+=o===le?d+pi:h>=0?(t.push(l),d.slice(0,h)+Pt+d.slice(h)+q+v):d+q+(h===-2?a:v)}return[Tt(r,n+(r[e]||"<?>")+(s===2?"</svg>":s===3?"</math>":"")),t]},ue=class r{constructor({strings:s,_$litType$:e},t){let i;this.parts=[];let n=0,o=0,a=s.length-1,d=this.parts,[l,p]=hi(s,e);if(this.el=r.createElement(l,t),Y.currentNode=this.el.content,e===2||e===3){let h=this.el.content.firstChild;h.replaceWith(...h.childNodes)}for(;(i=Y.nextNode())!==null&&d.length<a;){if(i.nodeType===1){if(i.hasAttributes())for(let h of i.getAttributeNames())if(h.endsWith(Pt)){let m=p[o++],v=i.getAttribute(h).split(q),f=/([.?@])?(.*)/.exec(m);d.push({type:1,index:n,name:f[2],strings:v,ctor:f[1]==="."?Je:f[1]==="?"?Ge:f[1]==="@"?Xe:ie}),i.removeAttribute(h)}else h.startsWith(q)&&(d.push({type:6,index:n}),i.removeAttribute(h));if(Lt.test(i.tagName)){let h=i.textContent.split(q),m=h.length-1;if(m>0){i.textContent=ye?ye.emptyScript:"";for(let v=0;v<m;v++)i.append(h[v],de()),Y.nextNode(),d.push({type:2,index:++n});i.append(h[m],de())}}}else if(i.nodeType===8)if(i.data===At)d.push({type:2,index:n});else{let h=-1;for(;(h=i.data.indexOf(q,h+1))!==-1;)d.push({type:7,index:n}),h+=q.length-1}n++}}static createElement(s,e){let t=J.createElement("template");return t.innerHTML=s,t}};function te(r,s,e=r,t){if(s===G)return s;let i=t!==void 0?e._$Co?.[t]:e._$Cl,n=pe(s)?void 0:s._$litDirective$;return i?.constructor!==n&&(i?._$AO?.(!1),n===void 0?i=void 0:(i=new n(r),i._$AT(r,e,t)),t!==void 0?(e._$Co??=[])[t]=i:e._$Cl=i),i!==void 0&&(s=te(r,i._$AS(r,s.values),i,t)),s}var Ye=class{constructor(s,e){this._$AV=[],this._$AN=void 0,this._$AD=s,this._$AM=e}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(s){let{el:{content:e},parts:t}=this._$AD,i=(s?.creationScope??J).importNode(e,!0);Y.currentNode=i;let n=Y.nextNode(),o=0,a=0,d=t[0];for(;d!==void 0;){if(o===d.index){let l;d.type===2?l=new he(n,n.nextSibling,this,s):d.type===1?l=new d.ctor(n,d.name,d.strings,this,s):d.type===6&&(l=new Ze(n,this,s)),this._$AV.push(l),d=t[++a]}o!==d?.index&&(n=Y.nextNode(),o++)}return Y.currentNode=J,i}p(s){let e=0;for(let t of this._$AV)t!==void 0&&(t.strings!==void 0?(t._$AI(s,t,e),e+=t.strings.length-2):t._$AI(s[e])),e++}},he=class r{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(s,e,t,i){this.type=2,this._$AH=u,this._$AN=void 0,this._$AA=s,this._$AB=e,this._$AM=t,this.options=i,this._$Cv=i?.isConnected??!0}get parentNode(){let s=this._$AA.parentNode,e=this._$AM;return e!==void 0&&s?.nodeType===11&&(s=e.parentNode),s}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(s,e=this){s=te(this,s,e),pe(s)?s===u||s==null||s===""?(this._$AH!==u&&this._$AR(),this._$AH=u):s!==this._$AH&&s!==G&&this._(s):s._$litType$!==void 0?this.$(s):s.nodeType!==void 0?this.T(s):ui(s)?this.k(s):this._(s)}O(s){return this._$AA.parentNode.insertBefore(s,this._$AB)}T(s){this._$AH!==s&&(this._$AR(),this._$AH=this.O(s))}_(s){this._$AH!==u&&pe(this._$AH)?this._$AA.nextSibling.data=s:this.T(J.createTextNode(s)),this._$AH=s}$(s){let{values:e,_$litType$:t}=s,i=typeof t=="number"?this._$AC(s):(t.el===void 0&&(t.el=ue.createElement(Tt(t.h,t.h[0]),this.options)),t);if(this._$AH?._$AD===i)this._$AH.p(e);else{let n=new Ye(i,this),o=n.u(this.options);n.p(e),this.T(o),this._$AH=n}}_$AC(s){let e=Mt.get(s.strings);return e===void 0&&Mt.set(s.strings,e=new ue(s)),e}k(s){et(this._$AH)||(this._$AH=[],this._$AR());let e=this._$AH,t,i=0;for(let n of s)i===e.length?e.push(t=new r(this.O(de()),this.O(de()),this,this.options)):t=e[i],t._$AI(n),i++;i<e.length&&(this._$AR(t&&t._$AB.nextSibling,i),e.length=i)}_$AR(s=this._$AA.nextSibling,e){for(this._$AP?.(!1,!0,e);s!==this._$AB;){let t=$t(s).nextSibling;$t(s).remove(),s=t}}setConnected(s){this._$AM===void 0&&(this._$Cv=s,this._$AP?.(s))}},ie=class{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(s,e,t,i,n){this.type=1,this._$AH=u,this._$AN=void 0,this.element=s,this.name=e,this._$AM=i,this.options=n,t.length>2||t[0]!==""||t[1]!==""?(this._$AH=Array(t.length-1).fill(new String),this.strings=t):this._$AH=u}_$AI(s,e=this,t,i){let n=this.strings,o=!1;if(n===void 0)s=te(this,s,e,0),o=!pe(s)||s!==this._$AH&&s!==G,o&&(this._$AH=s);else{let a=s,d,l;for(s=n[0],d=0;d<n.length-1;d++)l=te(this,a[t+d],e,d),l===G&&(l=this._$AH[d]),o||=!pe(l)||l!==this._$AH[d],l===u?s=u:s!==u&&(s+=(l??"")+n[d+1]),this._$AH[d]=l}o&&!i&&this.j(s)}j(s){s===u?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,s??"")}},Je=class extends ie{constructor(){super(...arguments),this.type=3}j(s){this.element[this.name]=s===u?void 0:s}},Ge=class extends ie{constructor(){super(...arguments),this.type=4}j(s){this.element.toggleAttribute(this.name,!!s&&s!==u)}},Xe=class extends ie{constructor(s,e,t,i,n){super(s,e,t,i,n),this.type=5}_$AI(s,e=this){if((s=te(this,s,e,0)??u)===G)return;let t=this._$AH,i=s===u&&t!==u||s.capture!==t.capture||s.once!==t.once||s.passive!==t.passive,n=s!==u&&(t===u||i);i&&this.element.removeEventListener(this.name,this,t),n&&this.element.addEventListener(this.name,this,s),this._$AH=s}handleEvent(s){typeof this._$AH=="function"?this._$AH.call(this.options?.host??this.element,s):this._$AH.handleEvent(s)}},Ze=class{constructor(s,e,t){this.element=s,this.type=6,this._$AN=void 0,this._$AM=e,this.options=t}get _$AU(){return this._$AM._$AU}_$AI(s){te(this,s)}};var mi=Qe.litHtmlPolyfillSupport;mi?.(ue,he),(Qe.litHtmlVersions??=[]).push("3.3.3");var Rt=(r,s,e)=>{let t=e?.renderBefore??s,i=t._$litPart$;if(i===void 0){let n=e?.renderBefore??null;t._$litPart$=i=new he(s.insertBefore(de(),n),n,void 0,e??{})}return i._$AI(r),i};var it=globalThis,L=class extends U{constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){let s=super.createRenderRoot();return this.renderOptions.renderBefore??=s.firstChild,s}update(s){let e=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(s),this._$Do=Rt(e,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return G}};L._$litElement$=!0,L.finalized=!0,it.litElementHydrateSupport?.({LitElement:L});var vi=it.litElementPolyfillSupport;vi?.({LitElement:L});(it.litElementVersions??=[]).push("4.2.2");function zt(r){return r?.message??String(r)}var st=class{constructor(){this.listeners=new Set;this.topology=new Map}subscribe(s,e){return this.listeners.add(e),this.latest&&e(this.latest),this.unsubscribe||(this.unsubscribe=s.connection.subscribeMessage(t=>{let i=t.entries.map(n=>this._hydrate(n));this.latest=i,this.listeners.forEach(n=>n(i))},{type:"cmr/subscribe"}),this.unsubscribe.catch(t=>{console.error("cmr: subscription failed",t),this.unsubscribe=void 0,this.listeners.forEach(i=>i([],zt(t)))})),()=>{if(this.listeners.delete(e),this.listeners.size===0&&this.unsubscribe){let t=this.unsubscribe;this.unsubscribe=void 0,this.latest=void 0,this.topology.clear(),t.then(i=>i()).catch(()=>{})}}}_hydrate(s){let{products:e={},...t}=s,i=t.devices.map(({product:o,product_ambiguous:a,...d})=>({...d,product:o&&e[o]?{...e[o],...a?{ambiguous:!0}:{}}:null}));if(t.layouts&&t.nodes)return this.topology.set(t.entry_id,{layouts:t.layouts,nodes:t.nodes}),{...t,devices:i,layouts:t.layouts,nodes:t.nodes};let n=this.topology.get(t.entry_id)??{layouts:[],nodes:[]};return{...t,devices:i,...n}}once(s){return this.latest?Promise.resolve(this.latest):new Promise((e,t)=>{let i,n=!1;i=this.subscribe(s,(o,a)=>{n||(n=!0,queueMicrotask(()=>i?.()),a?t(new Error(a)):e(o))})})}},$e=new st;function we(r,s){if(r?.length)return s?r.find(e=>e.entry_id===s):r[0]}var Dt=new Map,gi=3e4;async function fi(r,s,e){let t=`${s}/${e}`,i=Dt.get(t);if(i&&Date.now()-i.at<gi)return i.keys;let n=await r.connection.sendMessagePromise({type:"cmr/alert_devices",entry_id:s,rule_id:e});return Dt.set(t,{at:Date.now(),keys:n.devices}),n.devices}var I=class{constructor(s){this.onChange=s;this.state=new Map;this.stale=new Set}get(s,e,t){let i=`${e}/${t}`,n=this.state.get(i);return n!==void 0&&!this.stale.has(i)?n:(this.stale.delete(i),n===void 0&&this.state.set(i,"loading"),fi(s,e,t).then(o=>this.state.set(i,o)).catch(o=>this.state.set(i,o?.code==="unsupported"?"unsupported":"error")).finally(()=>this.onChange()),this.state.get(i))}invalidate(){for(let s of this.state.keys())this.stale.add(s)}},xe=class{constructor(s){this.onChange=s;this.state=new Map}get(s,e,t){let i=`${e}/${t.id}`,n=[t.state,t.success,t.start_time,t.end_time].join("|"),o=this.state.get(i);if(o?.version===n)return o.value;let a=o?.value??"loading";return this.state.set(i,{version:n,value:a}),s.connection.sendMessagePromise({type:"cmr/job_devices",entry_id:e,job_id:t.id}).then(d=>this.state.set(i,{version:n,value:d.devices})).catch(d=>this.state.set(i,{version:n,value:d?.code==="unsupported"?"unsupported":"error"})).finally(()=>this.onChange()),a}};function Ht(r,s,e,t){return r.connection.sendMessagePromise({type:"cmr/job_action",entry_id:s,job_id:e,action:t})}function ke(r,s,e){return r.connection.sendMessagePromise({type:"cmr/issue_dismiss",entry_id:s,key:e})}var nt=class{constructor(s){this.entryId=s;this.listeners=new Set;this.events=[];this.issues=[];this.loaded=!1}subscribe(s,e){return this.listeners.add(e),this.loaded&&e(this.events,this.issues),this.unsubscribe||(this.unsubscribe=s.connection.subscribeMessage(t=>{this.events=t.reset?t.events:[...this.events,...t.events].slice(-1e3),this.issues=t.issues,this.loaded=!0,this.listeners.forEach(i=>i(this.events,this.issues))},{type:"cmr/events/subscribe",limit:1e3,...this.entryId?{entry_id:this.entryId}:{}}),this.unsubscribe.catch(t=>{console.error("cmr: events subscription failed",t),this.unsubscribe=void 0,this.listeners.forEach(i=>i([],[],zt(t)))})),()=>{if(this.listeners.delete(e),this.listeners.size===0&&this.unsubscribe){let t=this.unsubscribe;this.unsubscribe=void 0,this.loaded=!1,this.events=[],t.then(i=>i()).catch(()=>{})}}}},rt=class{constructor(){this.feeds=new Map}subscribe(s,e,t){let i=e??"",n=this.feeds.get(i);return n||(n=new nt(e),this.feeds.set(i,n)),n.subscribe(s,t)}},Ce=new rt;function se(r){return r.controller?"mdi:router-network":"mdi:router"}function C(r){return r.pending||r.remote_pending?"pending":r.connected?r.alerts?.on?"alert":r.update_available?"update":"ok":"offline"}function X(r){return r.pending?"approve on the controller":r.remote_pending?"approve on the device":""}var ne=["offline","pending","alert","update","ok"];async function Ee(r,s,e){await r.connection.sendMessagePromise({type:"cmr/pair",entry_id:s,device_key:e})}function Se(r,s){return s?[r.identity,r.board,r.model_code,r.address,r.version,...r.labels].filter(Boolean).join(" ").toLowerCase().includes(s):!0}function Me(){let r=new URLSearchParams(window.location.search),s=r.get("cmr_status");return{status:s&&ne.includes(s)?s:void 0,version:r.get("cmr_version")??void 0,search:r.get("cmr_search")??void 0,alert:r.get("cmr_alert")??void 0}}function N(r,s={}){let e=window.location.pathname.split("/")[1]||"lovelace",t=Object.entries(s).filter(i=>!!i[1]).map(([i,n])=>`${i}=${encodeURIComponent(n)}`).join("&");return`/${e}/${r}${t?`?${t}`:""}`}var R={ok:"OK",update:"Update available",alert:"Alert active",pending:"Waiting to pair",offline:"Disconnected"};function me(r){if(r==null)return"\u2013";let s=Math.floor(r/86400),e=Math.floor(r%86400/3600),t=Math.floor(r%3600/60);return s?`${s}d ${e}h`:e?`${e}h ${t}m`:t?`${t}m`:`${Math.floor(r)}s`}function W(r,s){return r.controller!==s.controller?r.controller?-1:1:r.identity.localeCompare(s.identity)}async function Nt(r){try{if(navigator.clipboard)return await navigator.clipboard.writeText(r),!0}catch{}let s=document.createElement("textarea");s.value=r,s.setAttribute("readonly",""),s.style.position="fixed",s.style.opacity="0",document.body.appendChild(s),s.select();let e=!1;try{e=document.execCommand("copy")}catch{e=!1}return s.remove(),e}function ot(r,s,e){r.dispatchEvent(new CustomEvent(s,{detail:e,bubbles:!0,composed:!0}))}function S(r,s){s&&ot(r,"hass-more-info",{entityId:s})}function E(r){history.pushState(null,"",r),window.dispatchEvent(new CustomEvent("location-changed",{detail:{replace:!1}}))}function ve(r,s="never"){if(!r)return s;let e=Math.max(0,(Date.now()-new Date(r).getTime())/1e3);return e<10?"just now":e<60?`${Math.round(e)} s ago`:e<3600?`${Math.round(e/60)} min ago`:e<86400?`${Math.round(e/3600)} h ago`:`${Math.round(e/86400)} d ago`}function It(r){return r.includes(":")&&!r.startsWith("[")?`http://[${r}]`:`http://${r}`}var O={name:"entry_id",selector:{config_entry:{integration:"cmr"}}};function D(r){return s=>r[s.name]}var T=class extends L{static{this.properties={hass:{attribute:!1},_config:{state:!0},_entry:{state:!0},_error:{state:!0}}}setConfig(s){this._config=s}static getStubConfig(){return{}}connectedCallback(){super.connectedCallback(),this.hass&&!this._unsubscribeStore&&this._subscribeStore()}disconnectedCallback(){super.disconnectedCallback(),this._unsubscribeStore?.(),this._unsubscribeStore=void 0,window.clearInterval(this._staleTicker),this._staleTicker=void 0}willUpdate(s){s.has("hass")&&this.hass&&!this._unsubscribeStore&&this.isConnected&&this._subscribeStore()}_subscribeStore(){this._unsubscribeStore=$e.subscribe(this.hass,(s,e)=>{this._error=e,this._entry=we(s,this._config?.entry_id);let t=!!this._entry&&!this._entry.available;t&&!this._staleTicker&&(this._staleTicker=window.setInterval(()=>this.requestUpdate(),3e4)),!t&&this._staleTicker&&(window.clearInterval(this._staleTicker),this._staleTicker=void 0)})}renderWaiting(s=""){let e=this._error?`Can't read CMR data from Home Assistant (${this._error}). Reload the page.`:"Waiting for the CMR controller\u2026";return c`<ha-card><div class="empty" style=${s}>${e}</div></ha-card>`}renderStale(s){return s.available?u:c`<div class="stale">
+      <ha-icon icon="mdi:lan-disconnect"></ha-icon>Controller unreachable · showing data from ${ve(s.last_update)}
+    </div>`}},z=k`
   :host {
     --cmr-ok: var(--success-color, #2e7d32);
     --cmr-update: var(--info-color, #0288d1);
@@ -155,27 +155,31 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
     display: inline-flex;
     color: #5f6368;
   }
-`;function Y(n,i=""){return n.product?.image?a`<div class="badge photo ${i}" title=${n.product.name}>
-      <img src=${n.product.image} alt=${n.product.name} loading="lazy" referrerpolicy="no-referrer"
+`;function Z(r,s=""){return r.product?.image?c`<div class="badge photo ${s}" title=${r.product.name}>
+      <img src=${r.product.image} alt=${r.product.name} loading="lazy" referrerpolicy="no-referrer"
         @error=${e=>e.target.parentElement.classList.add("broken")} />
-      <ha-icon icon=${Q(n)}></ha-icon>
-    </div>`:a`<div class="badge ${i}"><ha-icon icon=${Q(n)}></ha-icon></div>`}function I(n){return(n.product&&!n.product.ambiguous?n.product:void 0)?.name??n.board??"Device"}function pe(n){return n.product&&!n.product.ambiguous?n.product.code:n.model_code}function ke(n,i,e,t,s,r=12){let o;if(e.devices_on===0)o=a`<div class="muted small">Not firing on any device right now.</div>`;else if(!i.console||t==="unsupported")o=a`<div class="muted small">
+      <ha-icon icon=${se(r)}></ha-icon>
+    </div>`:c`<div class="badge ${s}"><ha-icon icon=${se(r)}></ha-icon></div>`}function F(r){return(r.product&&!r.product.ambiguous?r.product:void 0)?.name??r.board??"Device"}function ge(r){return r.product&&!r.product.ambiguous?r.product.code:r.model_code}function Pe(r,s,e,t,i,n=12){let o;if(e.kind==="event")o=c`<div class="muted small">
+      An event alert: it runs its actions each time it happens (${e.fired}× so far) and never stays
+      active, so no device is listed here. Its occurrences show in the events timeline.
+      ${e.scope==="system"?" It reports a whole upgrade job, not a single device.":u}
+    </div>`;else if(e.devices_on===0)o=c`<div class="muted small">Not active on any device right now.</div>`;else if(!s.console||t==="unsupported")o=c`<div class="muted small">
       The controller lists these devices only on its console, and this REST user may not run console commands.
-    </div>`;else if(t==="loading")o=a`<div class="muted small">Asking the controller…</div>`;else if(t==="error")o=a`<div class="muted small">Couldn't read the device list from the controller.</div>`;else{let c=new Map(i.devices.map(u=>[u.key,u])),d=t.map(u=>c.get(u)).filter(u=>!!u).sort(j),p=d.slice(0,r);o=a`
+    </div>`;else if(t==="loading")o=c`<div class="muted small">Asking the controller…</div>`;else if(t==="error")o=c`<div class="muted small">Couldn't read the device list from the controller.</div>`;else{let d=new Map(s.devices.map(h=>[h.key,h])),l=t.map(h=>d.get(h)).filter(h=>!!h).sort(W),p=l.slice(0,n);o=c`
       <div class="rd-list">
-        ${p.map(u=>a`<button class="rd-dev status-${$(u)}" title=${A[$(u)]}
-            @click=${()=>P(n,u.entities.connected)}><i class="dot"></i>${u.identity}</button>`)}
-        ${d.length>p.length?a`<span class="muted small">+${d.length-p.length} more</span>`:h}
-        ${d.length?h:a`<span class="muted small">Fires on devices this Home Assistant doesn't list yet.</span>`}
-      </div>`}let l={cmr_alert:e.id};return a`<div class="rd">
+        ${p.map(h=>c`<button class="rd-dev status-${C(h)}" title=${R[C(h)]}
+            @click=${()=>S(r,h.entities.connected)}><i class="dot"></i>${h.identity}</button>`)}
+        ${l.length>p.length?c`<span class="muted small">+${l.length-p.length} more</span>`:u}
+        ${l.length?u:c`<span class="muted small">Active on devices this Home Assistant doesn't list yet.</span>`}
+      </div>`}let a={cmr_alert:e.id};return c`<div class="rd">
     ${o}
-    ${e.devices_on>0&&(s?.devices||s?.topology)?a`<div class="rd-links">
-          ${s?.devices?a`<button class="rd-link" @click=${()=>D(W(s.devices,l))}>
-                <ha-icon icon="mdi:table"></ha-icon>Show in Devices</button>`:h}
-          ${s?.topology?a`<button class="rd-link" @click=${()=>D(W(s.topology,l))}>
-                <ha-icon icon="mdi:sitemap-outline"></ha-icon>Show on map</button>`:h}
-        </div>`:h}
-  </div>`}var Ce=w`
+    ${e.devices_on>0&&(i?.devices||i?.topology)?c`<div class="rd-links">
+          ${i?.devices?c`<button class="rd-link" @click=${()=>E(N(i.devices,a))}>
+                <ha-icon icon="mdi:table"></ha-icon>Show in Devices</button>`:u}
+          ${i?.topology?c`<button class="rd-link" @click=${()=>E(N(i.topology,a))}>
+                <ha-icon icon="mdi:sitemap-outline"></ha-icon>Show on map</button>`:u}
+        </div>`:u}
+  </div>`}var Ae=k`
   .rd {
     margin: 0 0 6px 19px; padding: 8px 10px 8px 12px; border-radius: 0 0 10px 10px;
     background: var(--cmr-surface-2); display: flex; flex-direction: column; gap: 8px;
@@ -193,86 +197,89 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
     color: var(--primary-color); --mdc-icon-size: 16px;
   }
   .rd-link:hover { text-decoration: underline; }
-`;var Lt=["critical","high","medium","low"],Mt={critical:"mdi:alert-octagon",high:"mdi:alert",medium:"mdi:alert-circle-outline",low:"mdi:information-outline"},Ee=class extends S{constructor(){super();this._ruleDevices=new R(()=>this.requestUpdate());this._only="",this._open=""}static{this.properties={_setup:{state:!0},_copied:{state:!0},_push:{state:!0},_only:{state:!0},_open:{state:!0}}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}async _pushAlerts(e){this._push="busy";try{let t=await this.hass.connection.sendMessagePromise({type:"cmr/alert_push",entry_id:this._entry.entry_id,enable:e}),s=e?"now push to Home Assistant":"no longer push";this._push=`${t.done} rule${t.done===1?"":"s"} ${s}`+(t.failures.length?`; failed: ${t.failures.join("; ")}`:"")}catch(t){this._push=t?.message??String(t)}}static getConfigForm(){return{schema:[z,{name:"title",selector:{text:{}}},{name:"hide_disabled",selector:{boolean:{}}}],computeLabel:L({entry_id:"Controller",title:"Title",hide_disabled:"Hide disabled rules"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:4}}getCardSize(){return 2+(this._entry?.alerts.length??4)}async _toggleSetup(){if(this._setup!==void 0){this._setup=void 0;return}this._setup=null;try{this._setup=await this.hass.connection.sendMessagePromise({type:"cmr/alert_setup",entry_id:this._entry.entry_id})}catch(e){console.error("cmr: alert setup",e),this._setup=void 0}}async _copy(){this._setup&&await At(this._setup.script)&&(this._copied=!0,setTimeout(()=>this._copied=!1,1800))}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=e.alerts.filter(m=>!(this._config.hide_disabled&&m.disabled)),s={firing:t.filter(m=>m.devices_on>0).length,disabled:t.filter(m=>m.disabled).length,pushing:t.filter(m=>m.webhook_ha).length},r=t.filter(m=>this._only==="firing"?m.devices_on>0:this._only==="disabled"?m.disabled:this._only==="pushing"?m.webhook_ha:!0).sort((m,v)=>+(v.devices_on>0)-+(m.devices_on>0)||Number(m.disabled)-Number(v.disabled)||Lt.indexOf(m.severity)-Lt.indexOf(v.severity)||m.name.localeCompare(v.name)),o=r.filter(m=>m.devices_on>0).length,l=e.alerts.filter(m=>m.webhook_ha).length,c=e.actions&&!!this.hass.user?.is_admin,d=e.fleet_entities.fleet_alert,p=d?this.hass.states[d]:void 0,u=p?.attributes??{};return a`
+`;var Ot=["critical","high","medium","low"],jt={critical:"mdi:alert-octagon",high:"mdi:alert",medium:"mdi:alert-circle-outline",low:"mdi:information-outline"},Le=class extends T{constructor(){super();this._ruleDevices=new I(()=>this.requestUpdate());this._only="",this._open=""}static{this.properties={_setup:{state:!0},_copied:{state:!0},_push:{state:!0},_only:{state:!0},_open:{state:!0}}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}async _pushAlerts(e){this._push="busy";try{let t=await this.hass.connection.sendMessagePromise({type:"cmr/alert_push",entry_id:this._entry.entry_id,enable:e}),i=e?"now push to Home Assistant":"no longer push";this._push=`${t.done} rule${t.done===1?"":"s"} ${i}`+(t.failures.length?`; failed: ${t.failures.join("; ")}`:"")}catch(t){this._push=t?.message??String(t)}}static getConfigForm(){return{schema:[O,{name:"title",selector:{text:{}}},{name:"hide_disabled",selector:{boolean:{}}}],computeLabel:D({entry_id:"Controller",title:"Title",hide_disabled:"Hide disabled rules"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:4}}getCardSize(){return 2+(this._entry?.alerts.length??4)}async _toggleSetup(){if(this._setup!==void 0){this._setup=void 0;return}this._setup=null;try{this._setup=await this.hass.connection.sendMessagePromise({type:"cmr/alert_setup",entry_id:this._entry.entry_id})}catch(e){console.error("cmr: alert setup",e),this._setup=void 0}}async _copy(){this._setup&&await Nt(this._setup.script)&&(this._copied=!0,setTimeout(()=>this._copied=!1,1800))}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=e.alerts.filter(m=>!(this._config.hide_disabled&&m.disabled)),i={firing:t.filter(m=>m.devices_on>0).length,disabled:t.filter(m=>m.disabled).length,pushing:t.filter(m=>m.webhook_ha).length},n=t.filter(m=>this._only==="firing"?m.devices_on>0:this._only==="disabled"?m.disabled:this._only==="pushing"?m.webhook_ha:!0).sort((m,v)=>+(v.devices_on>0)-+(m.devices_on>0)||Number(m.disabled)-Number(v.disabled)||Ot.indexOf(m.severity)-Ot.indexOf(v.severity)||m.name.localeCompare(v.name)),o=n.filter(m=>m.devices_on>0).length,a=e.alerts.filter(m=>m.webhook_ha).length,d=e.actions&&!!this.hass.user?.is_admin,l=e.fleet_entities.fleet_alert,p=l?this.hass.states[l]:void 0,h=p?.attributes??{};return c`
       <ha-card>
         <div class="card-header">
           <ha-icon icon=${o?"mdi:bell-alert":"mdi:bell-check-outline"}></ha-icon>
           <span>${this._config.title??"Alerts"}</span>
-          ${o?a`<span class="chip alert">${o} firing</span>`:a`<span class="chip">all quiet</span>`}
+          ${o?c`<span class="chip alert">${o} active</span>`:c`<span class="chip">all quiet</span>`}
           <div class="spacer"></div>
         </div>
         ${this.renderStale(e)}
-        ${t.length>3?a`<div class="filters">
+        ${t.length>3?c`<div class="filters">
               <button class="pill ${this._only?"":"on"}" @click=${()=>this._only=""}>All ${t.length}</button>
-              ${s.firing?a`<button class="pill hot ${this._only==="firing"?"on":""}" @click=${()=>this._only=this._only==="firing"?"":"firing"}>
-                  <ha-icon icon="mdi:bell-alert-outline"></ha-icon>Firing ${s.firing}</button>`:h}
-              ${s.pushing?a`<button class="pill ${this._only==="pushing"?"on":""}" @click=${()=>this._only=this._only==="pushing"?"":"pushing"}>
-                  <ha-icon icon="mdi:webhook"></ha-icon>Pushing ${s.pushing}</button>`:h}
-              ${s.disabled?a`<button class="pill ${this._only==="disabled"?"on":""}" @click=${()=>this._only=this._only==="disabled"?"":"disabled"}>
-                  <ha-icon icon="mdi:bell-off-outline"></ha-icon>Disabled ${s.disabled}</button>`:h}
-            </div>`:h}
+              ${i.firing?c`<button class="pill hot ${this._only==="firing"?"on":""}" @click=${()=>this._only=this._only==="firing"?"":"firing"}>
+                  <ha-icon icon="mdi:bell-alert-outline"></ha-icon>Active ${i.firing}</button>`:u}
+              ${i.pushing?c`<button class="pill ${this._only==="pushing"?"on":""}" @click=${()=>this._only=this._only==="pushing"?"":"pushing"}>
+                  <ha-icon icon="mdi:webhook"></ha-icon>Pushing ${i.pushing}</button>`:u}
+              ${i.disabled?c`<button class="pill ${this._only==="disabled"?"on":""}" @click=${()=>this._only=this._only==="disabled"?"":"disabled"}>
+                  <ha-icon icon="mdi:bell-off-outline"></ha-icon>Disabled ${i.disabled}</button>`:u}
+            </div>`:u}
 
-        ${p&&p.state!=="unknown"&&p.state!=="unavailable"?a`<button class="last sev-${u.event_type}" @click=${()=>P(this,d)}>
-              <ha-icon icon=${Mt[u.event_type]??"mdi:bell"}></ha-icon>
+        ${p&&p.state!=="unknown"&&p.state!=="unavailable"?c`<button class="last sev-${h.event_type}" @click=${()=>S(this,l)}>
+              <ha-icon icon=${jt[h.event_type]??"mdi:bell"}></ha-icon>
               <div>
-                <div><b>${u.alert}</b>${u.device?a` · ${u.device}`:h}</div>
-                <div class="muted small">Last pushed alert · ${de(p.state,"")}</div>
+                <div><b>${h.alert}</b>${h.device?c` · ${h.device}`:u}</div>
+                <div class="muted small">Last pushed alert · ${ve(p.state,"")}</div>
               </div>
-            </button>`:h}
+            </button>`:u}
 
         <div class="rules">
-          ${r.map(m=>this._rule(m,e))}
-          ${r.length?h:a`<div class="empty">${t.length?"No rules match this filter.":"No alert rules on the controller."}</div>`}
+          ${n.map(m=>this._rule(m,e))}
+          ${n.length?u:c`<div class="empty">${t.length?"No rules match this filter.":"No alert rules on the controller."}</div>`}
         </div>
 
-        ${this.hass.user?.is_admin?a`<div class="footer">
-              ${c?a`<div class="push">
+        ${this.hass.user?.is_admin?c`<div class="footer">
+              ${d?c`<div class="push">
                     <ha-icon icon="mdi:webhook"></ha-icon>
-                    <span class="small">${l?`${l} of ${e.alerts.length} rules push to Home Assistant`:"Alerts reach Home Assistant on the next poll only"}</span>
-                    <button class="copy" ?disabled=${this._push==="busy"} @click=${()=>this._pushAlerts(l<e.alerts.length)}>
-                      ${this._push==="busy"?"Working\u2026":l<e.alerts.length?"Push alerts to Home Assistant":"Stop pushing"}
+                    <span class="small">${a?`${a} of ${e.alerts.length} rules push to Home Assistant`:"Alerts reach Home Assistant on the next poll only"}</span>
+                    <button class="copy" ?disabled=${this._push==="busy"} @click=${()=>this._pushAlerts(a<e.alerts.length)}>
+                      ${this._push==="busy"?"Working\u2026":a<e.alerts.length?"Push alerts to Home Assistant":"Stop pushing"}
                     </button>
-                    ${this._push&&this._push!=="busy"?a`<div class="muted small">${this._push}</div>`:h}
-                  </div>`:a`<button class="link" @click=${this._toggleSetup}>
+                    ${this._push&&this._push!=="busy"?c`<div class="muted small">${this._push}</div>`:u}
+                  </div>`:c`<button class="link" @click=${this._toggleSetup}>
                       <ha-icon icon="mdi:webhook"></ha-icon>
-                      ${l?`${l} of ${e.alerts.length} rules push to Home Assistant`:"Push alerts to Home Assistant instantly"}
+                      ${a?`${a} of ${e.alerts.length} rules push to Home Assistant`:"Push alerts to Home Assistant instantly"}
                       <ha-icon icon=${this._setup!==void 0?"mdi:chevron-up":"mdi:chevron-down"}></ha-icon>
                     </button>
-                    ${this._setup===null?a`<div class="muted small">Loading…</div>`:h}
-                    ${this._setup?a`<div class="setup">
+                    ${this._setup===null?c`<div class="muted small">Loading…</div>`:u}
+                    ${this._setup?c`<div class="setup">
                           <div class="small">Paste into the controller's terminal. Each alert rule gets an HTTP action that calls Home Assistant; edit <code>find</code> to choose rules. (With <i>Allow actions on the controller</i> in the options this becomes one click.)</div>
                           <pre>${this._setup.script}</pre>
                           <button class="copy" @click=${this._copy}>
                             <ha-icon icon=${this._copied?"mdi:check":"mdi:content-copy"}></ha-icon>${this._copied?"Copied":"Copy script"}
                           </button>
-                        </div>`:h}`}
-            </div>`:h}
+                        </div>`:u}`}
+            </div>`:u}
       </ha-card>
-    `}_rule(e,t){let s=e.devices_on>0,r=this._open===e.id;return a`
-      <button class="rule sev-${e.severity} ${s?"on":""} ${e.disabled?"disabled":""} ${r?"open":""}"
-              aria-expanded=${r} @click=${()=>this._open=r?"":e.id}>
+    `}_rule(e,t){let i=e.devices_on>0,n=this._open===e.id;return c`
+      <button class="rule sev-${e.severity} ${i?"on":""} ${e.disabled?"disabled":""} ${n?"open":""}"
+              aria-expanded=${n} @click=${()=>this._open=n?"":e.id}>
         <span class="stripe"></span>
-        <ha-icon class="sev" icon=${Mt[e.severity]}></ha-icon>
+        <ha-icon class="sev" icon=${jt[e.severity]}></ha-icon>
         <div class="body">
           <div class="title">
             <span class="name">${e.name}</span>
-            ${e.webhook?a`<ha-icon class="hook" icon="mdi:webhook" title=${e.webhook_ha?"Pushes to Home Assistant":"Pushes to another webhook"}></ha-icon>`:h}
+            ${e.webhook?c`<ha-icon class="hook" icon="mdi:webhook" title=${e.webhook_ha?"Pushes to Home Assistant":"Pushes to another webhook"}></ha-icon>`:u}
           </div>
           <div class="muted small">
-            ${e.disabled?"disabled \xB7 ":h}${e.categories.join(", ")||"uncategorised"} ·
-            ${e.labels.join(", ")||"all"}
+            ${e.disabled?"disabled \xB7 ":u}${e.kind==="event"?"event \xB7 ":u}${e.categories.join(", ")||"uncategorised"} ·
+            ${e.scope==="system"?"upgrade jobs":e.labels.join(", ")||"all"}
           </div>
         </div>
-        <div class="nums">
-          <div class=${s?"hot":""}>${e.devices_on}/${e.devices}</div>
-          <div class="muted small" title="Times fired">${e.fired}×</div>
-        </div>
-        ${e.entity_id?a`<span class="info" role="button" title="Entity details"
-              @click=${o=>{o.stopPropagation(),P(this,e.entity_id)}}>
-              <ha-icon icon="mdi:information-outline"></ha-icon></span>`:h}
+        ${e.kind==="event"?c`<div class="nums" title="An event alert fires per occurrence and never stays active">
+              <div>${e.fired}×</div>
+              <div class="muted small">fired</div>
+            </div>`:c`<div class="nums">
+              <div class=${i?"hot":""} title="Active on / covered devices">${e.devices_on}/${e.devices}</div>
+              <div class="muted small" title="Times fired">${e.fired}×</div>
+            </div>`}
+        ${e.entity_id?c`<span class="info" role="button" title="Entity details"
+              @click=${o=>{o.stopPropagation(),S(this,e.entity_id)}}>
+              <ha-icon icon="mdi:information-outline"></ha-icon></span>`:u}
       </button>
-      ${r?ke(this,t,e,s?this._ruleDevices.get(this.hass,t.entry_id,e.id):[],this._config.views):h}
-    `}static{this.styles=[M,Ce,w`
+      ${n?Pe(this,t,e,i?this._ruleDevices.get(this.hass,t.entry_id,e.id):[],this._config.views):u}
+    `}static{this.styles=[z,Ae,k`
       .filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
       .rule .info { color: var(--cmr-muted); --mdc-icon-size: 18px; line-height: 0; padding: 2px; border-radius: 50%; }
       .rule .info:hover { color: var(--primary-color); background: var(--cmr-surface); }
@@ -328,81 +335,83 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
         padding: 6px 12px; border-radius: 8px; background: var(--primary-color); color: var(--text-primary-color, #fff);
         font-size: 13px; --mdc-icon-size: 16px;
       }
-    `]}};var ni=new Set(["insight","device","alert","upgrade","security","config"]),oi=n=>n.notable??(ni.has(n.category)||n.severity==="warning"||n.severity==="error"),Se={insight:{icon:"mdi:stethoscope",label:"Issues"},device:{icon:"mdi:router-network",label:"Devices"},alert:{icon:"mdi:bell-outline",label:"Alerts"},upgrade:{icon:"mdi:update",label:"Upgrades"},wifi:{icon:"mdi:wifi",label:"Wi-Fi"},link:{icon:"mdi:ethernet",label:"Links"},security:{icon:"mdi:shield-alert-outline",label:"Security"},login:{icon:"mdi:account-key-outline",label:"Logins"},config:{icon:"mdi:cog-outline",label:"Config"},dhcp:{icon:"mdi:ip-network-outline",label:"DHCP"},system:{icon:"mdi:cog-transfer-outline",label:"System"},api:{icon:"mdi:api",label:"API logins"}},Tt={icon:"mdi:text-box-outline",label:"Other"};function Rt(n){return Se[n]?Se[n]:n?{...Tt,label:n[0].toUpperCase()+n.slice(1)}:Tt}function ai(n){let i=n.data?.event;return n.category==="wifi"?i==="disconnected"?"mdi:wifi-off":i==="roamed"?"mdi:wifi-sync":"mdi:wifi-plus":n.category==="link"?n.data?.state==="down"?"mdi:ethernet-off":"mdi:ethernet":n.category==="device"?i==="disconnected"?"mdi:lan-disconnect":i==="rebooted"?"mdi:restart":"mdi:lan-connect":n.category==="insight"&&i==="resolved"?"mdi:check-circle-outline":Rt(n.category).icon}function li(n){return n.replace(/\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b/g,"<mac>").replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?:\/\d+)?(?::\d+)?\b/g,"<ip>").replace(/\b[0-9a-f]*:[0-9a-f:]+:[0-9a-f]*\b/gi,"<ip6>").replace(/\d+/g,"#")}function ci(n){let i=n.data??{},e=i.mac??i.interface??i.user??i.rule_id??i.key??li(n.title);return`${n.category}|${n.device_key??""}|${String(e)}`}var di=864e5,Ae=class extends E{constructor(){super();this._loaded=!1;this._events=[],this._issues=[],this._category="",this._device="",this._search="",this._open=new Set,this._limit=50}static{this.properties={hass:{attribute:!1},_config:{state:!0},_events:{state:!0},_issues:{state:!0},_category:{state:!0},_device:{state:!0},_search:{state:!0},_open:{state:!0},_limit:{state:!0},_notable:{state:!0}}}setConfig(e){this._unsubscribe&&e.entry_id!==this._config?.entry_id&&(this._unsubscribe(),this._unsubscribe=void 0,this._loaded=!1),this._config={show_issues:!0,show_filters:!0,hide_categories:["api"],max_items:50,...e},!this._unsubscribe&&this.hass&&this.isConnected&&this._subscribe(),this._limit=this._config.max_items??50,this._device=e.device??"",this._notable=!!e.notable}static getStubConfig(){return{}}static getConfigForm(){return{schema:[{name:"title",selector:{text:{}}},{name:"entry_id",selector:{config_entry:{integration:"cmr"}}},{name:"device",selector:{text:{}}},{name:"max_items",selector:{number:{min:5,max:500,mode:"box"}}},{name:"notable",selector:{boolean:{}}},{name:"show_issues",selector:{boolean:{}}},{name:"show_filters",selector:{boolean:{}}}],computeLabel:e=>({title:"Title",entry_id:"Controller (default: all)",device:"Only this device (identity)",max_items:"Rows to show",notable:"Start with notable events only",show_issues:"Show detected issues",show_filters:"Show filters"})[e.name]}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 8}connectedCallback(){super.connectedCallback(),this.hass&&!this._unsubscribe&&this._subscribe()}disconnectedCallback(){super.disconnectedCallback(),this._unsubscribe?.(),this._unsubscribe=void 0}willUpdate(e){e.has("hass")&&this.hass&&!this._unsubscribe&&this.isConnected&&this._subscribe()}_subscribe(){this._unsubscribe=xe.subscribe(this.hass,this._config?.entry_id,(e,t,s)=>{this._events=e,this._issues=t,this._error=s,this._loaded=!0})}_visible(){let e=this._config,t=this._search.trim().toLowerCase(),s=new Set(e.hide_categories??[]);return this._events.filter(r=>{if(this._notable&&!this._category&&!oi(r))return!1;if(this._category){if(r.category!==this._category)return!1}else if(e.categories?.length?!e.categories.includes(r.category):s.has(r.category))return!1;return!(this._device&&r.device_name!==this._device||t&&!`${r.title} ${r.message} ${r.device_name??""}`.toLowerCase().includes(t))})}_rows(e){let t=[];for(let s=e.length-1;s>=0;s--){let r=e[s],o=ci(r),l=t[t.length-1],c=l&&new Date(l.events[0].time).toDateString()===new Date(r.time).toDateString();l&&l.key===o&&c&&r.category!=="insight"?l.events.push(r):t.push({key:o,events:[r]})}return t}_toggle(e){let t=new Set(this._open);t.has(e)?t.delete(e):t.add(e),this._open=t}render(){if(!this._loaded)return a`<ha-card><div class="empty">Loading network events…</div></ha-card>`;if(this._error)return a`<ha-card><div class="empty">Can't read CMR events from Home Assistant (${this._error}). Reload the page.</div></ha-card>`;let e=this._config,t=this._visible(),s=this._rows(t),r=s.slice(0,this._limit),o=[...new Set(this._events.map(d=>d.category))].sort((d,p)=>Object.keys(Se).indexOf(d)-Object.keys(Se).indexOf(p)),l=[...new Set(this._events.map(d=>d.device_name).filter(Boolean))].sort(),c=this._device?this._issues.filter(d=>d.device_name===this._device):this._issues;return a`
+    `]}};var _i=new Set(["insight","device","alert","upgrade","security","config"]),bi=r=>r.notable??(_i.has(r.category)||r.severity==="warning"||r.severity==="error"),Te={insight:{icon:"mdi:stethoscope",label:"Issues"},device:{icon:"mdi:router-network",label:"Devices"},alert:{icon:"mdi:bell-outline",label:"Alerts"},upgrade:{icon:"mdi:update",label:"Upgrades"},wifi:{icon:"mdi:wifi",label:"Wi-Fi"},link:{icon:"mdi:ethernet",label:"Links"},security:{icon:"mdi:shield-alert-outline",label:"Security"},login:{icon:"mdi:account-key-outline",label:"Logins"},config:{icon:"mdi:cog-outline",label:"Config"},dhcp:{icon:"mdi:ip-network-outline",label:"DHCP"},system:{icon:"mdi:cog-transfer-outline",label:"System"},api:{icon:"mdi:api",label:"API logins"}},Ut={icon:"mdi:text-box-outline",label:"Other"};function Ft(r){return Te[r]?Te[r]:r?{...Ut,label:r[0].toUpperCase()+r.slice(1)}:Ut}function yi(r){let s=r.data?.event;return r.category==="wifi"?s==="disconnected"?"mdi:wifi-off":s==="roamed"?"mdi:wifi-sync":"mdi:wifi-plus":r.category==="link"?r.data?.state==="down"?"mdi:ethernet-off":"mdi:ethernet":r.category==="device"?s==="disconnected"?"mdi:lan-disconnect":s==="rebooted"?"mdi:restart":"mdi:lan-connect":r.category==="insight"&&s==="resolved"?"mdi:check-circle-outline":Ft(r.category).icon}function xi(r){return r.replace(/\b[0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5}\b/g,"<mac>").replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?:\/\d+)?(?::\d+)?\b/g,"<ip>").replace(/\b[0-9a-f]*:[0-9a-f:]+:[0-9a-f]*\b/gi,"<ip6>").replace(/\d+/g,"#")}function $i(r){let s=r.data??{},e=s.mac??s.interface??s.user??s.rule_id??s.key??xi(r.title);return`${r.category}|${r.device_key??""}|${String(e)}`}var wi=864e5,Re=class extends L{constructor(){super();this._loaded=!1;this._events=[],this._issues=[],this._category="",this._device="",this._search="",this._open=new Set,this._limit=50}static{this.properties={hass:{attribute:!1},_config:{state:!0},_events:{state:!0},_issues:{state:!0},_category:{state:!0},_device:{state:!0},_search:{state:!0},_open:{state:!0},_limit:{state:!0},_notable:{state:!0}}}setConfig(e){this._unsubscribe&&e.entry_id!==this._config?.entry_id&&(this._unsubscribe(),this._unsubscribe=void 0,this._loaded=!1),this._config={show_issues:!0,show_filters:!0,hide_categories:["api"],max_items:50,...e},!this._unsubscribe&&this.hass&&this.isConnected&&this._subscribe(),this._limit=this._config.max_items??50,this._device=e.device??"",this._notable=!!e.notable}static getStubConfig(){return{}}static getConfigForm(){return{schema:[{name:"title",selector:{text:{}}},{name:"entry_id",selector:{config_entry:{integration:"cmr"}}},{name:"device",selector:{text:{}}},{name:"max_items",selector:{number:{min:5,max:500,mode:"box"}}},{name:"notable",selector:{boolean:{}}},{name:"show_issues",selector:{boolean:{}}},{name:"show_filters",selector:{boolean:{}}}],computeLabel:e=>({title:"Title",entry_id:"Controller (default: all)",device:"Only this device (identity)",max_items:"Rows to show",notable:"Start with notable events only",show_issues:"Show detected issues",show_filters:"Show filters"})[e.name]}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 8}connectedCallback(){super.connectedCallback(),this.hass&&!this._unsubscribe&&this._subscribe()}disconnectedCallback(){super.disconnectedCallback(),this._unsubscribe?.(),this._unsubscribe=void 0}willUpdate(e){e.has("hass")&&this.hass&&!this._unsubscribe&&this.isConnected&&this._subscribe()}_subscribe(){this._unsubscribe=Ce.subscribe(this.hass,this._config?.entry_id,(e,t,i)=>{this._events=e,this._issues=t,this._error=i,this._loaded=!0})}_visible(){let e=this._config,t=this._search.trim().toLowerCase(),i=new Set(e.hide_categories??[]),n=this._deviceFilter();return this._events.filter(o=>{if(this._notable&&!this._category&&!bi(o))return!1;if(this._category){if(o.category!==this._category)return!1}else if(e.categories?.length?!e.categories.includes(o.category):i.has(o.category))return!1;return!(!n(o.device_name)||t&&!`${o.title} ${o.message} ${o.device_name??""}`.toLowerCase().includes(t))})}_deviceFilter(){let e=this._device.trim();if(!e)return()=>!0;if(this._events.some(i=>i.device_name===e))return i=>i===e;let t=e.toLowerCase();return i=>!!i&&i.toLowerCase().includes(t)}_rows(e){let t=[];for(let i=e.length-1;i>=0;i--){let n=e[i],o=$i(n),a=t[t.length-1],d=a&&new Date(a.events[0].time).toDateString()===new Date(n.time).toDateString();a&&a.key===o&&d&&n.category!=="insight"?a.events.push(n):t.push({key:o,events:[n]})}return t}_toggle(e){let t=new Set(this._open);t.has(e)?t.delete(e):t.add(e),this._open=t}render(){if(!this._loaded)return c`<ha-card><div class="empty">Loading network events…</div></ha-card>`;if(this._error)return c`<ha-card><div class="empty">Can't read CMR events from Home Assistant (${this._error}). Reload the page.</div></ha-card>`;let e=this._config,t=this._visible(),i=this._rows(t),n=i.slice(0,this._limit),o=[...new Set(this._events.map(l=>l.category))].sort((l,p)=>Object.keys(Te).indexOf(l)-Object.keys(Te).indexOf(p)),a=[...new Set(this._events.map(l=>l.device_name).filter(Boolean))].sort(),d=this._issues.filter(l=>this._deviceFilter()(l.device_name));return c`
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:timeline-text-outline"></ha-icon>
           <span>${e.title??"Network events"}</span>
-          ${c.length?a`<span class="chip alert">${c.length} issue${c.length>1?"s":""}</span>`:a`<span class="chip">no issues</span>`}
+          ${d.length?c`<span class="chip alert">${d.length} issue${d.length>1?"s":""}</span>`:c`<span class="chip">no issues</span>`}
         </div>
 
-        ${e.show_issues&&c.length?a`<div class="issues">${c.map(d=>this._issue(d))}</div>`:h}
+        ${e.show_issues&&d.length?c`<div class="issues">${d.map(l=>this._issue(l))}</div>`:u}
 
-        ${e.show_filters?a`<div class="filters">
+        ${e.show_filters?c`<div class="filters">
               <div class="cats">
                 <button class="pill ${!this._category&&this._notable?"on":""}"
                   @click=${()=>{this._category="",this._notable=!0}}>
                   <ha-icon icon="mdi:star-four-points-outline"></ha-icon>Notable</button>
                 <button class="pill ${!this._category&&!this._notable?"on":""}"
                   @click=${()=>{this._category="",this._notable=!1}}>All</button>
-                ${o.map(d=>{let p=Rt(d);return a`<button class="pill ${this._category===d?"on":""}" @click=${()=>this._category=this._category===d?"":d}>
+                ${o.map(l=>{let p=Ft(l);return c`<button class="pill ${this._category===l?"on":""}" @click=${()=>this._category=this._category===l?"":l}>
                     <ha-icon icon=${p.icon}></ha-icon>${p.label}
                   </button>`})}
               </div>
               <div class="find">
-                <select .value=${this._device} @change=${d=>this._device=d.target.value}>
-                  <option value="">All devices</option>
-                  ${l.map(d=>a`<option value=${d} ?selected=${d===this._device}>${d}</option>`)}
-                </select>
+                <input class="device" type="search" list="cmr-event-devices" placeholder="All devices"
+                  aria-label="Device" .value=${this._device}
+                  @input=${l=>this._device=l.target.value} />
+                <datalist id="cmr-event-devices">
+                  ${a.map(l=>c`<option value=${l}></option>`)}
+                </datalist>
                 <input type="search" placeholder="Search" .value=${this._search}
-                  @input=${d=>this._search=d.target.value} />
+                  @input=${l=>this._search=l.target.value} />
               </div>
-            </div>`:h}
+            </div>`:u}
 
         <div class="timeline">
-          ${r.map((d,p)=>{let u=new Date(d.events[0].time),m=p?new Date(r[p-1].events[0].time):void 0,v=!m||m.toDateString()!==u.toDateString();return a`${v?a`<div class="day section-label">${this._dayLabel(u)}</div>`:h}${this._row(d)}`})}
-          ${r.length?h:a`<div class="empty">No events${this._search||this._category||this._device?" match these filters":" yet"}.</div>`}
-          ${s.length>this._limit?a`<button class="more" @click=${()=>this._limit+=50}>Show more (${s.length-this._limit})</button>`:h}
+          ${n.map((l,p)=>{let h=new Date(l.events[0].time),m=p?new Date(n[p-1].events[0].time):void 0,v=!m||m.toDateString()!==h.toDateString();return c`${v?c`<div class="day section-label">${this._dayLabel(h)}</div>`:u}${this._row(l)}`})}
+          ${n.length?u:c`<div class="empty">No events${this._search||this._category||this._device?" match these filters":" yet"}.</div>`}
+          ${i.length>this._limit?c`<button class="more" @click=${()=>this._limit+=50}>Show more (${i.length-this._limit})</button>`:u}
         </div>
       </ha-card>
-    `}_issue(e){let t=e.device_name;return a`<div class="issue sev-${e.severity}">
+    `}_issue(e){let t=e.device_name;return c`<div class="issue sev-${e.severity}">
       <ha-icon icon=${e.severity==="error"?"mdi:alert-octagon-outline":"mdi:alert-outline"}></ha-icon>
       <div class="body">
         <div class="title">${e.title}</div>
         <div class="detail">${e.detail}</div>
         <div class="meta">
           since ${this._time(new Date(e.since))} · ${e.count}×
-          ${t&&e.device_id?a`· <a href="#" @click=${s=>{s.preventDefault(),D(`/config/devices/device/${e.device_id}`)}}>${t}</a>`:t?a`· ${t}`:h}
+          ${t&&e.device_id?c`· <a href="#" @click=${i=>{i.preventDefault(),E(`/config/devices/device/${e.device_id}`)}}>${t}</a>`:t?c`· ${t}`:u}
         </div>
       </div>
-      ${this.hass.user?.is_admin?a`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
-            @click=${()=>ye(this.hass,e.entry_id,e.key).catch(s=>console.error("cmr: dismiss",s))}>
-            <ha-icon icon="mdi:close"></ha-icon></button>`:h}
-    </div>`}_row(e){let t=e.events[0],s=t.id,r=this._open.has(s),o=e.events.length>1,l=e.events[e.events.length-1],c=new Map;for(let d of e.events){let p=String(d.data?.event??d.category);c.set(p,(c.get(p)??0)+1)}return a`
-      <div class="row sev-${t.severity} ${r?"open":""}">
-        <button class="line" @click=${()=>this._toggle(s)}>
+      ${this.hass.user?.is_admin?c`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
+            @click=${()=>ke(this.hass,e.entry_id,e.key).catch(i=>console.error("cmr: dismiss",i))}>
+            <ha-icon icon="mdi:close"></ha-icon></button>`:u}
+    </div>`}_row(e){let t=e.events[0],i=t.id,n=this._open.has(i),o=e.events.length>1,a=e.events[e.events.length-1],d=new Map;for(let l of e.events){let p=String(l.data?.event??l.category);d.set(p,(d.get(p)??0)+1)}return c`
+      <div class="row sev-${t.severity} ${n?"open":""}">
+        <button class="line" @click=${()=>this._toggle(i)}>
           <span class="time">${this._time(new Date(t.time))}</span>
-          <span class="dot-icon"><ha-icon icon=${ai(t)}></ha-icon></span>
+          <span class="dot-icon"><ha-icon icon=${yi(t)}></ha-icon></span>
           <span class="text">
             <span class="title">${t.title}</span>
-            ${o?a`<span class="fold">${e.events.length} events since ${this._time(new Date(l.time))} ·
-                  ${[...c].map(([d,p])=>`${p} ${d}`).join(", ")}</span>`:h}
+            ${o?c`<span class="fold">${e.events.length} events since ${this._time(new Date(a.time))} ·
+                  ${[...d].map(([l,p])=>`${p} ${l}`).join(", ")}</span>`:u}
           </span>
-          ${t.device_name?a`<span class="device">${t.device_name}</span>`:h}
+          ${t.device_name?c`<span class="device">${t.device_name}</span>`:u}
         </button>
-        ${r?this._details(e):h}
+        ${n?this._details(e):u}
       </div>
-    `}_details(e){let t=e.events.slice(0,30);return a`<div class="details">
-      ${t.map(s=>{let r=Object.entries(s.data??{}).filter(([o,l])=>l!=null&&l!==""&&!["event","key","rule_id"].includes(o));return a`<div class="detail-item">
-          <div class="detail-head"><span class="mono">${new Date(s.time).toLocaleString(this.hass.language)}</span>
-            <span class="muted">${s.source}${s.topics?.length?` \xB7 ${s.topics.join(",")}`:""}</span></div>
-          ${s.message&&s.message!==s.title?a`<div class="raw mono">${s.message}</div>`:h}
-          ${r.length?a`<div class="fields">${r.map(([o,l])=>a`<span class="chip">${o.replace(/_/g," ")}: ${typeof l=="object"?JSON.stringify(l):String(l)}</span>`)}</div>`:h}
+    `}_details(e){let t=e.events.slice(0,30);return c`<div class="details">
+      ${t.map(i=>{let n=Object.entries(i.data??{}).filter(([o,a])=>a!=null&&a!==""&&!["event","key","rule_id"].includes(o));return c`<div class="detail-item">
+          <div class="detail-head"><span class="mono">${new Date(i.time).toLocaleString(this.hass.language)}</span>
+            <span class="muted">${i.source}${i.topics?.length?` \xB7 ${i.topics.join(",")}`:""}</span></div>
+          ${i.message&&i.message!==i.title?c`<div class="raw mono">${i.message}</div>`:u}
+          ${n.length?c`<div class="fields">${n.map(([o,a])=>c`<span class="chip">${o.replace(/_/g," ")}: ${typeof a=="object"?JSON.stringify(a):String(a)}</span>`)}</div>`:u}
         </div>`})}
-      ${e.events.length>t.length?a`<div class="muted">…and ${e.events.length-t.length} more</div>`:h}
-      ${e.events[0].device_id?a`<a class="open-device" href="#" @click=${s=>{s.preventDefault(),D(`/config/devices/device/${e.events[0].device_id}`)}}>
-            <ha-icon icon="mdi:open-in-app"></ha-icon>Open ${e.events[0].device_name}</a>`:h}
-    </div>`}_time(e){return e.toLocaleTimeString(this.hass.language,{hour:"2-digit",minute:"2-digit"})}_dayLabel(e){let t=new Date;t.setHours(0,0,0,0);let s=new Date(e);s.setHours(0,0,0,0);let r=Math.round((t.getTime()-s.getTime())/di);return r===0?"Today":r===1?"Yesterday":e.toLocaleDateString(this.hass.language,{weekday:"long",day:"numeric",month:"long"})}static{this.styles=[M,w`
+      ${e.events.length>t.length?c`<div class="muted">…and ${e.events.length-t.length} more</div>`:u}
+      ${e.events[0].device_id?c`<a class="open-device" href="#" @click=${i=>{i.preventDefault(),E(`/config/devices/device/${e.events[0].device_id}`)}}>
+            <ha-icon icon="mdi:open-in-app"></ha-icon>Open ${e.events[0].device_name}</a>`:u}
+    </div>`}_time(e){return e.toLocaleTimeString(this.hass.language,{hour:"2-digit",minute:"2-digit"})}_dayLabel(e){let t=new Date;t.setHours(0,0,0,0);let i=new Date(e);i.setHours(0,0,0,0);let n=Math.round((t.getTime()-i.getTime())/wi);return n===0?"Today":n===1?"Yesterday":e.toLocaleDateString(this.hass.language,{weekday:"long",day:"numeric",month:"long"})}static{this.styles=[z,k`
       ha-card { container-type: inline-size; }
       .issues { display: flex; flex-direction: column; gap: 8px; padding: 0 12px 10px; }
       .issue {
@@ -428,11 +437,12 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
       .filters { padding: 0 12px 6px; display: flex; flex-direction: column; gap: 8px; }
       .cats { display: flex; flex-wrap: wrap; gap: 6px; }
       .find { display: flex; gap: 8px; }
-      .find select, .find input {
+      .find input {
         font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; min-width: 0;
         border: 1px solid var(--cmr-line); background: var(--cmr-surface); color: var(--primary-text-color);
       }
       .find input { flex: 1; }
+      .find input.device { flex: 0 1 40%; }
 
       .timeline { padding: 0 8px 10px; }
       .day { padding: 10px 8px 4px; }
@@ -467,103 +477,103 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
         .device { display: none; }
         .details { padding-left: 12px; }
       }
-    `]}};var Dt=8,pi={offline:"mdi:lan-disconnect",pending:"mdi:link-variant-plus",alert:"mdi:bell-alert-outline",update:"mdi:update",ok:"mdi:check-circle-outline"},Pe=class extends S{constructor(){super();this._ruleDevices=new R(()=>this.requestUpdate());this._onLocation=()=>this._applyDeepLink();this._filter=new Set,this._status="",this._version="",this._alert="",this._search="",this._sort={key:"attention",desc:!1},this._limit=100,this._unfolded=!1,this._pairing=new Map,this._labelPicker=!1,this._labelSearch=""}static{this.properties={_filter:{state:!0},_status:{state:!0},_version:{state:!0},_alert:{state:!0},_search:{state:!0},_sort:{state:!0},_limit:{state:!0},_unfolded:{state:!0},_pairing:{state:!0},_labelPicker:{state:!0},_labelSearch:{state:!0}}}setConfig(e){this._config={show_filters:!0,show_search:!0,fold_after:50,page_size:100,deep_link:!0,...e},this._filter=new Set(e.labels??[]),this._status=e.status??"",this._version=e.version??"",this._alert=e.alert??"",this._limit=this._config.page_size??100,this._applyDeepLink()}static getConfigForm(){return{schema:[z,{name:"title",selector:{text:{}}},{name:"labels",selector:{text:{multiple:!0}}},{name:"status",selector:{select:{mode:"dropdown",options:ee.map(e=>({value:e,label:A[e]}))}}},{name:"show_filters",selector:{boolean:{}}},{name:"show_search",selector:{boolean:{}}},{name:"fold_after",selector:{number:{min:0,max:5e3,mode:"box"}}},{name:"compact",selector:{boolean:{}}}],computeLabel:L({entry_id:"Controller",title:"Title",labels:"Only devices with these labels",status:"Only devices with this status",show_filters:"Show filter chips",show_search:"Show search",fold_after:"Fold healthy devices above this many rows (0: never)",compact:"Overview mode: only devices needing attention, few rows"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 2+Math.min(this._entry?.devices.length??4,12)}connectedCallback(){super.connectedCallback(),window.addEventListener("location-changed",this._onLocation),this._applyDeepLink()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("location-changed",this._onLocation)}_applyDeepLink(){if(this._config?.deep_link===!1)return;let e=we();e.status&&(this._status=e.status),e.version&&(this._version=e.version),e.search&&(this._search=e.search),e.alert&&(this._alert=e.alert)}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}_toggleLabel(e){let t=new Set(this._filter);t.has(e)?t.delete(e):t.add(e),this._filter=t}_setStatus(e){this._status=this._status===e?"":e,this._limit=this._config.page_size??100}_setSort(e){this._sort={key:e,desc:this._sort.key===e?!this._sort.desc:!1}}async _approve(e){this._pairing=new Map(this._pairing).set(e.key,"busy");try{await $e(this.hass,this._entry.entry_id,e.key);let t=new Map(this._pairing);t.delete(e.key),this._pairing=t}catch(t){let s=t?.message??String(t);this._pairing=new Map(this._pairing).set(e.key,s)}}_sorted(e){let{key:t,desc:s}=this._sort,r=[...e].sort((o,l)=>{switch(t){case"device":return j(o,l);case"version":return(o.version??"").localeCompare(l.version??"",void 0,{numeric:!0});case"uptime":return(o.uptime??-1)-(l.uptime??-1);case"address":return(o.address??"").localeCompare(l.address??"",void 0,{numeric:!0});default:return ee.indexOf($(o))-ee.indexOf($(l))||j(o,l)}});return s?r.reverse():r}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=!!this._config.compact,s=new Map;for(let g of e.devices)for(let k of g.labels)s.set(k,(s.get(k)??0)+1);let r=[...s.keys()].sort((g,k)=>s.get(k)-s.get(g)||g.localeCompare(k)),o=r.length>Dt+1?[...new Set([...r.slice(0,Dt),...this._filter])].sort((g,k)=>r.indexOf(g)-r.indexOf(k)):r,l=r.filter(g=>!o.includes(g)),c=this._labelSearch.trim().toLowerCase(),d=this._search.trim().toLowerCase(),p=this._alert?e.alerts.find(g=>g.id===this._alert):void 0,u=p&&p.devices_on>0?this._ruleDevices.get(this.hass,e.entry_id,p.id):p?[]:void 0,m=Array.isArray(u)?new Set(u):void 0,v=e.devices.filter(g=>[...this._filter].every(k=>g.labels.includes(k))&&(!this._version||g.version===this._version)&&(!m||m.has(g.key))&&St(g,d)),y=new Map;for(let g of v)y.set($(g),(y.get($(g))??0)+1);let x=this._sorted(this._status?v.filter(g=>$(g)===this._status):v),f=this._config.fold_after??50,b=x.filter(g=>$(g)!=="ok"),_=x.length-b.length,C=!this._status&&!this._unfolded&&f>0&&x.length>f&&b.length>0&&_>0,T=t&&!this._status||C?b:x,ue=T.slice(0,this._limit),X=this._config.views?.devices,O=g=>this._sort.key===g?a`<ha-icon class="sort" icon=${this._sort.desc?"mdi:arrow-down":"mdi:arrow-up"}></ha-icon>`:h;return a`
+    `]}};var Kt=8,ki={offline:"mdi:lan-disconnect",pending:"mdi:link-variant-plus",alert:"mdi:bell-alert-outline",update:"mdi:update",ok:"mdi:check-circle-outline"},De=class extends T{constructor(){super();this._ruleDevices=new I(()=>this.requestUpdate());this._onLocation=()=>this._applyDeepLink();this._filter=new Set,this._status="",this._version="",this._alert="",this._search="",this._sort={key:"attention",desc:!1},this._limit=100,this._unfolded=!1,this._pairing=new Map,this._labelPicker=!1,this._labelSearch=""}static{this.properties={_filter:{state:!0},_status:{state:!0},_version:{state:!0},_alert:{state:!0},_search:{state:!0},_sort:{state:!0},_limit:{state:!0},_unfolded:{state:!0},_pairing:{state:!0},_labelPicker:{state:!0},_labelSearch:{state:!0}}}setConfig(e){this._config={show_filters:!0,show_search:!0,fold_after:50,page_size:100,deep_link:!0,...e},this._filter=new Set(e.labels??[]),this._status=e.status??"",this._version=e.version??"",this._alert=e.alert??"",this._limit=this._config.page_size??100,this._applyDeepLink()}static getConfigForm(){return{schema:[O,{name:"title",selector:{text:{}}},{name:"labels",selector:{text:{multiple:!0}}},{name:"status",selector:{select:{mode:"dropdown",options:ne.map(e=>({value:e,label:R[e]}))}}},{name:"show_filters",selector:{boolean:{}}},{name:"show_search",selector:{boolean:{}}},{name:"fold_after",selector:{number:{min:0,max:5e3,mode:"box"}}},{name:"compact",selector:{boolean:{}}}],computeLabel:D({entry_id:"Controller",title:"Title",labels:"Only devices with these labels",status:"Only devices with this status",show_filters:"Show filter chips",show_search:"Show search",fold_after:"Fold healthy devices above this many rows (0: never)",compact:"Overview mode: only devices needing attention, few rows"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 2+Math.min(this._entry?.devices.length??4,12)}connectedCallback(){super.connectedCallback(),window.addEventListener("location-changed",this._onLocation),this._applyDeepLink()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("location-changed",this._onLocation)}_applyDeepLink(){if(this._config?.deep_link===!1)return;let e=Me();e.status&&(this._status=e.status),e.version&&(this._version=e.version),e.search&&(this._search=e.search),e.alert&&(this._alert=e.alert)}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}_toggleLabel(e){let t=new Set(this._filter);t.has(e)?t.delete(e):t.add(e),this._filter=t}_setStatus(e){this._status=this._status===e?"":e,this._limit=this._config.page_size??100}_setSort(e){this._sort={key:e,desc:this._sort.key===e?!this._sort.desc:!1}}async _approve(e){this._pairing=new Map(this._pairing).set(e.key,"busy");try{await Ee(this.hass,this._entry.entry_id,e.key);let t=new Map(this._pairing);t.delete(e.key),this._pairing=t}catch(t){let i=t?.message??String(t);this._pairing=new Map(this._pairing).set(e.key,i)}}_sorted(e){let{key:t,desc:i}=this._sort,n=[...e].sort((o,a)=>{switch(t){case"device":return W(o,a);case"version":return(o.version??"").localeCompare(a.version??"",void 0,{numeric:!0});case"uptime":return(o.uptime??-1)-(a.uptime??-1);case"address":return(o.address??"").localeCompare(a.address??"",void 0,{numeric:!0});default:return ne.indexOf(C(o))-ne.indexOf(C(a))||W(o,a)}});return i?n.reverse():n}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=!!this._config.compact,i=new Map;for(let x of e.devices)for(let P of x.labels)i.set(P,(i.get(P)??0)+1);let n=[...i.keys()].sort((x,P)=>i.get(P)-i.get(x)||x.localeCompare(P)),o=n.length>Kt+1?[...new Set([...n.slice(0,Kt),...this._filter])].sort((x,P)=>n.indexOf(x)-n.indexOf(P)):n,a=n.filter(x=>!o.includes(x)),d=this._labelSearch.trim().toLowerCase(),l=this._search.trim().toLowerCase(),p=this._alert?e.alerts.find(x=>x.id===this._alert):void 0,h=p&&p.devices_on>0?this._ruleDevices.get(this.hass,e.entry_id,p.id):p?[]:void 0,m=Array.isArray(h)?new Set(h):void 0,v=e.devices.filter(x=>[...this._filter].every(P=>x.labels.includes(P))&&(!this._version||x.version===this._version)&&(!m||m.has(x.key))&&Se(x,l)),f=new Map;for(let x of v)f.set(C(x),(f.get(C(x))??0)+1);let y=this._sorted(this._status?v.filter(x=>C(x)===this._status):v),$=this._config.fold_after??50,b=y.filter(x=>C(x)!=="ok"),_=y.length-b.length,w=!this._status&&!this._unfolded&&$>0&&y.length>$&&b.length>0&&_>0,g=t&&!this._status||w?b:y,M=g.slice(0,this._limit),ee=this._config.views?.devices,B=x=>this._sort.key===x?c`<ha-icon class="sort" icon=${this._sort.desc?"mdi:arrow-down":"mdi:arrow-up"}></ha-icon>`:u;return c`
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:router-network"></ha-icon>
           <span>${this._config.title??"Devices"}</span>
-          <span class="chip">${x.length}${x.length!==e.devices.length?` of ${e.devices.length}`:""}</span>
+          <span class="chip">${y.length}${y.length!==e.devices.length?` of ${e.devices.length}`:""}</span>
           <div class="spacer"></div>
-          ${t&&this._config.views?.devices?a`<button class="open-link" @click=${()=>D(W(this._config.views.devices))}>
-                Open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:h}
-          ${this._config.show_search&&!t?a`<input class="search" type="search" placeholder="Search" .value=${this._search}
-                @input=${g=>{this._search=g.target.value,this._limit=this._config.page_size??100}} />`:h}
+          ${t&&this._config.views?.devices?c`<button class="open-link" @click=${()=>E(N(this._config.views.devices))}>
+                Open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:u}
+          ${this._config.show_search&&!t?c`<input class="search" type="search" placeholder="Search" .value=${this._search}
+                @input=${x=>{this._search=x.target.value,this._limit=this._config.page_size??100}} />`:u}
         </div>
         ${this.renderStale(e)}
-        ${this._config.show_filters?a`<div class="filters">
+        ${this._config.show_filters?c`<div class="filters">
               <button class="pill ${this._status?"":"on"}" @click=${()=>this._setStatus("")}>All ${v.length}</button>
-              ${ee.filter(g=>y.get(g)||g===this._status).map(g=>a`<button class="pill status-${g} ${this._status===g?"on":""}"
-                  @click=${()=>this._setStatus(g)}>
-                  <ha-icon icon=${pi[g]}></ha-icon>${A[g]} ${y.get(g)??0}
+              ${ne.filter(x=>f.get(x)||x===this._status).map(x=>c`<button class="pill status-${x} ${this._status===x?"on":""}"
+                  @click=${()=>this._setStatus(x)}>
+                  <ha-icon icon=${ki[x]}></ha-icon>${R[x]} ${f.get(x)??0}
                 </button>`)}
-              ${this._version?a`<button class="pill on" title="Clear the version filter" @click=${()=>this._version=""}>
-                    <span class="mono">${this._version}</span> ✕</button>`:h}
-              ${this._alert?a`<button class="pill on status-alert" title="Clear the alert filter" @click=${()=>this._alert=""}>
-                    <ha-icon icon="mdi:bell-alert-outline"></ha-icon>${p?.name??"alert rule"}${u==="loading"?" \u2026":""} ✕</button>`:h}
-              ${u==="unsupported"||u==="error"?a`<span class="muted small">${u==="unsupported"?"The controller lists a rule's devices only on its console, which the REST user may not use.":"Couldn't read the rule's device list from the controller."}</span>`:h}
-              ${o.length&&!t?a`<span class="sep"></span>`:h}
-              ${t?h:o.map(g=>a`<button class="pill ${this._filter.has(g)?"on":""}" @click=${()=>this._toggleLabel(g)}>
-                      ${g}
+              ${this._version?c`<button class="pill on" title="Clear the version filter" @click=${()=>this._version=""}>
+                    <span class="mono">${this._version}</span> ✕</button>`:u}
+              ${this._alert?c`<button class="pill on status-alert" title="Clear the alert filter" @click=${()=>this._alert=""}>
+                    <ha-icon icon="mdi:bell-alert-outline"></ha-icon>${p?.name??"alert rule"}${h==="loading"?" \u2026":""} ✕</button>`:u}
+              ${h==="unsupported"||h==="error"?c`<span class="muted small">${h==="unsupported"?"The controller lists a rule's devices only on its console, which the REST user may not use.":"Couldn't read the rule's device list from the controller."}</span>`:u}
+              ${o.length&&!t?c`<span class="sep"></span>`:u}
+              ${t?u:o.map(x=>c`<button class="pill ${this._filter.has(x)?"on":""}" @click=${()=>this._toggleLabel(x)}>
+                      ${x}
                     </button>`)}
-              ${l.length&&!t?a`<button class="pill more-labels ${this._labelPicker?"on":""}" aria-expanded=${this._labelPicker}
+              ${a.length&&!t?c`<button class="pill more-labels ${this._labelPicker?"on":""}" aria-expanded=${this._labelPicker}
                     @click=${()=>this._labelPicker=!this._labelPicker}>
-                    ${this._labelPicker?"Fewer labels":`+${l.length} more`}</button>`:h}
+                    ${this._labelPicker?"Fewer labels":`+${a.length} more`}</button>`:u}
             </div>
-            ${this._labelPicker&&l.length&&!t?a`<div class="picker">
+            ${this._labelPicker&&a.length&&!t?c`<div class="picker">
                   <input class="search" type="search" placeholder="Find a label" .value=${this._labelSearch}
-                    @input=${g=>this._labelSearch=g.target.value} />
+                    @input=${x=>this._labelSearch=x.target.value} />
                   <div class="picker-list">
-                    ${l.filter(g=>!c||g.toLowerCase().includes(c)).sort().map(g=>a`<button class="pill ${this._filter.has(g)?"on":""}" @click=${()=>this._toggleLabel(g)}>
-                          ${g} <span class="muted">${s.get(g)}</span>
+                    ${a.filter(x=>!d||x.toLowerCase().includes(d)).sort().map(x=>c`<button class="pill ${this._filter.has(x)?"on":""}" @click=${()=>this._toggleLabel(x)}>
+                          ${x} <span class="muted">${i.get(x)}</span>
                         </button>`)}
                   </div>
-                </div>`:h}`:h}
+                </div>`:u}`:u}
         <div class="table" role="table">
           <div class="row head section-label" role="row">
             <button class="c-device" @click=${()=>this._setSort(this._sort.key==="device"?"attention":"device")}
               title="Click to sort by name; again for attention first">
-              Device ${O("device")}${this._sort.key==="attention"?a`<ha-icon class="sort" icon="mdi:sort-variant" title="Attention first"></ha-icon>`:h}
+              Device ${B("device")}${this._sort.key==="attention"?c`<ha-icon class="sort" icon="mdi:sort-variant" title="Attention first"></ha-icon>`:u}
             </button>
             <span class="c-labels">Labels</span>
-            <button class="c-version" @click=${()=>this._setSort("version")}>Version ${O("version")}</button>
-            <button class="c-uptime" @click=${()=>this._setSort("uptime")}>Uptime ${O("uptime")}</button>
-            <button class="c-address" @click=${()=>this._setSort("address")}>Address ${O("address")}</button>
+            <button class="c-version" @click=${()=>this._setSort("version")}>Version ${B("version")}</button>
+            <button class="c-uptime" @click=${()=>this._setSort("uptime")}>Uptime ${B("uptime")}</button>
+            <button class="c-address" @click=${()=>this._setSort("address")}>Address ${B("address")}</button>
           </div>
-          ${ue.map(g=>this._row(g))}
-          ${t&&!this._status&&_>0?a`<div class="fold static">
+          ${M.map(x=>this._row(x))}
+          ${t&&!this._status&&_>0?c`<div class="fold static">
                 <ha-icon icon="mdi:check-circle-outline"></ha-icon>
                 ${b.length?`${_} more`:`All ${_}`} device${_===1?"":"s"} online and up to date
-              </div>`:h}
-          ${C&&!t?a`<button class="fold" @click=${()=>this._unfolded=!0}>
+              </div>`:u}
+          ${w&&!t?c`<button class="fold" @click=${()=>this._unfolded=!0}>
                 <ha-icon icon="mdi:check-circle-outline"></ha-icon>
                 ${_} device${_===1?"":"s"} online and up to date — show ${_===1?"it":"them"}
-              </button>`:h}
-          ${T.length>this._limit?t&&X?a`<button class="more" @click=${()=>D(W(X,this._status?{cmr_status:this._status}:{}))}>
-                  ${T.length-this._limit} more — open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:a`<button class="more" @click=${()=>this._limit+=this._config.page_size??100}>
-                  Show more (${T.length-this._limit})</button>`:h}
-          ${x.length?h:a`<div class="empty">${this._emptyText(e.devices.length)}</div>`}
+              </button>`:u}
+          ${g.length>this._limit?t&&ee?c`<button class="more" @click=${()=>E(N(ee,this._status?{cmr_status:this._status}:{}))}>
+                  ${g.length-this._limit} more — open Devices <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:c`<button class="more" @click=${()=>this._limit+=this._config.page_size??100}>
+                  Show more (${g.length-this._limit})</button>`:u}
+          ${y.length?u:c`<div class="empty">${this._emptyText(e.devices.length)}</div>`}
         </div>
       </ha-card>
-    `}_emptyText(e){return e?this._status?`No devices are ${A[this._status].toLowerCase()}.`:"No devices match these filters.":"The controller manages no devices yet."}_pairingCell(e,t){let s=this._pairing.get(e.key),r=e.pending&&!!this._entry?.actions&&!!this.hass.user?.is_admin;return a`<span class="offline" title=${q(e)}>${A[t]}</span>
-      ${r?a`<button class="approve" ?disabled=${s==="busy"}
+    `}_emptyText(e){return e?this._status?`No devices are ${R[this._status].toLowerCase()}.`:"No devices match these filters.":"The controller manages no devices yet."}_pairingCell(e,t){let i=this._pairing.get(e.key),n=e.pending&&!!this._entry?.actions&&!!this.hass.user?.is_admin;return c`<span class="offline" title=${X(e)}>${R[t]}</span>
+      ${n?c`<button class="approve" ?disabled=${i==="busy"}
             @click=${o=>{o.stopPropagation(),this._approve(e)}}>
-            ${s==="busy"?"Approving\u2026":"Approve"}</button>`:h}
-      ${s&&s!=="busy"?a`<span class="small offline">${s}</span>`:h}`}_uptimeCell(e,t){return t==="pending"?this._pairingCell(e,t):e.connected?a`${ce(e.uptime)}`:a`<span class="offline">${A[t]}</span>
-        ${e.disconnected_since?a`<span class="muted small">since ${e.disconnected_since}</span>`:h}`}_row(e){let t=$(e);return a`
+            ${i==="busy"?"Approving\u2026":"Approve"}</button>`:u}
+      ${i&&i!=="busy"?c`<span class="small offline">${i}</span>`:u}`}_uptimeCell(e,t){return t==="pending"?this._pairingCell(e,t):e.connected?c`${me(e.uptime)}`:c`<span class="offline">${R[t]}</span>
+        ${e.disconnected_since?c`<span class="muted small">since ${e.disconnected_since}</span>`:u}`}_row(e){let t=C(e);return c`
       <div class="row status-${t}" role="row"
-        @click=${()=>P(this,(e.update_available?e.entities.update:void 0)??e.entities.connected)}>
+        @click=${()=>S(this,(e.update_available?e.entities.update:void 0)??e.entities.connected)}>
         <div class="c-device">
-          <div class="icon" title=${A[t]}>${Y(e,"thumb")}<i class="dot"></i></div>
+          <div class="icon" title=${R[t]}>${Z(e,"thumb")}<i class="dot"></i></div>
           <div class="who">
             <div class="name">
               ${e.identity}
-              ${e.controller?a`<ha-icon class="crown" icon="mdi:crown-outline" title="CMR controller"></ha-icon>`:h}
+              ${e.controller?c`<ha-icon class="crown" icon="mdi:crown-outline" title="CMR controller"></ha-icon>`:u}
             </div>
-            <div class="muted small">${I(e)}${pe(e)?a` · <span class="mono">${pe(e)}</span>`:h}</div>
+            <div class="muted small">${F(e)}${ge(e)?c` · <span class="mono">${ge(e)}</span>`:u}</div>
           </div>
         </div>
-        <div class="c-labels">${e.labels.map(s=>a`<span class="chip">${s}</span>`)}</div>
+        <div class="c-labels">${e.labels.map(i=>c`<span class="chip">${i}</span>`)}</div>
         <div class="c-version" title="Click to filter by this version">
-          <button class="ver mono" @click=${s=>{s.stopPropagation(),this._version=this._version===e.version?"":e.version??""}}>
+          <button class="ver mono" @click=${i=>{i.stopPropagation(),this._version=this._version===e.version?"":e.version??""}}>
             ${e.version??"\u2013"}</button>
-          ${e.update_available?a`<span class="update" title="Update available"><ha-icon icon="mdi:arrow-up-circle"></ha-icon><span class="mono">${e.available_version}</span></span>`:h}
+          ${e.update_available?c`<span class="update" title="Update available"><ha-icon icon="mdi:arrow-up-circle"></ha-icon><span class="mono">${e.available_version}</span></span>`:u}
         </div>
         <div class="c-uptime">${this._uptimeCell(e,t)}</div>
         <div class="c-address">
-          ${e.address?a`<a class="mono" href=${Pt(e.address)} target="_blank" rel="noreferrer" @click=${s=>s.stopPropagation()}>${e.address}</a>`:a`<span class="muted">${e.controller?"local":"\u2013"}</span>`}
+          ${e.address?c`<a class="mono" href=${It(e.address)} target="_blank" rel="noreferrer" @click=${i=>i.stopPropagation()}>${e.address}</a>`:c`<span class="muted">${e.controller?"local":"\u2013"}</span>`}
         </div>
       </div>
-    `}static{this.styles=[M,w`
+    `}static{this.styles=[z,k`
       ha-card { container-type: inline-size; }
       .card-header { flex-wrap: wrap; }
       .search {
@@ -641,17 +651,17 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
         .c-labels { grid-area: labels; padding-left: 44px; }
         .row:not(.head) { border-bottom: 1px solid var(--cmr-line); border-radius: 0; }
       }
-    `]}};var Le=["var(--primary-color)","var(--cmr-update)","var(--cmr-pending)","var(--accent-color, #7e57c2)","var(--cmr-ok)","var(--cmr-muted)"],Me=class extends S{constructor(){super();this._ruleDevices=new R(()=>this.requestUpdate());this._issues=[],this._pairing=new Map,this._openRule=""}static{this.properties={_panel:{state:!0},_version:{state:!0},_issues:{state:!0},_pairing:{state:!0},_openRule:{state:!0}}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}static getConfigForm(){return{schema:[z],computeLabel:L({entry_id:"Controller"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 4}connectedCallback(){super.connectedCallback(),this._ticker=window.setInterval(()=>this.requestUpdate(),15e3)}disconnectedCallback(){super.disconnectedCallback(),window.clearInterval(this._ticker),this._unsubscribeEvents?.(),this._unsubscribeEvents=void 0}_toggle(e,t){let s=this._panel===e&&(e!=="version"||this._version===t);this._panel=s?void 0:e,this._version=s?void 0:t,this._panel==="issues"&&!this._unsubscribeEvents?this._unsubscribeEvents=xe.subscribe(this.hass,this._config?.entry_id,(r,o)=>{this._issues=o}):this._panel!=="issues"&&this._unsubscribeEvents&&(this._unsubscribeEvents(),this._unsubscribeEvents=void 0)}async _approve(e){this._pairing=new Map(this._pairing).set(e.key,"busy");try{await $e(this.hass,this._entry.entry_id,e.key);let t=new Map(this._pairing);t.delete(e.key),this._pairing=t}catch(t){this._pairing=new Map(this._pairing).set(e.key,t?.message??String(t))}}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=e.devices,s=t.find(b=>b.controller),r=t.filter(b=>b.connected).length,o=t.filter(b=>b.update_available).length,l=t.filter(b=>b.pending||b.remote_pending).length,c=e.alerts.filter(b=>b.devices_on>0).length,d=e.fleet_entities.network_issues?this.hass.states[e.fleet_entities.network_issues]?.state:void 0,p=Number(d)||0,u=t.length?r/t.length:0,m=new Map;t.forEach(b=>m.set(b.version??"unknown",(m.get(b.version??"unknown")??0)+1));let v=[...m.entries()].sort((b,_)=>_[1]-b[1]),y=26,x=2*Math.PI*y,f=b=>this._panel===b?"on":"";return a`
+    `]}};var Ci=["devices","devices_online","updates_available","alerts_firing","network_issues"];function Ei(r,s){let e=new Map;for(let[a,d]of Object.entries(r.entities??{})){if(d.platform!=="cmr"||!d.device_id||!Ci.includes(d.translation_key??"")||s&&!r.devices?.[d.device_id]?.config_entries?.includes(s))continue;let l=e.get(d.device_id)??new Map;l.set(d.translation_key,a),e.set(d.device_id,l)}let t=[...e.entries()].find(([,a])=>Number.isFinite(Number(r.states[a.get("devices_online")??""]?.state)));if(!t)return;let[i,n]=t,o=r.devices?.[i];return{name:o?.name_by_user||o?.name||"CMR controller",value:a=>Number(r.states[n.get(a)??""]?.state)||0}}var ze=["var(--primary-color)","var(--cmr-update)","var(--cmr-pending)","var(--accent-color, #7e57c2)","var(--cmr-ok)","var(--cmr-muted)"],He=class extends T{constructor(){super();this._ruleDevices=new I(()=>this.requestUpdate());this._issues=[],this._pairing=new Map,this._openRule=""}static{this.properties={_panel:{state:!0},_version:{state:!0},_issues:{state:!0},_pairing:{state:!0},_openRule:{state:!0}}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}static getConfigForm(){return{schema:[O],computeLabel:D({entry_id:"Controller"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6}}getCardSize(){return 4}connectedCallback(){super.connectedCallback(),this._ticker=window.setInterval(()=>this.requestUpdate(),15e3)}disconnectedCallback(){super.disconnectedCallback(),window.clearInterval(this._ticker),this._unsubscribeEvents?.(),this._unsubscribeEvents=void 0}_toggle(e,t){let i=this._panel===e&&(e!=="version"||this._version===t);this._panel=i?void 0:e,this._version=i?void 0:t,this._panel==="issues"&&!this._unsubscribeEvents?this._unsubscribeEvents=Ce.subscribe(this.hass,this._config?.entry_id,(n,o)=>{this._issues=o}):this._panel!=="issues"&&this._unsubscribeEvents&&(this._unsubscribeEvents(),this._unsubscribeEvents=void 0)}async _approve(e){this._pairing=new Map(this._pairing).set(e.key,"busy");try{await Ee(this.hass,this._entry.entry_id,e.key);let t=new Map(this._pairing);t.delete(e.key),this._pairing=t}catch(t){this._pairing=new Map(this._pairing).set(e.key,t?.message??String(t))}}render(){let e=this._entry;if(!e)return this._renderFromSensors()??this.renderWaiting();let t=e.devices,i=t.find(b=>b.controller),n=t.filter(b=>b.connected).length,o=t.filter(b=>b.update_available).length,a=t.filter(b=>b.pending||b.remote_pending).length,d=e.alerts.filter(b=>b.devices_on>0).length,l=e.fleet_entities.network_issues?this.hass.states[e.fleet_entities.network_issues]?.state:void 0,p=Number(l)||0,h=t.length?n/t.length:0,m=new Map;t.forEach(b=>m.set(b.version??"unknown",(m.get(b.version??"unknown")??0)+1));let v=[...m.entries()].sort((b,_)=>_[1]-b[1]),f=26,y=2*Math.PI*f,$=b=>this._panel===b?"on":"";return c`
       <ha-card>
         <div class="hero">
           <div class="identity">
-            ${s?.product?.image?a`<div class="logo photo"><img src=${s.product.image} alt=${s.product.name} referrerpolicy="no-referrer" /></div>`:a`<div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>`}
+            ${i?.product?.image?c`<div class="logo photo"><img src=${i.product.image} alt=${i.product.name} referrerpolicy="no-referrer" /></div>`:c`<div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>`}
             <div class="who">
               <div class="eyebrow">CMR controller</div>
-              <div class="name">${s?.identity??e.title}</div>
+              <div class="name">${i?.identity??e.title}</div>
               <div class="meta">
-                ${s?I(s):""} ·
-                <span class="mono">${s?.version??"?"}</span>
+                ${i?F(i):""} ·
+                <span class="mono">${i?.version??"?"}</span>
               </div>
             </div>
             <a class="open" href=${e.controller_url} target="_blank" rel="noreferrer" title="Open the router's web interface (WebFig)">
@@ -660,96 +670,115 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
           </div>
 
           <div class="stats">
-            <button class="stat ring ${f("online")}" aria-pressed=${this._panel==="online"} @click=${()=>this._toggle("online")}>
-              <svg viewBox="0 0 64 64" class=${r===t.length?"status-ok":"status-offline"}>
-                <circle cx="32" cy="32" r=${y} class="track"></circle>
-                <circle cx="32" cy="32" r=${y} class="value"
-                  stroke-dasharray=${`${x*u} ${x}`} transform="rotate(-90 32 32)"></circle>
+            <button class="stat ring ${$("online")}" aria-pressed=${this._panel==="online"} @click=${()=>this._toggle("online")}>
+              <svg viewBox="0 0 64 64" class=${n===t.length?"status-ok":"status-offline"}>
+                <circle cx="32" cy="32" r=${f} class="track"></circle>
+                <circle cx="32" cy="32" r=${f} class="value"
+                  stroke-dasharray=${`${y*h} ${y}`} transform="rotate(-90 32 32)"></circle>
               </svg>
-              ${t.length<100?a`<div class="ring-text"><b>${r}</b><span>/${t.length}</span></div>
-                    <div class="label">online</div>`:a`<div class="ring-text"><b>${r}</b></div>
+              ${t.length<100?c`<div class="ring-text"><b>${n}</b><span>/${t.length}</span></div>
+                    <div class="label">online</div>`:c`<div class="ring-text"><b>${n}</b></div>
                     <div class="label">of ${t.length} online</div>`}
             </button>
             ${this._stat("updates","mdi:update",o,"updates",o?"update":"ok")}
-            ${this._stat("alerts","mdi:bell-alert-outline",c,"alerts firing",c?"alert":"ok")}
+            ${this._stat("alerts","mdi:bell-alert-outline",d,"alerts active",d?"alert":"ok")}
             ${this._stat("issues","mdi:stethoscope",p,p===1?"issue":"issues",p?"pending":"ok")}
-            ${this._stat("pending","mdi:link-variant-plus",l,"to pair",l?"pending":"ok")}
+            ${this._stat("pending","mdi:link-variant-plus",a,"to pair",a?"pending":"ok")}
           </div>
         </div>
         ${this.renderStale(e)}
-        ${this._panel?this._renderPanel(e):h}
+        ${this._panel?this._renderPanel(e):u}
 
         <div class="bars">
           <div class="bar-title">
             <span>Versions</span>
-            <span class="muted">updated ${de(e.last_update)}</span>
+            <span class="muted">updated ${ve(e.last_update)}</span>
           </div>
           <div class="bar">
-            ${v.map(([b,_],C)=>a`<button class="seg ${this._panel==="version"&&this._version===b?"on":""}"
+            ${v.map(([b,_],w)=>c`<button class="seg ${this._panel==="version"&&this._version===b?"on":""}"
                 title="${b}: ${_} — click to list them"
-                style="flex:${_};background:${Le[C%Le.length]}"
+                style="flex:${_};background:${ze[w%ze.length]}"
                 @click=${()=>this._toggle("version",b)}></button>`)}
           </div>
           <div class="keys">
-            ${v.map(([b,_],C)=>a`<button class="key ${this._panel==="version"&&this._version===b?"on":""}"
+            ${v.map(([b,_],w)=>c`<button class="key ${this._panel==="version"&&this._version===b?"on":""}"
                 @click=${()=>this._toggle("version",b)}>
-                <i style="background:${Le[C%Le.length]}"></i>
+                <i style="background:${ze[w%ze.length]}"></i>
                 <span class="mono">${b}</span> <span class="muted">×${_}</span></button>`)}
           </div>
         </div>
       </ha-card>
-    `}_stat(e,t,s,r,o){return a`
+    `}_renderFromSensors(){if(this._error)return;let e=Ei(this.hass,this._config?.entry_id);if(!e)return;let t=e.value("devices_online"),i=e.value("devices"),n=(l,p,h,m)=>c`<div class="stat static status-${m}"><ha-icon icon=${l}></ha-icon><b>${p}</b><div class="label">${h}</div></div>`,o=e.value("updates_available"),a=e.value("alerts_firing"),d=e.value("network_issues");return c`
+      <ha-card>
+        <div class="hero">
+          <div class="identity">
+            <div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>
+            <div class="who">
+              <div class="eyebrow">CMR controller</div>
+              <div class="name">${e.name}</div>
+              <div class="meta">Loading the details…</div>
+            </div>
+          </div>
+          <div class="stats">
+            ${n("mdi:lan-connect",i?`${t}/${i}`:t,"online",t<i?"offline":"ok")}
+            ${n("mdi:update",o,"updates",o?"update":"ok")}
+            ${n("mdi:bell-alert-outline",a,"alerts active",a?"alert":"ok")}
+            ${n("mdi:stethoscope",d,d===1?"issue":"issues",d?"pending":"ok")}
+          </div>
+        </div>
+      </ha-card>
+    `}_stat(e,t,i,n,o){return c`
       <button class="stat status-${o} ${this._panel===e?"on":""}" aria-pressed=${this._panel===e}
         @click=${()=>this._toggle(e)}>
         <ha-icon icon=${t}></ha-icon>
-        <b>${s}</b>
-        <div class="label">${r}</div>
+        <b>${i}</b>
+        <div class="label">${n}</div>
       </button>
-    `}_renderPanel(e){let t=this._panel,s=d=>[...d].sort(j),r="",o=[],l="",c;if(t==="online"){let d=s(e.devices.filter(p=>!p.connected));r=d.length?`${d.length} offline`:"All devices online",l="Every managed device is connected to the controller.",o=d.map(p=>this._deviceRow(p,p.disconnected_since?`since ${p.disconnected_since}`:"disconnected")),c={view:this._config.views?.devices,params:{cmr_status:"offline"}}}else if(t==="updates"){let d=s(e.devices.filter(p=>p.update_available));r=d.length?`${d.length} with an update`:"Everything is up to date",l="No device's channel offers a newer version.",o=d.map(p=>this._deviceRow(p,a`<span class="mono">${p.version}</span> → <span class="mono up">${p.available_version}</span>`,p.entities.update)),c={view:this._config.views?.devices,params:{cmr_status:"update"}}}else if(t==="alerts"){let d=e.alerts.filter(p=>p.devices_on>0).sort((p,u)=>u.devices_on-p.devices_on);r=d.length?`${d.length} alert rule${d.length>1?"s":""} firing`:"No alert rule is firing",l="All alert rules are quiet.",o=d.map(p=>this._ruleRow(p,e))}else if(t==="issues")r=this._issues.length?`${this._issues.length} detected issue${this._issues.length>1?"s":""}`:"No issues detected",l=this._unsubscribeEvents?"Nothing unusual in the events.":"Loading\u2026",o=this._issues.map(d=>a`<div class="item sev-${d.severity}">
-          <ha-icon icon=${d.severity==="error"?"mdi:alert-octagon-outline":"mdi:alert-outline"}></ha-icon>
+    `}_renderPanel(e){let t=this._panel,i=l=>[...l].sort(W),n="",o=[],a="",d;if(t==="online"){let l=i(e.devices.filter(p=>!p.connected));n=l.length?`${l.length} offline`:"All devices online",a="Every managed device is connected to the controller.",o=l.map(p=>this._deviceRow(p,p.disconnected_since?`since ${p.disconnected_since}`:"disconnected")),d={view:this._config.views?.devices,params:{cmr_status:"offline"}}}else if(t==="updates"){let l=i(e.devices.filter(p=>p.update_available));n=l.length?`${l.length} with an update`:"Everything is up to date",a="No device's channel offers a newer version.",o=l.map(p=>this._deviceRow(p,c`<span class="mono">${p.version}</span> → <span class="mono up">${p.available_version}</span>`,p.entities.update)),d={view:this._config.views?.devices,params:{cmr_status:"update"}}}else if(t==="alerts"){let l=e.alerts.filter(p=>p.devices_on>0).sort((p,h)=>h.devices_on-p.devices_on);n=l.length?`${l.length} alert rule${l.length>1?"s":""} active`:"No alert rule is active",a="All alert rules are quiet.",o=l.map(p=>this._ruleRow(p,e))}else if(t==="issues")n=this._issues.length?`${this._issues.length} detected issue${this._issues.length>1?"s":""}`:"No issues detected",a=this._unsubscribeEvents?"Nothing unusual in the events.":"Loading\u2026",o=this._issues.map(l=>c`<div class="item sev-${l.severity}">
+          <ha-icon icon=${l.severity==="error"?"mdi:alert-octagon-outline":"mdi:alert-outline"}></ha-icon>
           <div class="text">
-            <div class="t">${d.title}</div>
-            <div class="muted small">${d.detail}</div>
+            <div class="t">${l.title}</div>
+            <div class="muted small">${l.detail}</div>
           </div>
-          ${d.device_name?a`<span class="chip">${d.device_name}</span>`:h}
-          ${this.hass.user?.is_admin?a`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
-                @click=${()=>ye(this.hass,d.entry_id,d.key).catch(p=>console.error("cmr: dismiss",p))}>
-                <ha-icon icon="mdi:close"></ha-icon></button>`:h}
-        </div>`),c={view:this._config.views?.events,params:{}};else if(t==="pending"){let d=s(e.devices.filter(p=>p.pending||p.remote_pending));r=d.length?`${d.length} waiting to pair`:"No device is waiting to pair",l="New devices appear here until their pairing is approved.",o=d.map(p=>this._pendingRow(p,e)),c={view:this._config.views?.devices,params:{cmr_status:"pending"}}}else{let d=s(e.devices.filter(p=>(p.version??"unknown")===this._version));r=`${d.length} on ${this._version}`,o=d.map(p=>this._deviceRow(p,p.update_available?a`update: <span class="mono up">${p.available_version}</span>`:I(p))),c={view:this._config.views?.devices,params:{cmr_version:this._version}}}return a`<div class="panel">
+          ${l.device_name?c`<span class="chip">${l.device_name}</span>`:u}
+          ${this.hass.user?.is_admin?c`<button class="dismiss" title="Dismiss (comes back only on new occurrences)"
+                @click=${()=>ke(this.hass,l.entry_id,l.key).catch(p=>console.error("cmr: dismiss",p))}>
+                <ha-icon icon="mdi:close"></ha-icon></button>`:u}
+        </div>`),d={view:this._config.views?.events,params:{}};else if(t==="pending"){let l=i(e.devices.filter(p=>p.pending||p.remote_pending));n=l.length?`${l.length} waiting to pair`:"No device is waiting to pair",a="New devices appear here until their pairing is approved.",o=l.map(p=>this._pendingRow(p,e)),d={view:this._config.views?.devices,params:{cmr_status:"pending"}}}else{let l=i(e.devices.filter(p=>(p.version??"unknown")===this._version));n=`${l.length} on ${this._version}`,o=l.map(p=>this._deviceRow(p,p.update_available?c`update: <span class="mono up">${p.available_version}</span>`:F(p))),d={view:this._config.views?.devices,params:{cmr_version:this._version}}}return c`<div class="panel">
       <div class="panel-head">
-        <span class="section-label">${r}</span>
+        <span class="section-label">${n}</span>
         <span class="spacer"></span>
-        ${c?.view?a`<button class="link" @click=${()=>D(W(c.view,c.params))}>
-              Open in ${t==="issues"?"Events":"Devices"} <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:h}
+        ${d?.view?c`<button class="link" @click=${()=>E(N(d.view,d.params))}>
+              Open in ${t==="issues"?"Events":"Devices"} <ha-icon icon="mdi:arrow-right"></ha-icon></button>`:u}
         <button class="close" title="Close" @click=${()=>this._toggle(t,this._version)}><ha-icon icon="mdi:close"></ha-icon></button>
       </div>
-      ${o.length?o:a`<div class="muted small">${l}</div>`}
-    </div>`}_deviceRow(e,t,s){return a`<button class="item status-${e.connected?e.update_available?"update":"ok":"offline"}"
-      @click=${()=>P(this,s??e.entities.connected)}>
-      ${Y(e,"thumb")}
+      ${o.length?o:c`<div class="muted small">${a}</div>`}
+    </div>`}_deviceRow(e,t,i){return c`<button class="item status-${e.connected?e.update_available?"update":"ok":"offline"}"
+      @click=${()=>S(this,i??e.entities.connected)}>
+      ${Z(e,"thumb")}
       <div class="text">
         <div class="t">${e.identity}</div>
         <div class="muted small">${t}</div>
       </div>
-    </button>`}_ruleRow(e,t){let s=this._openRule===e.id;return a`<button class="item sev-${e.severity} ${s?"open":""}" aria-expanded=${s}
-        @click=${()=>this._openRule=s?"":e.id}>
+    </button>`}_ruleRow(e,t){let i=this._openRule===e.id;return c`<button class="item sev-${e.severity} ${i?"open":""}" aria-expanded=${i}
+        @click=${()=>this._openRule=i?"":e.id}>
         <ha-icon icon="mdi:bell-alert"></ha-icon>
         <div class="text">
           <div class="t">${e.name}</div>
           <div class="muted small">${e.severity} · ${e.categories.join(", ")||"uncategorised"} · fired ${e.fired}×</div>
         </div>
         <span class="chip alert">${e.devices_on}/${e.devices}</span>
-        <ha-icon class="chev" icon=${s?"mdi:chevron-up":"mdi:chevron-down"}></ha-icon>
+        <ha-icon class="chev" icon=${i?"mdi:chevron-up":"mdi:chevron-down"}></ha-icon>
       </button>
-      ${s?ke(this,t,e,this._ruleDevices.get(this.hass,t.entry_id,e.id),this._config.views):h}`}_pendingRow(e,t){let s=this._pairing.get(e.key),r=e.pending&&t.actions&&!!this.hass.user?.is_admin;return a`<div class="item status-pending">
-      ${Y(e,"thumb")}
+      ${i?Pe(this,t,e,this._ruleDevices.get(this.hass,t.entry_id,e.id),this._config.views):u}`}_pendingRow(e,t){let i=this._pairing.get(e.key),n=e.pending&&t.actions&&!!this.hass.user?.is_admin;return c`<div class="item status-pending">
+      ${Z(e,"thumb")}
       <div class="text">
         <div class="t">${e.identity}</div>
-        <div class="muted small">${I(e)} · ${q(e)}${s&&s!=="busy"?` \xB7 ${s}`:""}</div>
+        <div class="muted small">${F(e)} · ${X(e)}${i&&i!=="busy"?` \xB7 ${i}`:""}</div>
       </div>
-      ${r?a`<button class="approve" ?disabled=${s==="busy"} @click=${()=>this._approve(e)}>
-            ${s==="busy"?"Approving\u2026":"Approve"}</button>`:h}
-    </div>`}static{this.styles=[M,Ce,w`
+      ${n?c`<button class="approve" ?disabled=${i==="busy"} @click=${()=>this._approve(e)}>
+            ${i==="busy"?"Approving\u2026":"Approve"}</button>`:u}
+    </div>`}static{this.styles=[z,Ae,k`
       .item .chev { color: var(--cmr-muted); --mdc-icon-size: 18px; }
       .item.open { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
       .rd { margin-left: 0; }
@@ -784,6 +813,8 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
         border: 1px solid transparent;
       }
       .stat:hover { border-color: var(--cmr-line); }
+      .stat.static { cursor: default; }
+      .stat.static:hover { border-color: transparent; }
       .stat.on { border-color: var(--status, var(--primary-color)); background: color-mix(in srgb, var(--status, var(--primary-color)) 10%, var(--cmr-surface-2)); }
       .stat:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
       .stat ha-icon { color: var(--status); --mdc-icon-size: 20px; }
@@ -838,38 +869,76 @@ var me=globalThis,ve=me.ShadowRoot&&(me.ShadyCSS===void 0||me.ShadyCSS.nativeSha
         .stats { justify-content: stretch; }
         .stat { max-width: none; }
       }
-    `]}};var zt=(n,i,e={})=>({type:"heading",heading:n,icon:i,heading_style:"title",...e});function hi(n,i,e){return Promise.race([n,new Promise(t=>setTimeout(()=>t(e),i))])}function ui(n,i,e){let t=o=>!!o&&!!i.states[o]&&i.states[o].state!=="unavailable",s=n.entities,r=[zt(n.identity,Q(n),{heading_style:"subtitle",...n.device_id?{tap_action:{action:"navigate",navigation_path:`/config/devices/device/${n.device_id}`}}:{},badges:t(s.version)?[{type:"entity",entity:s.version,show_icon:!0}]:[]})];return t(s.connected)&&r.push({type:"tile",entity:s.connected,name:"Connection",state_content:["state","last_changed"]}),t(s.uptime)&&r.push({type:"tile",entity:s.uptime,name:"Up since"}),t(s.update)&&r.push({type:"tile",entity:s.update,name:"RouterOS",show_entity_picture:!0,grid_options:{columns:12}}),t(s.active_alerts)&&r.push({type:"tile",entity:s.active_alerts,name:"Alerts"}),e&&t(s.alert)&&r.push({type:"tile",entity:s.alert,name:"Last alert"}),{type:"grid",cards:r}}function mi(n,i){let e=n.fleet_entities;return{title:"Network",path:"network",icon:"mdi:router-network",type:"sections",max_columns:3,badges:[[e.devices_online,"Online"],[e.updates_available,"Updates"],[e.alerts_firing,"Alerts firing"],[e.network_issues,"Issues"]].filter(([t])=>t).map(([t,s])=>({type:"entity",entity:t,name:s,show_name:!0})),sections:[{type:"grid",column_span:3,cards:[{...i,type:"custom:cmr-status-card",views:{devices:"devices",events:"events",topology:"topology"}}]},{type:"grid",column_span:3,cards:[{...i,type:"custom:cmr-topology-card",height:480,grid_options:{columns:"full"}}]},{type:"grid",column_span:2,cards:[{...i,type:"custom:cmr-fleet-card",compact:!0,page_size:8,views:{devices:"devices"},grid_options:{columns:"full"}},{...i,type:"custom:cmr-events-card",max_items:15,notable:!0,grid_options:{columns:"full"}}]},{type:"grid",cards:[{...i,type:"custom:cmr-alerts-card",views:{devices:"devices",topology:"topology"},grid_options:{columns:"full"}},{...i,type:"custom:cmr-upgrades-card",grid_options:{columns:"full"}}]}]}}var vi=24;function gi(n,i,e){let t=n.alerts.some(l=>l.webhook),s=[...n.devices].sort(j),r=s.length<=vi,o=s.map(l=>l.entities.connected).filter(Boolean);return{title:"Devices",path:"devices",icon:"mdi:devices",type:"sections",max_columns:4,sections:[{type:"grid",column_span:4,cards:[{...e,type:"custom:cmr-fleet-card",grid_options:{columns:"full"}}]},...r?[{type:"grid",column_span:4,cards:[zt("Connectivity, last 24 hours","mdi:chart-timeline-variant"),{type:"history-graph",hours_to_show:24,entities:o,grid_options:{columns:"full"}}]},...s.map(l=>ui(l,i,t))]:[]]}}function fi(n){return{title:"Events",path:"events",icon:"mdi:timeline-text-outline",type:"sections",max_columns:2,sections:[{type:"grid",column_span:2,cards:[{...n,type:"custom:cmr-events-card",max_items:100,grid_options:{columns:"full"}}]}]}}function _i(n){return{title:"Topology",path:"topology",icon:"mdi:sitemap-outline",type:"panel",cards:[{...n,type:"custom:cmr-topology-card",height:760}]}}function tt(n,i){return{title:n.title??"Network",views:[{title:"Network",path:"network",cards:[{type:"markdown",content:`## CMR
-${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return{title:"Network",icon:"mdi:router-network"}}static{this.configRequired=!0}static async getConfigElement(){return document.createElement("cmr-strategy-editor")}static async generate(i,e){try{let t=await hi(_e.once(e),8e3,[]),s=be(t,i.entry_id);if(!s&&i.entry_id&&t.length)return tt(i,"The controller this dashboard shows isn't loaded right now. If Home Assistant just started, reload in a moment; if the controller was removed, open *Edit dashboard* and pick another one.");if(!s)return tt(i,"No CMR controller is set up yet. Add the **CMR** integration under [Settings \u2192 Devices & services](/config/integrations/dashboard/add?domain=cmr).");let r=t.length>1||i.entry_id?{entry_id:s.entry_id}:{},o=mi(s,r);return{title:i.title??s.title,views:[o,fi(r),gi(s,e,r),_i(r)]}}catch(t){return console.error("cmr: dashboard strategy failed",t),tt(i,`The dashboard couldn't be built (${String(t)}). Reload the page to try again.`)}}};var bi=[{name:"entry_id",selector:{config_entry:{integration:"cmr"}}},{name:"title",selector:{text:{}}}],yi=L({entry_id:"Controller (empty: the first one)",title:"Title shown in the dashboard header"}),Re=class extends E{static{this.properties={hass:{attribute:!1},lovelace:{attribute:!1},_config:{state:!0}}}setConfig(i){this._config=i}connectedCallback(){super.connectedCallback(),xi()}render(){return!this.hass||!this._config?a``:a`<ha-form
+    `]}};var Bt=(r,s,e={})=>({type:"heading",heading:r,icon:s,heading_style:"title",...e});function Si(r,s,e){return Promise.race([r,new Promise(t=>setTimeout(()=>t(e),s))])}function Mi(r,s,e){let t=o=>!!o&&!!s.states[o]&&s.states[o].state!=="unavailable",i=r.entities,n=[Bt(r.identity,se(r),{heading_style:"subtitle",...r.device_id?{tap_action:{action:"navigate",navigation_path:`/config/devices/device/${r.device_id}`}}:{},badges:t(i.version)?[{type:"entity",entity:i.version,show_icon:!0}]:[]})];return t(i.connected)&&n.push({type:"tile",entity:i.connected,name:"Connection",state_content:["state","last_changed"]}),t(i.uptime)&&n.push({type:"tile",entity:i.uptime,name:"Up since"}),t(i.update)&&n.push({type:"tile",entity:i.update,name:"RouterOS",show_entity_picture:!0,grid_options:{columns:12}}),t(i.active_alerts)&&n.push({type:"tile",entity:i.active_alerts,name:"Alerts"}),e&&t(i.alert)&&n.push({type:"tile",entity:i.alert,name:"Last alert"}),{type:"grid",cards:n}}function Pi(r,s){let e=r.fleet_entities;return{title:"Network",path:"network",icon:"mdi:router-network",type:"sections",max_columns:3,badges:[[e.devices_online,"Online"],[e.updates_available,"Updates"],[e.alerts_firing,"Alerts active"],[e.network_issues,"Issues"]].filter(([t])=>t).map(([t,i])=>({type:"entity",entity:t,name:i,show_name:!0})),sections:[{type:"grid",column_span:3,cards:[{...s,type:"custom:cmr-status-card",views:{devices:"devices",events:"events",topology:"topology"}}]},{type:"grid",column_span:3,cards:[{...s,type:"custom:cmr-topology-card",height:480,views:{devices:"devices"},grid_options:{columns:"full"}}]},{type:"grid",column_span:2,cards:[{...s,type:"custom:cmr-fleet-card",compact:!0,page_size:8,views:{devices:"devices"},grid_options:{columns:"full"}},{...s,type:"custom:cmr-events-card",max_items:15,notable:!0,grid_options:{columns:"full"}}]},{type:"grid",cards:[{...s,type:"custom:cmr-alerts-card",views:{devices:"devices",topology:"topology"},grid_options:{columns:"full"}},{...s,type:"custom:cmr-upgrades-card",views:{devices:"devices"},grid_options:{columns:"full"}}]}]}}var Ai=24;function Li(r,s,e){let t=r.alerts.some(a=>a.webhook),i=[...r.devices].sort(W),n=i.length<=Ai,o=i.map(a=>a.entities.connected).filter(Boolean);return{title:"Devices",path:"devices",icon:"mdi:devices",type:"sections",max_columns:4,sections:[{type:"grid",column_span:4,cards:[{...e,type:"custom:cmr-fleet-card",grid_options:{columns:"full"}}]},...n?[{type:"grid",column_span:4,cards:[Bt("Connectivity, last 24 hours","mdi:chart-timeline-variant"),{type:"history-graph",hours_to_show:24,entities:o,grid_options:{columns:"full"}}]},...i.map(a=>Mi(a,s,t))]:[]]}}function Ti(r){return{title:"Events",path:"events",icon:"mdi:timeline-text-outline",type:"sections",max_columns:2,sections:[{type:"grid",column_span:2,cards:[{...r,type:"custom:cmr-events-card",max_items:100,grid_options:{columns:"full"}}]}]}}function Ri(r){return{title:"Topology",path:"topology",icon:"mdi:sitemap-outline",type:"panel",cards:[{...r,type:"custom:cmr-topology-card",height:760,views:{devices:"devices"}}]}}function at(r,s){return{title:r.title??"Network",views:[{title:"Network",path:"network",cards:[{type:"markdown",content:`## CMR
+${s}`}]}]}}var Ne=class extends HTMLElement{static getCreateSuggestions(){return{title:"Network",icon:"mdi:router-network"}}static{this.configRequired=!0}static async getConfigElement(){return document.createElement("cmr-strategy-editor")}static async generate(s,e){try{let t=await Si($e.once(e),8e3,[]),i=we(t,s.entry_id);if(!i&&s.entry_id&&t.length)return at(s,"The controller this dashboard shows isn't loaded right now. If Home Assistant just started, reload in a moment; if the controller was removed, open *Edit dashboard* and pick another one.");if(!i)return at(s,"No CMR controller is set up yet. Add the **CMR** integration under [Settings \u2192 Devices & services](/config/integrations/dashboard/add?domain=cmr).");let n=t.length>1||s.entry_id?{entry_id:i.entry_id}:{},o=Pi(i,n);return{title:s.title??i.title,views:[o,Ti(n),Li(i,e,n),Ri(n)]}}catch(t){return console.error("cmr: dashboard strategy failed",t),at(s,`The dashboard couldn't be built (${String(t)}). Reload the page to try again.`)}}};var Di=[{name:"entry_id",selector:{config_entry:{integration:"cmr"}}},{name:"title",selector:{text:{}}}],zi=D({entry_id:"Controller (empty: the first one)",title:"Title shown in the dashboard header"}),Ie=class extends L{static{this.properties={hass:{attribute:!1},lovelace:{attribute:!1},_config:{state:!0}}}setConfig(s){this._config=s}connectedCallback(){super.connectedCallback(),Hi()}render(){return!this.hass||!this._config?c``:c`<ha-form
       .hass=${this.hass}
       .data=${this._config}
-      .schema=${bi}
-      .computeLabel=${yi}
+      .schema=${Di}
+      .computeLabel=${zi}
       @value-changed=${this._changed}
-    ></ha-form>`}_changed(i){i.stopPropagation();let e={...this._config,...i.detail.value,type:this._config.type};for(let t of["entry_id","title"])e[t]||delete e[t];this._config=e,et(this,"config-changed",{config:e})}};async function xi(){if(!customElements.get("ha-form"))try{await(await(await window.loadCardHelpers?.())?.createCardElement({type:"entities",entities:[]}))?.constructor?.getConfigElement?.()}catch{}}var H=184,G=62,De=48,he="__auto__",$i="mdi:map-marker-radius-outline",Ht={fiber:"Fiber (SFP)",copper:"Ethernet",wireless:"Wireless",logical:"Logical interface",uplink:"Link between layouts",unknown:"No ports detected"},wi=["copper","fiber","wireless","unknown"];function it(n){return/^q?sfp/i.test(n)?"fiber":/^(ether|combo)/i.test(n)?"copper":/^(wifi|wlan|wl\d)/i.test(n)?"wireless":"logical"}function ki(n,i,e=3){return n.x0<i.x1+e&&i.x0<n.x1+e&&n.y0<i.y1+e&&i.y0<n.y1+e}function Ci(n,i,e,t,s){let r=Math.hypot(e,t)||1,o=e/r,l=t/r,c=Math.min(o?H/2/Math.abs(o):1/0,l?G/2/Math.abs(l):1/0);return{x:n+o*(c+s),y:i+l*(c+s),ux:o,uy:l}}var ze=class extends S{constructor(){super();this._ruleDevices=new R(()=>this.requestUpdate());this._userMoved=!1;this._fittedFor="";this._fitK=1;this._onLocation=()=>{let e=we().alert;e&&(this._alert=e)};this._onKey=e=>{e.key==="Escape"&&this._clearHover()};this._clearHover=()=>{this._hover=void 0,this._hoverLink=void 0};this._path=[],this._view={x:0,y:0,k:1},this._alert=""}static{this.properties={_path:{state:!0},_hover:{state:!0},_hoverLink:{state:!0},_view:{state:!0},_autoHeight:{state:!0},_alert:{state:!0}}}setConfig(e){this._config={height:440,show_ports:!0,show_comments:!0,...e},this._path=e.layout?[e.layout]:[],this._userMoved=!1}static getConfigForm(){return{schema:[z,{name:"title",selector:{text:{}}},{name:"layout",selector:{text:{}}},{name:"height",selector:{number:{min:200,max:1400,step:20,mode:"box",unit_of_measurement:"px"}}},{name:"max_height",selector:{number:{min:200,max:3e3,step:20,mode:"box",unit_of_measurement:"px"}}},{name:"show_ports",selector:{boolean:{}}},{name:"show_comments",selector:{boolean:{}}}],computeLabel:L({entry_id:"Controller",title:"Title",layout:"Start at layout (empty: the top layout)",height:"Height",show_ports:"Show port names on cables",show_comments:"Show link comments"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6,min_rows:4}}getCardSize(){return Math.round((this._config?.height??440)/50)+1}connectedCallback(){super.connectedCallback(),window.addEventListener("keydown",this._onKey),window.addEventListener("location-changed",this._onLocation),this._onLocation()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("keydown",this._onKey),window.removeEventListener("location-changed",this._onLocation),this._resize?.disconnect(),this._resize=void 0}_memoFor(e){let t=this._path.join("/");return(this._memo?.entry!==e||this._memo.path!==t)&&(this._memo={entry:e,path:t,byKey:new Map(e.devices.map(s=>[s.key,s])),devicesIn:new Map,cables:new Map}),this._memo}_rootLayouts(e){let t=new Set(e.nodes.map(o=>o.target_layout).filter(Boolean)),s=new Set(e.nodes.map(o=>o.layout)),r=e.layouts.map(o=>o.name).filter(o=>!t.has(o)&&s.has(o));return r.length?r:e.layouts.map(o=>o.name).filter(o=>s.has(o))}_currentLayout(e){return this._path.length?this._path[this._path.length-1]:this._rootLayouts(e)[0]??he}_devicesIn(e,t,s=new Set){let r=this._memoFor(e),o=r.devicesIn.get(t);if(o)return o;if(s.has(t))return[];s.add(t);let l=new Map;for(let d of e.nodes){if(d.layout!==t)continue;let p=d.device_key?r.byKey.get(d.device_key):void 0;p&&l.set(p.key,p),d.target_layout&&this._devicesIn(e,d.target_layout,s).forEach(u=>l.set(u.key,u))}let c=[...l.values()];return r.devicesIn.set(t,c),c}_scene(e){let t=this._memoFor(e);return t.scene||(t.scene=this._buildScene(e,t.byKey)),t.scene}_buildScene(e,t){let s=this._currentLayout(e),r,o;if(s===he)({nodes:r,links:o}=this._autoLayout(e));else{let v=e.nodes.filter(_=>_.layout===s),y=v.filter(_=>_.x!=null&&_.y!=null),x=y.length?Math.max(...y.map(_=>_.y)):0,f=y.length?Math.min(...y.map(_=>_.x)):0,b=0;r=v.map(_=>{let C=_.x==null||_.y==null,T=C?f+b*(H+40):_.x,ue=C?x+G*2.4:_.y;if(C&&(b+=1),_.target_layout){let O=this._devicesIn(e,_.target_layout),g=O.filter(Ne=>Ne.connected).length,k=O.map($),Ft=k.includes("offline")?"offline":k.includes("alert")?"alert":k.includes("update")?"update":"ok",Kt=e.layouts.find(Ne=>Ne.name===_.target_layout)?.comment??null;return{id:_.name,name:_.name,x:T,y:ue,kind:"site",target:_.target_layout,site:{online:g,total:O.length,status:Ft,comment:Kt}}}let X=_.device_key?t.get(_.device_key):void 0;return{id:_.name,name:X?.identity??_.name,x:T,y:ue,kind:X?"device":"unknown",device:X}}),o=e.links.filter(_=>_.layout===s)}let l=r.map(v=>v.x),c=r.map(v=>v.y),d=Math.min(...l,0)-H/2-De,p=Math.min(...c,0)-G/2-De;for(let v of r)v.x-=d,v.y-=p;let u=Math.max(...r.map(v=>v.x),0)+H/2+De,m=Math.max(...r.map(v=>v.y),0)+G/2+De;return{layout:s,nodes:r,links:o,width:u,height:m}}_autoLayout(e){let t=p=>p.controller?0:1,s=new Map;for(let p of e.devices){let u=t(p);s.set(u,[...s.get(u)??[],p])}let r=Math.max(4,Math.ceil(Math.sqrt(e.devices.length*2.2))),o=[],l=0;for(let p of[...s.keys()].sort()){let u=s.get(p).sort((m,v)=>m.identity.localeCompare(v.identity));for(let m=0;m<u.length;m+=r,l+=1){let v=u.slice(m,m+r),y=(Math.min(r,e.devices.length)-v.length)*(H+48)/2;v.forEach((x,f)=>o.push({id:x.key,name:x.identity,kind:"device",device:x,x:y+f*(H+48),y:l*(G+90)}))}}let c=e.devices.find(p=>p.controller),d=c?e.devices.filter(p=>!p.controller).map(p=>({id:p.key,layout:he,node1:c.key,node2:p.key,comment:null,ports:[]})):[];return{nodes:o,links:d}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}updated(){let e=this.renderRoot.querySelector(".viewport");e&&!this._resize&&(this._resize=new ResizeObserver(()=>{this._sizeToLayout(),this._userMoved||this._fit()}),this._resize.observe(e)),this._sizeToLayout();let t=`${this._entry?.entry_id}|${this._path.join("/")}|${this._entry?this._scene(this._entry).nodes.length:0}`;this._entry&&t!==this._fittedFor&&(this._fittedFor=t,this._userMoved=!1,this._fit())}_sizeToLayout(){let e=this.renderRoot.querySelector(".viewport");if(!e||!this._entry)return;let{width:t,height:s}=this._scene(this._entry),r=e.clientWidth;if(!r||!t)return;let o=this._config?.height??440,l=Math.max(o,this._config?.max_height??Math.round(window.innerHeight*.85)),c=Math.round(Math.min(l,Math.max(o,r*s/t)));(this._autoHeight===void 0||Math.abs(c-this._autoHeight)>4)&&(this._autoHeight=c)}_fit(){let e=this.renderRoot.querySelector(".viewport");if(!e||!this._entry)return;let{width:t,height:s}=this._scene(this._entry),r=e.clientWidth,o=e.clientHeight;if(!r||!o)return;let l=Math.min(r/t,o/s,1.2);this._fitK=l;let c={k:l,x:(r-t*l)/2,y:(o-s*l)/2};(Math.abs(c.k-this._view.k)>.001||Math.abs(c.x-this._view.x)>.5||Math.abs(c.y-this._view.y)>.5)&&(this._view=c)}_onWheel(e){if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();let t=e.currentTarget.getBoundingClientRect();this._zoomAt(e.clientX-t.left,e.clientY-t.top,Math.exp(-e.deltaY*.0018))}_zoomAt(e,t,s){let{x:r,y:o,k:l}=this._view,c=Math.min(4,Math.max(Math.min(.25,this._fitK*.8),l*s));this._view={k:c,x:e-(e-r)*c/l,y:t-(t-o)*c/l},this._userMoved=!0,this._clearHover()}_onPointerDown(e){e.pointerType==="touch"||e.button!==0||(this._clearHover(),this._drag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:this._view.x,vy:this._view.y,moved:!1})}_onPointerMove(e){let t=this._drag;if(!t||t.id!==e.pointerId)return;let s=e.clientX-t.x,r=e.clientY-t.y;!t.moved&&Math.hypot(s,r)<4||(t.moved||e.currentTarget.setPointerCapture(e.pointerId),t.moved=!0,this._userMoved=!0,this._hover=void 0,this._view={...this._view,x:t.vx+s,y:t.vy+r})}_onPointerUp(e){this._drag?.moved&&e.type==="pointerup"&&e.currentTarget?.addEventListener("click",t=>t.stopPropagation(),{capture:!0,once:!0}),this._drag=void 0}_zoom(e){let t=this.renderRoot.querySelector(".viewport");t&&this._zoomAt(t.clientWidth/2,t.clientHeight/2,e)}_onDoubleClick(e){if(e.target.closest(".controls"))return;let t=e.currentTarget.getBoundingClientRect();this._zoomAt(e.clientX-t.left,e.clientY-t.top,2)}_resetView(){this._userMoved=!1,this._fit()}_open(e){if(e.kind==="site"&&e.target)this._path=[...this._path.length?this._path:[this._currentLayout(this._entry)],e.target],this._hover=void 0;else if(e.device){let t=e.device.entities;P(this,(e.device.update_available?t.update:void 0)??t.connected??t.update)}}_goTo(e){this._path=this._path.slice(0,e+1),this._hover=void 0}_selectRoot(e){this._path=[e],this._hover=void 0}_onNodeKey(e,t){(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),this._open(t))}_showHover(e,t){if(this._drag?.moved)return;let s=this.renderRoot.querySelector(".viewport");if(!s)return;let{x:r,y:o,k:l}=this._view,c=300,d=e.device?.product?.image_large?340:230,p=(e.x+H/2)*l+r+12,u=(e.x-H/2)*l+r-12-c,m=p+c<=s.clientWidth-8,v=e.y*l+o-d/2;this._hover={node:e,x:m||u<8?Math.min(p,s.clientWidth-c-8):u,y:Math.max(8,Math.min(v,s.clientHeight-d-8))},t.stopPropagation()}render(){let e=this._entry,t=this._config?.height??440;if(!e)return this.renderWaiting(`height:${t}px`);let s=this._scene(e),r=this._rootLayouts(e),o=this._path.length?this._path:[s.layout],l=new Map(s.nodes.map(f=>[f.id,f])),c=s.links.map(f=>this._linkInfo(f,l)).filter(f=>f!==void 0),d=wi.filter(f=>c.some(b=>b.kind===f)),{x:p,y:u,k:m}=this._view,v=e.layouts.find(f=>f.name===s.layout),y=this._alert?e.alerts.find(f=>f.id===this._alert):void 0,x=y?y.devices_on>0?this._ruleDevices.get(this.hass,e.entry_id,y.id):[]:void 0;return this._lit=Array.isArray(x)?new Set(x):void 0,a`
+    ></ha-form>`}_changed(s){s.stopPropagation();let e={...this._config,...s.detail.value,type:this._config.type};for(let t of["entry_id","title"])e[t]||delete e[t];this._config=e,ot(this,"config-changed",{config:e})}};async function Hi(){if(!customElements.get("ha-form"))try{await(await(await window.loadCardHelpers?.())?.createCardElement({type:"entities",entities:[]}))?.constructor?.getConfigElement?.()}catch{}}function ct(r,s,e){let t=new Map(r.nodes.map(n=>[`${n.layout}\0${n.name}`,n.device_key])),i=new Map;for(let n of r.links){let o=t.get(`${n.layout}\0${n.node1}`),a=t.get(`${n.layout}\0${n.node2}`),d=o===s.key?"a":a===s.key?"b":void 0;if(!d)continue;let l=d==="a"?a:o,p=l?e.get(l):void 0;for(let h of n.ports){let m=d==="a"?h.a:h.b;i.get(m.interface)?.up===void 0&&i.set(m.interface,{interface:m.interface,peer:p?.identity??(d==="a"?n.node2:n.node1),up:p?s.connected&&p.connected:void 0,poe:m.poe==="powered-on"})}}return[...i.values()].sort((n,o)=>n.interface.localeCompare(o.interface,void 0,{numeric:!0}))}var Ni=[[/^ether(\d+)/,"ether"],[/^combo(\d+)/,"combo"],[/^sfp-sfpplus(\d+)/,"sfp+"],[/^sfp28-(\d+)/,"sfp28"],[/^sfp56-(\d+)/,"sfp56"],[/^qsfpplus(\d+)/,"qsfp+"],[/^qsfp28-(\d+)/,"qsfp28"],[/^qsfp56-dd-(\d+)/,"qsfp56-dd"],[/^qsfp56-(\d+)/,"qsfp56"],[/^sfp(\d+)/,"sfp"]];function Ii(r,s){let e=r.toLowerCase();for(let[t,i]of Ni){let n=t.exec(e);if(!n)continue;if(i==="ether")return`ether:${n[1]}`;let o=s.cages.map(([d])=>d);if(o.includes(i))return`${i}:${n[1]}`;let a=i==="sfp"?"sfp+":i==="sfp+"?"sfp":void 0;return a&&o.includes(a)?`${a}:${n[1]}`:void 0}}var Oi={sfp:"SFP","sfp+":"SFP+",combo:"combo",sfp28:"SFP28",sfp56:"SFP56","qsfp+":"QSFP+",qsfp28:"QSFP28",qsfp56:"QSFP56","qsfp56-dd":"QSFP56-DD"},qt=new Set(["qsfp+","qsfp28","qsfp56","qsfp56-dd"]),Q=10,ji=15,re=8,j=2,Oe=10,Wt=7;function Ui(r,s){let e=r.ether.reduce((f,[,y])=>f+y,0),t=f=>r.poe_out.some(([y,$])=>f>=y&&f<=$),i=e>=14||/^CRS/i.test(s)&&/-IN$/i.test(s)&&e>=8,n=(f,y)=>!qt.has(f)&&y>2,o=i||r.cages.some(([f,y])=>n(f,y))?2:1,a=o===2?Oe/2:0,d=[],l=0,p=(f,y,$)=>d.push({key:`ether:${f}`,label:String(f),cage:!1,x:y,y:$<0?a:$*Oe,w:Q,flip:$===1,poeOut:t(f)}),h=f=>{l=f+Wt},m=e,v=[];if(i&&e%2&&v.push(m--),r.mgmt&&v.push(e+1),v.length&&(v.sort((f,y)=>f-y).forEach((f,y)=>p(f,l+y*(Q+j),-1)),h(l+v.length*(Q+j)-j)),m){for(let y=0;y<m;y++)i?p(y+1,l+Math.floor(y/2)*(Q+j),y%2?0:1):p(y+1,l+y*(Q+j),-1);let f=i?Math.ceil(m/2):m;h(l+f*(Q+j)-j)}for(let[f,y]of r.cages){let $=qt.has(f)?ji:Q,b=l;for(let _=0;_<y;_++){let w,g;if(n(f,y)){let M=Math.floor(_/4);w=l+(M*2+Math.floor(_%4/2))*($+j)+M*j,g=_%2?0:1}else w=l+_*($+j),g=-1;d.push({key:`${f}:${_+1}`,label:String(_+1),cage:!0,x:w,y:g<0?a:g*Oe,w:$,flip:g===1,poeOut:!1}),b=Math.max(b,w+$)}h(b)}return{cells:d,width:Math.max(0,l-Wt),rows:o}}function lt(r){let s=[];r.ether.length&&s.push(`${r.ether.map(([e,t])=>`${t}\xD7 ${e}`).join(" + ")} Ethernet`),r.mgmt&&s.push("management port");for(let[e,t]of r.cages)s.push(`${t}\xD7 ${Oi[e]}`);if(r.poe_out.length){let e=r.poe_out.map(([t,i])=>t===i?`ether${t}`:`ether${t}\u2013${i}`);s.push(`PoE out ${e.join(", ")}`)}return s.join(" \xB7 ")}var Fi="M2.2 0 L0 2.9 H1.5 L1.1 5 L3.6 1.9 H2 Z",Ki=276;function Vt(r,s){let e=r.ports;if(!e)return u;let{cells:t,width:i,rows:n}=Ui(e,r.code);if(!t.length)return u;let o=new Map;for(let b of s){let _=Ii(b.interface,e);_&&o.set(_,b)}let a=/RM$/i.test(r.code),d=3,l=a?8:0,p=-d-l,h=i+2*(d+l),m=(n===2?Oe:0)+re+2*d,v=Math.min(2.4,Ki/h),f=v>=1.9,y=v>=.9,$=i+2*d;return c`<svg class="front" viewBox="${p} ${-d} ${h} ${m}" width=${h*v} height=${m*v}
+      role="img" aria-label="Front panel: ${lt(e)}">
+    ${a?A`<rect class="ear" x=${p} y=${-d} width=${l+1} height=${m} rx="1.5"></rect>
+          <rect class="ear" x=${i+d-1} y=${-d} width=${l+1} height=${m} rx="1.5"></rect>
+          <circle class="hole" cx=${p+l/2} cy=${m/2-d} r="1.3"></circle>
+          <circle class="hole" cx=${i+d+l/2} cy=${m/2-d} r="1.3"></circle>`:u}
+    <rect class="face" x=${-d} y=${-d} width=${$} height=${m} rx="2.5"></rect>
+    ${t.map(b=>{let _=o.get(b.key),w=_?_.up===!1?"down":"on":"",g=b.flip;return A`<g class="p ${b.cage?"cage":"rj"} ${w} ${_?.poe?"poe":""}"
+          transform="translate(${b.x} ${b.y})">
+        <rect class="body" width=${b.w} height=${re} rx="1.2"></rect>
+        ${b.cage?A`<rect class="slot" x="2" y=${re/2-1.2} width=${b.w-4} height="2.4" rx="0.6"></rect>`:A`<rect class="latch" x="1" y=${g?re-1.8:.4} width="3.4" height="1.4" rx="0.4"></rect>`}
+        ${y&&(b.poeOut||_?.poe)?A`<path class="bolt" d=${Fi} transform="translate(${b.w-4.4} ${g?re-5.6:.6})"></path>`:u}
+        ${f?A`<text class="num" x="1.1" y=${g?4.4:re-1.1}>${b.label}</text>`:u}
+      </g>`})}
+  </svg>`}var Yt=k`
+  .front { display: block; margin: 8px auto 4px; overflow: visible; }
+  .front .face, .front .ear { fill: var(--cmr-surface-2); stroke: var(--cmr-line); stroke-width: 0.6; }
+  .front .hole { fill: var(--cmr-surface); stroke: var(--cmr-line); stroke-width: 0.4; }
+  .front .p .body {
+    fill: color-mix(in srgb, var(--cmr-muted) 18%, var(--cmr-surface));
+    stroke: color-mix(in srgb, var(--cmr-muted) 45%, transparent); stroke-width: 0.4;
+  }
+  .front .p.cage .body {
+    fill: color-mix(in srgb, var(--cmr-fiber) 16%, var(--cmr-surface));
+    stroke: color-mix(in srgb, var(--cmr-fiber) 60%, transparent);
+  }
+  .front .p.on .body { fill: var(--cmr-ok); stroke: none; }
+  .front .p.down .body { fill: var(--cmr-offline); stroke: none; }
+  .front .latch, .front .slot { fill: rgba(0, 0, 0, 0.3); }
+  .front .bolt { fill: color-mix(in srgb, var(--cmr-muted) 75%, transparent); }
+  .front .p.on .bolt, .front .p.down .bolt { fill: rgba(255, 255, 255, 0.75); }
+  .front .p.poe .bolt { fill: var(--cmr-poe); stroke: rgba(0, 0, 0, 0.55); stroke-width: 0.3; }
+  .front .num { font: 600 3.9px var(--cmr-mono); fill: var(--primary-text-color); opacity: 0.65; }
+  .front .p.on .num, .front .p.down .num { fill: #fff; opacity: 0.95; }
+`;var Bi=.4,Jt=.7,qi=250,H=184,K=62,je=48,oe="__auto__",Wi="mdi:map-marker-radius-outline",Gt={fiber:"Fiber (SFP)",copper:"Ethernet",wireless:"Wireless",logical:"Logical interface",uplink:"Link between layouts",unknown:"No ports detected"},Vi=["copper","fiber","wireless","unknown"];function dt(r){return/^q?sfp/i.test(r)?"fiber":/^(ether|combo)/i.test(r)?"copper":/^(wifi|wlan|wl\d)/i.test(r)?"wireless":"logical"}function Yi(r,s,e=3){return r.x0<s.x1+e&&s.x0<r.x1+e&&r.y0<s.y1+e&&s.y0<r.y1+e}function Ji(r,s,e,t,i){let n=Math.hypot(e,t)||1,o=e/n,a=t/n,d=Math.min(o?H/2/Math.abs(o):1/0,a?K/2/Math.abs(a):1/0);return{x:r+o*(d+i),y:s+a*(d+i),ux:o,uy:a}}var Ue=class extends T{constructor(){super();this._pointers=new Map;this._touch=!1;this._ruleDevices=new I(()=>this.requestUpdate());this._userMoved=!1;this._fittedFor="";this._fitK=1;this._onLocation=()=>{let e=Me().alert;e&&(this._alert=e)};this._onKey=e=>{e.key==="Escape"&&(this._clearHover(),this._pinned=void 0)};this._clearHover=()=>{this._hover=void 0,this._hoverLink=void 0};this._path=[],this._view={x:0,y:0,k:1},this._alert="",this._find="",this._copied=!1}static{this.properties={_path:{state:!0},_hover:{state:!0},_hoverLink:{state:!0},_view:{state:!0},_autoHeight:{state:!0},_alert:{state:!0},_rebuild:{state:!0},_pinned:{state:!0},_find:{state:!0},_copied:{state:!0}}}_nodeMatches(e,t){return e.name.toLowerCase().includes(t)||!!e.device&&Se(e.device,t)}setConfig(e){this._config={height:440,show_ports:!0,show_comments:!0,...e},this._path=e.layout?[e.layout]:[],this._userMoved=!1}static getConfigForm(){return{schema:[O,{name:"title",selector:{text:{}}},{name:"layout",selector:{text:{}}},{name:"height",selector:{number:{min:200,max:1400,step:20,mode:"box",unit_of_measurement:"px"}}},{name:"max_height",selector:{number:{min:200,max:3e3,step:20,mode:"box",unit_of_measurement:"px"}}},{name:"show_ports",selector:{boolean:{}}},{name:"show_comments",selector:{boolean:{}}}],computeLabel:D({entry_id:"Controller",title:"Title",layout:"Start at layout (empty: the top layout)",height:"Height",show_ports:"Show port names on cables",show_comments:"Show link comments"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:6,min_rows:4}}getCardSize(){return Math.round((this._config?.height??440)/50)+1}connectedCallback(){super.connectedCallback(),window.addEventListener("keydown",this._onKey),window.addEventListener("location-changed",this._onLocation),this._onLocation()}disconnectedCallback(){super.disconnectedCallback(),window.removeEventListener("keydown",this._onKey),window.removeEventListener("location-changed",this._onLocation),this._resize?.disconnect(),this._resize=void 0}_memoFor(e){let t=this._path.join("/");return(this._memo?.entry!==e||this._memo.path!==t)&&(this._memo={entry:e,path:t,byKey:new Map(e.devices.map(i=>[i.key,i])),devicesIn:new Map,cables:new Map}),this._memo}_rootLayouts(e){let t=new Set(e.nodes.map(o=>o.target_layout).filter(Boolean)),i=new Set(e.nodes.map(o=>o.layout)),n=e.layouts.map(o=>o.name).filter(o=>!t.has(o)&&i.has(o));return n.length?n:e.layouts.map(o=>o.name).filter(o=>i.has(o))}_currentLayout(e){return this._path.length?this._path[this._path.length-1]:this._rootLayouts(e)[0]??oe}_devicesIn(e,t,i=new Set){let n=this._memoFor(e),o=n.devicesIn.get(t);if(o)return o;if(i.has(t))return[];i.add(t);let a=new Map;for(let l of e.nodes){if(l.layout!==t)continue;let p=l.device_key?n.byKey.get(l.device_key):void 0;p&&a.set(p.key,p),l.target_layout&&this._devicesIn(e,l.target_layout,i).forEach(h=>a.set(h.key,h))}let d=[...a.values()];return n.devicesIn.set(t,d),d}_scene(e){let t=this._memoFor(e);return t.scene||(t.scene=this._buildScene(e,t.byKey)),t.scene}_buildScene(e,t){let i=this._currentLayout(e),n,o;if(i===oe)({nodes:n,links:o}=this._autoLayout(e));else{let v=e.nodes.filter(_=>_.layout===i),f=v.filter(_=>_.x!=null&&_.y!=null),y=f.length?Math.max(...f.map(_=>_.y)):0,$=f.length?Math.min(...f.map(_=>_.x)):0,b=0;n=v.map(_=>{let w=_.x==null||_.y==null,g=w?$+b*(H+40):_.x,M=w?y+K*2.4:_.y;if(w&&(b+=1),_.target_layout){let B=this._devicesIn(e,_.target_layout),x=B.filter(Ke=>Ke.connected).length,P=B.map(C),ti=P.includes("offline")?"offline":P.includes("alert")?"alert":P.includes("update")?"update":"ok",ii=e.layouts.find(Ke=>Ke.name===_.target_layout)?.comment??null;return{id:_.name,name:_.name,x:g,y:M,kind:"site",target:_.target_layout,site:{online:x,total:B.length,status:ti,comment:ii}}}let ee=_.device_key?t.get(_.device_key):void 0;return{id:_.name,name:ee?.identity??_.name,x:g,y:M,kind:ee?"device":"unknown",device:ee}}),o=e.links.filter(_=>_.layout===i)}let a=n.map(v=>v.x),d=n.map(v=>v.y),l=Math.min(...a,0)-H/2-je,p=Math.min(...d,0)-K/2-je;for(let v of n)v.x-=l,v.y-=p;let h=Math.max(...n.map(v=>v.x),0)+H/2+je,m=Math.max(...n.map(v=>v.y),0)+K/2+je;return{layout:i,nodes:n,links:o,width:h,height:m}}_autoLayout(e){let t=p=>p.controller?0:1,i=new Map;for(let p of e.devices){let h=t(p);i.set(h,[...i.get(h)??[],p])}let n=Math.max(4,Math.ceil(Math.sqrt(e.devices.length*2.2))),o=[],a=0;for(let p of[...i.keys()].sort()){let h=i.get(p).sort((m,v)=>m.identity.localeCompare(v.identity));for(let m=0;m<h.length;m+=n,a+=1){let v=h.slice(m,m+n),f=(Math.min(n,e.devices.length)-v.length)*(H+48)/2;v.forEach((y,$)=>o.push({id:y.key,name:y.identity,kind:"device",device:y,x:f+$*(H+48),y:a*(K+90)}))}}let d=e.devices.find(p=>p.controller),l=d?e.devices.filter(p=>!p.controller).map(p=>({id:p.key,layout:oe,node1:d.key,node2:p.key,comment:null,ports:[]})):[];return{nodes:o,links:l}}willUpdate(e){super.willUpdate(e),e.has("_entry")&&this._ruleDevices.invalidate()}updated(){let e=this.renderRoot.querySelector(".viewport");e&&!this._resize&&(this._resize=new ResizeObserver(()=>{this._sizeToLayout(),this._userMoved||this._fit()}),this._resize.observe(e)),this._sizeToLayout();let t=`${this._entry?.entry_id}|${this._path.join("/")}|${this._entry?this._scene(this._entry).nodes.length:0}`;this._entry&&t!==this._fittedFor&&(this._fittedFor=t,this._userMoved=!1,this._fit())}_sizeToLayout(){let e=this.renderRoot.querySelector(".viewport");if(!e||!this._entry)return;let{width:t,height:i}=this._scene(this._entry),n=e.clientWidth;if(!n||!t)return;let o=n<600,a=o?240:this._config?.height??440,d=o?Math.max(a,Math.round(window.innerHeight*.6)):Math.max(a,this._config?.max_height??Math.round(window.innerHeight*.85)),l=Math.round(Math.min(d,Math.max(a,n*i/t)));(this._autoHeight===void 0||Math.abs(l-this._autoHeight)>4)&&(this._autoHeight=l)}_fit(){let e=this.renderRoot.querySelector(".viewport");if(!e||!this._entry)return;let{width:t,height:i}=this._scene(this._entry),n=e.clientWidth,o=e.clientHeight;if(!n||!o)return;let a=Math.min(n/t,o/i,1.2),d=n<600?Math.max(a,Math.min(o/i,Jt)):a;this._fitK=d;let l={k:d,x:t*d>n?0:(n-t*d)/2,y:(o-i*d)/2};(Math.abs(l.k-this._view.k)>.001||Math.abs(l.x-this._view.x)>.5||Math.abs(l.y-this._view.y)>.5)&&(this._view=l)}_onWheel(e){if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();let t=e.currentTarget.getBoundingClientRect();this._zoomAt(e.clientX-t.left,e.clientY-t.top,Math.exp(-e.deltaY*.0018))}_zoomAt(e,t,i){let{x:n,y:o,k:a}=this._view,d=Math.min(4,Math.max(this._minK(),a*i));this._view={k:d,x:e-(e-n)*d/a,y:t-(t-o)*d/a},this._userMoved=!0,this._clearHover(),this._pinned=void 0}_minK(){return Math.min(.25,this._fitK*.8)}_zoomTo(e){let t=this.renderRoot.querySelector(".viewport");if(!t||!e.length)return;let i=40,n=Math.min(...e.map(m=>m.x))-H/2-i,o=Math.max(...e.map(m=>m.x))+H/2+i,a=Math.min(...e.map(m=>m.y))-K/2-i,d=Math.max(...e.map(m=>m.y))+K/2+i,l=t.clientWidth,p=t.clientHeight,h=Math.max(this._minK(),Math.min(l/(o-n),p/(d-a),1.2));this._view={k:h,x:l/2-(n+o)/2*h,y:p/2-(a+d)/2*h},this._userMoved=!0,this._clearHover(),this._pinned=void 0}_local(e){let t=e.currentTarget.getBoundingClientRect();return{x:e.clientX-t.left,y:e.clientY-t.top}}_onPointerDown(e){if(!(e.pointerType==="mouse"&&e.button!==0)&&(this._touch=e.pointerType==="touch",!e.target.closest(".tooltip.pinned, .controls, .find"))){if(this._clearHover(),this._pointers.set(e.pointerId,this._local(e)),this._pointers.size===2){let[t,i]=[...this._pointers.values()],{x:n,y:o,k:a}=this._view,d={x:(t.x+i.x)/2,y:(t.y+i.y)/2};this._pinch={dist:Math.hypot(t.x-i.x,t.y-i.y)||1,k:a,wx:(d.x-n)/a,wy:(d.y-o)/a},this._drag&&(this._drag.moved=!0),e.currentTarget.setPointerCapture(e.pointerId);return}this._drag={id:e.pointerId,x:e.clientX,y:e.clientY,vx:this._view.x,vy:this._view.y,moved:!1}}}_onPointerMove(e){e.pointerType==="mouse"&&(this._touch=!1),this._pointers.has(e.pointerId)&&this._pointers.set(e.pointerId,this._local(e));let t=this._pinch;if(t&&this._pointers.size>=2){let[a,d]=[...this._pointers.values()],l=Math.min(4,Math.max(this._minK(),t.k*Math.hypot(a.x-d.x,a.y-d.y)/t.dist)),p={x:(a.x+d.x)/2,y:(a.y+d.y)/2};this._view={k:l,x:p.x-t.wx*l,y:p.y-t.wy*l},this._userMoved=!0,this._pinned=void 0;return}let i=this._drag;if(!i||i.id!==e.pointerId)return;let n=e.clientX-i.x,o=e.clientY-i.y;!i.moved&&Math.hypot(n,o)<4||(i.moved||e.currentTarget.setPointerCapture(e.pointerId),i.moved=!0,this._userMoved=!0,this._hover=void 0,this._pinned=void 0,this._view={...this._view,x:i.vx+n,y:i.vy+o})}_onPointerUp(e){if(this._pointers.delete(e.pointerId),this._pinch){if(this._pointers.size<2){this._pinch=void 0;let[t]=[...this._pointers.entries()],i=e.currentTarget.getBoundingClientRect();this._drag=t?{id:t[0],x:t[1].x+i.left,y:t[1].y+i.top,vx:this._view.x,vy:this._view.y,moved:!0}:void 0}return}this._drag?.moved&&e.type==="pointerup"?e.currentTarget?.addEventListener("click",t=>t.stopPropagation(),{capture:!0,once:!0}):!this._drag?.moved&&e.type==="pointerup"&&!e.target.closest(".node, .tooltip.pinned, .controls, .find")&&(this._pinned=void 0),this._drag=void 0}_zoom(e){let t=this.renderRoot.querySelector(".viewport");t&&this._zoomAt(t.clientWidth/2,t.clientHeight/2,e)}_onDoubleClick(e){if(window.clearTimeout(this._openTimer),e.target.closest(".controls, .tooltip.pinned, .find"))return;let t=e.currentTarget.getBoundingClientRect();this._zoomAt(e.clientX-t.left,e.clientY-t.top,2)}_resetView(){this._userMoved=!1,this._fit()}_click(e,t){t.stopPropagation(),window.clearTimeout(this._openTimer),this._openTimer=window.setTimeout(()=>this._open(e),qi)}_open(e){e.kind==="site"&&e.target?(this._path=[...this._path.length?this._path:[this._currentLayout(this._entry)],e.target],this._hover=void 0,this._pinned=void 0):e.device&&(this._pinned={node:e,...this._placeBeside(e,56)},this._hover=void 0,this._copied=!1)}_goTo(e){this._path=this._path.slice(0,e+1),this._hover=void 0}_selectRoot(e){this._path=[e],this._hover=void 0}_onNodeKey(e,t){(e.key==="Enter"||e.key===" ")&&(e.preventDefault(),this._open(t))}_showHover(e,t){this._drag?.moved||this._touch||this._pinned||this.renderRoot.querySelector(".viewport")&&(this._hover={node:e,...this._placeBeside(e)},t.stopPropagation())}_placeBeside(e,t=0){let i=this.renderRoot.querySelector(".viewport"),{x:n,y:o,k:a}=this._view,d=300,l=e.device?.product,p=e.device?Math.min(9,ct(this._entry,e.device,this._memoFor(this._entry).byKey).length):0,h=(l?.image_large?340:230)+(l?.ports?70:0)+p*18+t,m=(e.x+H/2)*a+n+12,v=(e.x-H/2)*a+n-12-d,f=m+d<=i.clientWidth-8,y=e.y*a+o-h/2;return{x:Math.max(8,f||v<8?Math.min(m,i.clientWidth-d-8):v),y:Math.max(8,Math.min(y,i.clientHeight-h-8))}}render(){let e=this._entry,t=this._config?.height??440;if(!e)return this.renderWaiting(`height:${t}px`);let i=this._scene(e),n=this._rootLayouts(e),o=this._path.length?this._path:[i.layout],a=new Map(i.nodes.map(g=>[g.id,g])),d=i.links.map(g=>this._linkInfo(g,a)).filter(g=>g!==void 0),l=Vi.filter(g=>d.some(M=>M.kind===g)),{x:p,y:h,k:m}=this._view,v=e.layouts.find(g=>g.name===i.layout),f=this._alert?e.alerts.find(g=>g.id===this._alert):void 0,y=f?f.devices_on>0?this._ruleDevices.get(this.hass,e.entry_id,f.id):[]:void 0;this._lit=Array.isArray(y)?new Set(y):void 0;let $=this._find.trim().toLowerCase(),b=$?i.nodes.filter(g=>this._nodeMatches(g,$)):[];this._found=$?new Set(b.map(g=>g.id)):void 0;let _=i.nodes.filter(g=>g.device?C(g.device)!=="ok":g.site?g.site.status!=="ok":!1),w=m<Bi?"lod-dot":m<Jt?"lod-text":"lod-full";return c`
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:sitemap-outline"></ha-icon>
           <div class="crumbs">
-            ${this._config.title?a`<span class="title">${this._config.title}</span>`:h}
-            ${o.map((f,b)=>a`
-                ${b?a`<ha-icon class="sep" icon="mdi:chevron-right"></ha-icon>`:h}
-                <button class="crumb ${b===o.length-1?"current":""}" @click=${()=>this._goTo(b)}>
-                  ${f===he?"All devices":f}
+            ${this._config.title?c`<span class="title">${this._config.title}</span>`:u}
+            ${o.map((g,M)=>c`
+                ${M?c`<ha-icon class="sep" icon="mdi:chevron-right"></ha-icon>`:u}
+                <button class="crumb ${M===o.length-1?"current":""}" @click=${()=>this._goTo(M)}>
+                  ${g===oe?"All devices":g}
                 </button>
               `)}
           </div>
           <div class="spacer"></div>
-          ${r.length>1?a`<div class="roots">
-                ${r.map(f=>a`<button class="pill ${o[0]===f?"on":""}" @click=${()=>this._selectRoot(f)}>${f}</button>`)}
-              </div>`:h}
+          ${this._canRebuild(e,i)?c`<button class="tool" title="Rebuild links from detected ports" aria-label="Rebuild links"
+                @click=${()=>this._rebuild={layout:i.layout,state:"confirm"}}>
+                <ha-icon icon="mdi:cable-data"></ha-icon></button>`:u}
+          ${n.length>1?c`<div class="roots">
+                ${n.map(g=>c`<button class="pill ${o[0]===g?"on":""}" @click=${()=>this._selectRoot(g)}>${g}</button>`)}
+              </div>`:u}
         </div>
-        ${v?.comment?a`<div class="subtitle">${v.comment}</div>`:h}
-        ${y?a`<div class="hl">
+        ${v?.comment?c`<div class="subtitle">${v.comment}</div>`:u}
+        ${f?c`<div class="hl">
               <ha-icon icon="mdi:bell-alert-outline"></ha-icon>
-              <span>${Array.isArray(x)?`${x.length} device${x.length===1?"":"s"} where "${y.name}" fires`:x==="loading"?`Finding the devices where "${y.name}" fires\u2026`:`The devices where "${y.name}" fires can't be listed (console access)`}</span>
+              <span>${Array.isArray(y)?`${y.length} device${y.length===1?"":"s"} where "${f.name}" is active`:y==="loading"?`Finding the devices where "${f.name}" is active\u2026`:`The devices where "${f.name}" is active can't be listed (console access)`}</span>
               <span class="spacer"></span>
               <button class="hl-close" title="Show every device" @click=${()=>this._alert=""}><ha-icon icon="mdi:close"></ha-icon></button>
-            </div>`:h}
+            </div>`:u}
+        ${this._rebuild?.layout===i.layout?this._renderRebuild(this._rebuild):u}
         ${this.renderStale(e)}
         <div
           class="viewport"
@@ -883,119 +952,163 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
           @mouseleave=${this._clearHover}
         >
           <div
-            class="world"
-            style="width:${s.width}px;height:${s.height}px;transform:translate(${p}px,${u}px) scale(${m})"
+            class="world ${w}"
+            style="width:${i.width}px;height:${i.height}px;transform:translate(${p}px,${h}px) scale(${m});--inv:${1/m}"
           >
-            <svg class="wires" width=${s.width} height=${s.height}>
-              ${c.map(f=>this._renderLink(f))}
+            <svg class="wires" width=${i.width} height=${i.height}>
+              ${d.map(g=>this._renderLink(g))}
             </svg>
-            ${this._config.show_ports?c.map(f=>this._renderPorts(f)):h}
-            ${this._config.show_comments?c.map(f=>this._renderComment(f)):h}
-            ${s.nodes.map(f=>this._renderNode(f))}
+            ${this._config.show_ports?d.map(g=>this._renderPorts(g)):u}
+            ${this._config.show_comments?d.map(g=>this._renderComment(g)):u}
+            ${i.nodes.map(g=>this._renderNode(g))}
           </div>
-          ${s.nodes.length?h:a`<div class="nothing">${s.layout===he?"No devices on the controller yet.":"This layout has no nodes yet."}</div>`}
-          ${this._hover?this._renderTooltip(this._hover):h}
-          ${this._hoverLink&&!this._hover?this._renderLinkTooltip(this._hoverLink):h}
+          ${i.nodes.length?u:c`<div class="nothing">${i.layout===oe?"No devices on the controller yet.":"This layout has no nodes yet."}</div>`}
+          ${this._pinned?this._renderTooltip(this._pinned,!0):u}
+          ${this._hover&&!this._pinned?this._renderTooltip(this._hover):u}
+          ${this._hoverLink&&!this._hover&&!this._pinned?this._renderLinkTooltip(this._hoverLink):u}
+          ${i.nodes.length>1?c`<div class="find">
+                <ha-icon icon="mdi:magnify"></ha-icon>
+                <input type="search" placeholder="Find on map" aria-label="Find on map" .value=${this._find}
+                  @input=${g=>this._find=g.target.value}
+                  @keydown=${g=>{g.key==="Enter"&&this._zoomTo(b),g.key==="Escape"&&(this._find="")}} />
+                ${$?c`<span class="hits">${b.length}</span>`:u}
+              </div>`:u}
           <div class="controls">
             <button title="Zoom in (or double-click the map)" @click=${()=>this._zoom(1.6)}><ha-icon icon="mdi:plus"></ha-icon></button>
             <button title="Zoom out" @click=${()=>this._zoom(1/1.6)}><ha-icon icon="mdi:minus"></ha-icon></button>
             <button title="Show the whole map" @click=${this._resetView}><ha-icon icon="mdi:fit-to-screen-outline"></ha-icon></button>
+            ${_.length?c`<button class="problems" title="Zoom to what needs attention (${_.length})" @click=${()=>this._zoomTo(_)}>
+                  <ha-icon icon="mdi:alert-circle-outline"></ha-icon></button>`:u}
           </div>
           <div class="legend">
-            ${["ok","update","alert","offline"].map(f=>a`<span class="status-${f}"><i class="dot"></i>${A[f]}</span>`)}
-            ${d.map(f=>a`<span><i class="wire-sample k-${f}"></i>${Ht[f]}</span>`)}
-            ${c.some(f=>f.poe)?a`<span><i class="poe-sample"></i>PoE power</span>`:h}
+            ${["ok","update","alert","offline"].map(g=>c`<span class="status-${g}"><i class="dot"></i>${R[g]}</span>`)}
+            ${l.map(g=>c`<span><i class="wire-sample k-${g}"></i>${Gt[g]}</span>`)}
+            ${d.some(g=>g.poe)?c`<span><i class="poe-sample"></i>PoE power</span>`:u}
           </div>
         </div>
       </ha-card>
-    `}_linkState(e,t){let s=l=>l?.kind==="device"?l.device.connected:l?.kind==="site"?l.site.online>0:void 0,r=s(e),o=s(t);return r===!1||o===!1?"down":r===void 0||o===void 0?"unknown":"up"}_linkInfo(e,t){let s=t.get(e.node1),r=t.get(e.node2);if(!s||!r)return;let o=e.ports,l=[s.name,r.name],c=!1,d;!o.length&&s.kind==="site"&&r.kind==="site"&&(c=!0,d=this._cableBetween(s.target,r.target),d&&(o=d.ports,l=d.names));let p=o[0],u;if(p){let v=[it(p.a.interface),it(p.b.interface)];u=v.includes("fiber")?"fiber":v.includes("wireless")?"wireless":v.every(y=>y==="copper")?"copper":"logical"}else u=c&&!d?"uplink":"unknown";let m;return p?.a.poe==="powered-on"?m={from:s,to:r,port:p.a.interface}:p?.b.poe==="powered-on"&&(m={from:r,to:s,port:p.b.interface}),{link:e,a:s,b:r,state:this._linkState(s,r),kind:u,ports:o,endNames:l,poe:m}}_cableBetween(e,t){let s=this._entry,r=this._memoFor(s),o=`${e}\0${t}`;if(r.cables.has(o))return r.cables.get(o);let l=new Set(this._devicesIn(s,e).map(m=>m.key)),c=new Set(this._devicesIn(s,t).map(m=>m.key)),d=new Map(s.nodes.map(m=>[`${m.layout}\0${m.name}`,m.device_key])),p=r.byKey,u;for(let m of s.links){let v=d.get(`${m.layout}\0${m.node1}`),y=d.get(`${m.layout}\0${m.node2}`);if(!v||!y)continue;let x=l.has(v)&&c.has(y);if(!x&&!(l.has(y)&&c.has(v)))continue;let[f,b]=x?[v,y]:[y,v],_=x?m.ports:m.ports.map(T=>({a:T.b,b:T.a})),C={ports:_,names:[p.get(f)?.identity??f,p.get(b)?.identity??b]};(!u||_.length&&!u.ports.length)&&(u=C)}return r.cables.set(o,u),u}_renderLink(e){let{a:t,b:s,state:r,kind:o,poe:l}=e,c=`M ${t.x} ${t.y} L ${s.x} ${s.y}`,d=r==="up"&&o!=="unknown"&&o!=="logical";return le`
-      <g class="link ${r} k-${o}"
+    `}_canRebuild(e,t){return e.actions&&!!this.hass.user?.is_admin&&t.layout!==oe&&t.nodes.filter(i=>i.kind==="device").length>1}_renderRebuild(e){let t=c`<button class="hl-close" title="Close" @click=${()=>this._rebuild=void 0}>
+      <ha-icon icon="mdi:close"></ha-icon></button>`;return e.state==="confirm"?c`<div class="hl rebuild">
+        <ha-icon icon="mdi:cable-data"></ha-icon>
+        <span>Create the links of <b>${e.layout}</b> from the ports the controller detected between its devices?</span>
+        <span class="spacer"></span>
+        <button class="pill on" @click=${()=>this._rebuildLinks(e.layout)}>Rebuild links</button>
+        ${t}
+      </div>`:c`<div class="hl rebuild ${e.state}">
+      <ha-icon icon=${e.state==="error"?"mdi:alert-circle-outline":"mdi:cable-data"}></ha-icon>
+      <span>${e.state==="busy"?`Rebuilding the links of ${e.layout}\u2026`:e.text}</span>
+      <span class="spacer"></span>
+      ${e.state==="busy"?u:t}
+    </div>`}async _rebuildLinks(e){this._rebuild={layout:e,state:"busy"};try{await this.hass.connection.sendMessagePromise({type:"cmr/rebuild_links",entry_id:this._entry.entry_id,layout:e}),this._rebuild={layout:e,state:"done",text:"Links rebuilt. Connections the controller can't see (a VPN, a switch it doesn't manage) stay yours to draw."}}catch(t){this._rebuild={layout:e,state:"error",text:t?.message??String(t)}}}_linkState(e,t){let i=a=>a?.kind==="device"?a.device.connected:a?.kind==="site"?a.site.online>0:void 0,n=i(e),o=i(t);return n===!1||o===!1?"down":n===void 0||o===void 0?"unknown":"up"}_linkInfo(e,t){let i=t.get(e.node1),n=t.get(e.node2);if(!i||!n)return;let o=e.ports,a=[i.name,n.name],d=!1,l;!o.length&&i.kind==="site"&&n.kind==="site"&&(d=!0,l=this._cableBetween(i.target,n.target),l&&(o=l.ports,a=l.names));let p=o[0],h;if(p){let v=[dt(p.a.interface),dt(p.b.interface)];h=v.includes("fiber")?"fiber":v.includes("wireless")?"wireless":v.every(f=>f==="copper")?"copper":"logical"}else h=d&&!l?"uplink":"unknown";let m;return p?.a.poe==="powered-on"?m={from:i,to:n,port:p.a.interface}:p?.b.poe==="powered-on"&&(m={from:n,to:i,port:p.b.interface}),{link:e,a:i,b:n,state:this._linkState(i,n),kind:h,ports:o,endNames:a,poe:m}}_cableBetween(e,t){let i=this._entry,n=this._memoFor(i),o=`${e}\0${t}`;if(n.cables.has(o))return n.cables.get(o);let a=new Set(this._devicesIn(i,e).map(m=>m.key)),d=new Set(this._devicesIn(i,t).map(m=>m.key)),l=new Map(i.nodes.map(m=>[`${m.layout}\0${m.name}`,m.device_key])),p=n.byKey,h;for(let m of i.links){let v=l.get(`${m.layout}\0${m.node1}`),f=l.get(`${m.layout}\0${m.node2}`);if(!v||!f)continue;let y=a.has(v)&&d.has(f);if(!y&&!(a.has(f)&&d.has(v)))continue;let[$,b]=y?[v,f]:[f,v],_=y?m.ports:m.ports.map(g=>({a:g.b,b:g.a})),w={ports:_,names:[p.get($)?.identity??$,p.get(b)?.identity??b]};(!h||_.length&&!h.ports.length)&&(h=w)}return n.cables.set(o,h),h}_renderLink(e){let{a:t,b:i,state:n,kind:o,poe:a}=e,d=`M ${t.x} ${t.y} L ${i.x} ${i.y}`,l=n==="up"&&o!=="unknown"&&o!=="logical";return A`
+      <g class="link ${n} k-${o}"
          @mouseenter=${p=>this._showLinkHover(e,p)}
          @mouseleave=${()=>this._hoverLink=void 0}>
-        <path class="hit" d=${c}></path>
-        <path class="wire" d=${c}></path>
-        ${o==="fiber"?le`<path class="core" d=${c}></path>`:h}
-        ${d?le`<path class="flow" d=${c}></path>`:h}
-        ${l&&r==="up"?le`<circle class="power" r="3.6">
+        <path class="hit" d=${d}></path>
+        <path class="wire" d=${d}></path>
+        ${o==="fiber"?A`<path class="core" d=${d}></path>`:u}
+        ${l?A`<path class="flow" d=${d}></path>`:u}
+        ${a&&n==="up"?A`<circle class="power" r="3.6">
               <animateMotion dur="2.2s" repeatCount="indefinite"
-                path=${`M ${l.from.x} ${l.from.y} L ${l.to.x} ${l.to.y}`}></animateMotion>
-            </circle>`:h}
+                path=${`M ${a.from.x} ${a.from.y} L ${a.to.x} ${a.to.y}`}></animateMotion>
+            </circle>`:u}
       </g>
-    `}_renderPorts(e){let t=e.ports[0];if(!t)return h;let{a:s,b:r}=e,o=[this._chip(s,r,t.a,e.poe?.from===s),this._chip(r,s,t.b,e.poe?.from===r)];return ki(o[0].box,o[1].box)&&(o=[this._chip(s,r,t.a,e.poe?.from===s,-1),this._chip(r,s,t.b,e.poe?.from===r,1)]),a`${o.map(l=>l.html)}`}_chip(e,t,s,r,o){let l=Ci(e.x,e.y,t.x-e.x,t.y-e.y,o?4:8),c=s.interface.length*6.6+12+(r?13:0),d=18,p=Math.abs(l.ux)>=Math.abs(l.uy),u=Math.abs(l.ux)<.35?-.5:l.ux>0?0:-1,m=Math.abs(l.uy)<.35?-.5:l.uy>0?0:-1,v=0,y=0;o&&(p?(m=o<0?-1:0,y=o*3):(u=o<0?-1:0,v=o*4));let x=l.x+u*c+v,f=l.y+m*d+y;return{box:{x0:x,y0:f,x1:x+c,y1:f+d},html:a`<div class="port m-${it(s.interface)} ${r?"poe":""}"
-        style="left:${l.x+v}px;top:${l.y+y}px;transform:translate(${u*100}%,${m*100}%)"
-        title=${r?`${s.interface}: PoE out, powers ${t.name}`:`${s.interface} (${e.name})`}>
-        ${r?a`<ha-icon icon="mdi:flash"></ha-icon>`:h}${s.interface}
-      </div>`}}_renderComment(e){let{a:t,b:s,link:r}=e;return!r.comment||e.ports.length&&this._config.show_ports?h:a`<div class="comment" style="left:${(t.x+s.x)/2}px;top:${(t.y+s.y)/2}px" title=${r.comment}>
-      ${r.comment}
-    </div>`}_showLinkHover(e,t){if(this._drag?.moved)return;let s=this.renderRoot.querySelector(".viewport");if(!s)return;let r=s.getBoundingClientRect();this._hoverLink={info:e,x:t.clientX-r.left,y:t.clientY-r.top+14}}_renderLinkTooltip(e){let{info:t}=e,{a:s,b:r,link:o,poe:l,ports:c,endNames:d}=t,p=u=>u.tx||u.rx?a`<span class="mono">↑ ${u.tx??"\u2013"} · ↓ ${u.rx??"\u2013"}</span>`:"\u2013";return a`<div class="tooltip" style="left:${Math.max(8,e.x-150)}px;top:${e.y}px">
-      <div class="tt-title">${s.name} ↔ ${r.name}</div>
-      ${o.comment?a`<div class="muted">${o.comment}</div>`:h}
+    `}_renderPorts(e){let t=e.ports[0];if(!t)return u;let{a:i,b:n}=e,o=[this._chip(i,n,t.a,e.poe?.from===i),this._chip(n,i,t.b,e.poe?.from===n)];return Yi(o[0].box,o[1].box)&&(o=[this._chip(i,n,t.a,e.poe?.from===i,-1),this._chip(n,i,t.b,e.poe?.from===n,1)]),c`${o.map(a=>a.html)}`}_chip(e,t,i,n,o){let a=Ji(e.x,e.y,t.x-e.x,t.y-e.y,o?4:8),d=i.interface.length*6.6+12+(n?13:0),l=18,p=Math.abs(a.ux)>=Math.abs(a.uy),h=Math.abs(a.ux)<.35?-.5:a.ux>0?0:-1,m=Math.abs(a.uy)<.35?-.5:a.uy>0?0:-1,v=0,f=0;o&&(p?(m=o<0?-1:0,f=o*3):(h=o<0?-1:0,v=o*4));let y=a.x+h*d+v,$=a.y+m*l+f;return{box:{x0:y,y0:$,x1:y+d,y1:$+l},html:c`<div class="port m-${dt(i.interface)} ${n?"poe":""}"
+        style="left:${a.x+v}px;top:${a.y+f}px;transform:translate(${h*100}%,${m*100}%)"
+        title=${n?`${i.interface}: PoE out, powers ${t.name}`:`${i.interface} (${e.name})`}>
+        ${n?c`<ha-icon icon="mdi:flash"></ha-icon>`:u}${i.interface}
+      </div>`}}_renderComment(e){let{a:t,b:i,link:n}=e;return!n.comment||e.ports.length&&this._config.show_ports?u:c`<div class="comment" style="left:${(t.x+i.x)/2}px;top:${(t.y+i.y)/2}px" title=${n.comment}>
+      ${n.comment}
+    </div>`}_showLinkHover(e,t){if(this._drag?.moved)return;let i=this.renderRoot.querySelector(".viewport");if(!i)return;let n=i.getBoundingClientRect();this._hoverLink={info:e,x:t.clientX-n.left,y:t.clientY-n.top+14}}_renderLinkTooltip(e){let{info:t}=e,{a:i,b:n,link:o,poe:a,ports:d,endNames:l}=t,p=h=>h.tx||h.rx?c`<span class="mono">↑ ${h.tx??"\u2013"} · ↓ ${h.rx??"\u2013"}</span>`:"\u2013";return c`<div class="tooltip" style="left:${Math.max(8,e.x-150)}px;top:${e.y}px">
+      <div class="tt-title">${i.name} ↔ ${n.name}</div>
+      ${o.comment?c`<div class="muted">${o.comment}</div>`:u}
       <table>
-        <tr><td>Medium</td><td>${Ht[t.kind]}</td></tr>
-        ${c.map(u=>a`
-            <tr><td>${d[0]}</td><td class="mono">${u.a.interface}</td></tr>
-            <tr><td>${d[1]}</td><td class="mono">${u.b.interface}</td></tr>
+        <tr><td>Medium</td><td>${Gt[t.kind]}</td></tr>
+        ${d.map(h=>c`
+            <tr><td>${l[0]}</td><td class="mono">${h.a.interface}</td></tr>
+            <tr><td>${l[1]}</td><td class="mono">${h.b.interface}</td></tr>
           `)}
-        ${l?a`<tr><td>Power</td><td><ha-icon class="inline poe" icon="mdi:flash"></ha-icon>
-              ${l.from===s?d[0]:d[1]} <span class="mono">${l.port}</span>
-              powers ${l.to===s?d[0]:d[1]}</td></tr>`:h}
-        ${c[0]?a`<tr><td>Traffic</td><td>${d[0]}: ${p(c[0].a)}<br />${d[1]}: ${p(c[0].b)}</td></tr>`:h}
+        ${a?c`<tr><td>Power</td><td><ha-icon class="inline poe" icon="mdi:flash"></ha-icon>
+              ${a.from===i?l[0]:l[1]} <span class="mono">${a.port}</span>
+              powers ${a.to===i?l[0]:l[1]}</td></tr>`:u}
+        ${d[0]?c`<tr><td>Traffic</td><td>${l[0]}: ${p(d[0].a)}<br />${l[1]}: ${p(d[0].b)}</td></tr>`:u}
       </table>
-    </div>`}_renderNode(e){let t=`left:${e.x-H/2}px;top:${e.y-G/2}px;width:${H}px;height:${G}px`;if(e.kind==="site"){let l=e.site;return a`
-        <div class="node site status-${l.status}" style=${t} role="button" tabindex="0"
-             aria-label="${e.name}, ${l.online} of ${l.total} online, open layout"
-             @click=${()=>this._open(e)} @keydown=${c=>this._onNodeKey(c,e)}
-             @mouseenter=${c=>this._showHover(e,c)} @mouseleave=${this._clearHover}
-             @focus=${c=>this._showHover(e,c)} @blur=${this._clearHover}>
-          <div class="badge"><ha-icon icon=${this._config.icons?.[e.name]??$i}></ha-icon></div>
+    </div>`}_renderNode(e){let t=`left:${e.x-H/2}px;top:${e.y-K/2}px;width:${H}px;height:${K}px`;if(e.kind==="site"){let a=e.site;return c`
+        <div class="node site status-${a.status} ${this._found&&!this._found.has(e.id)?"dim":""}" style=${t}
+             role="button" tabindex="0" aria-label="${e.name}, ${a.online} of ${a.total} online, open layout"
+             @click=${d=>this._click(e,d)} @keydown=${d=>this._onNodeKey(d,e)}
+             @mouseenter=${d=>this._showHover(e,d)} @mouseleave=${this._clearHover}
+             @focus=${d=>this._showHover(e,d)} @blur=${this._clearHover}>
+          <i class="pin"></i>
+          <div class="badge"><ha-icon icon=${this._config.icons?.[e.name]??Wi}></ha-icon></div>
           <div class="text">
             <div class="name">${e.name}</div>
-            <div class="sub"><i class="dot"></i>${l.online}/${l.total} online</div>
+            <div class="sub"><i class="dot"></i>${a.online}/${a.total} online</div>
           </div>
           <ha-icon class="chev" icon="mdi:chevron-right"></ha-icon>
         </div>
-      `}if(e.kind==="unknown"||!e.device)return a`
-        <div class="node unknown" style=${t} title="Not a CMR-managed device">
+      `}if(e.kind==="unknown"||!e.device)return c`
+        <div class="node unknown ${this._found&&!this._found.has(e.id)?"dim":""}" style=${t} title="Not a CMR-managed device">
+          <i class="pin"></i>
           <div class="badge"><ha-icon icon="mdi:help-network-outline"></ha-icon></div>
           <div class="text"><div class="name">${e.name}</div><div class="sub">Not managed</div></div>
         </div>
-      `;let s=e.device,r=$(s),o=this._lit&&!this._lit.has(s.key);return a`
-      <div class="node device status-${r} ${s.controller?"controller":""} ${o?"dim":""}" style=${t}
-           role="button" tabindex="0" aria-label="${s.identity}, ${A[r]}"
-           @click=${()=>this._open(e)} @keydown=${l=>this._onNodeKey(l,e)}
-           @mouseenter=${l=>this._showHover(e,l)} @mouseleave=${this._clearHover}
-           @focus=${l=>this._showHover(e,l)} @blur=${this._clearHover}>
-        ${Y(s)}
+      `;let i=e.device,n=C(i),o=this._lit&&!this._lit.has(i.key)||this._found&&!this._found.has(e.id);return c`
+      <div class="node device status-${n} ${i.controller?"controller":""} ${o?"dim":""}" style=${t}
+           role="button" tabindex="0" aria-label="${i.identity}, ${R[n]}"
+           @click=${a=>this._click(e,a)} @keydown=${a=>this._onNodeKey(a,e)}
+           @mouseenter=${a=>this._showHover(e,a)} @mouseleave=${this._clearHover}
+           @focus=${a=>this._showHover(e,a)} @blur=${this._clearHover}>
+        <i class="pin"></i>
+        ${Z(i)}
         <div class="text">
-          <div class="name">${s.identity}</div>
-          <div class="sub">${I(s)}</div>
-          <div class="ver mono" title=${s.update_available?`${s.version} \u2192 ${s.available_version}`:""}>
-            ${s.update_available?a`<span class="up"><ha-icon icon="mdi:arrow-up-circle"></ha-icon>${s.available_version}</span>`:s.version??"\u2013"}
+          <div class="name">${i.identity}</div>
+          <div class="sub">${F(i)}</div>
+          <div class="ver mono" title=${i.update_available?`${i.version} \u2192 ${i.available_version}`:""}>
+            ${i.update_available?c`<span class="up"><ha-icon icon="mdi:arrow-up-circle"></ha-icon>${i.available_version}</span>`:i.version??"\u2013"}
           </div>
         </div>
-        ${s.controller?a`<span class="crown" title="CMR controller"><ha-icon icon="mdi:crown-outline"></ha-icon></span>`:h}
-        ${s.alerts?.on?a`<span class="count" title="Alerts firing">${s.alerts.on}</span>`:h}
+        ${i.controller?c`<span class="crown" title="CMR controller"><ha-icon icon="mdi:crown-outline"></ha-icon></span>`:u}
+        ${i.alerts?.on?c`<span class="count" title="Active alerts">${i.alerts.on}</span>`:u}
       </div>
-    `}_renderTooltip(e){let{node:t}=e,s;if(t.kind==="site"){let r=t.site;s=a`
-        <div class="tt-title">${t.name}</div>
-        ${r.comment?a`<div class="muted">${r.comment}</div>`:h}
-        <div>${r.online} of ${r.total} devices online</div>
+    `}_renderTooltip(e,t=!1){let{node:i}=e,n;if(i.kind==="site"){let a=i.site;n=c`
+        <div class="tt-title">${i.name}</div>
+        ${a.comment?c`<div class="muted">${a.comment}</div>`:u}
+        <div>${a.online} of ${a.total} devices online</div>
         <div class="muted">Click to open this layout</div>
-      `}else if(t.device){let r=t.device;s=a`
-        <div class="tt-title">${r.identity}${r.controller?a` <span class="chip">controller</span>`:h}</div>
-        ${r.product?.image_large?a`<div class="tt-photo"><img src=${r.product.image_large} alt="" referrerpolicy="no-referrer" /></div>`:h}
-        <div class="muted">${[I(r),pe(r),r.arch].filter(Boolean).join(" \xB7 ")}</div>
+      `}else if(i.device){let a=i.device,d=this._entry,l=ct(d,a,this._memoFor(d).byKey);n=c`
+        <div class="tt-title">${a.identity}${a.controller?c` <span class="chip">controller</span>`:u}</div>
+        ${a.product?.image_large?c`<div class="tt-photo"><img src=${a.product.image_large} alt="" referrerpolicy="no-referrer" /></div>`:u}
+        <div class="muted">${[F(a),ge(a),a.arch].filter(Boolean).join(" \xB7 ")}</div>
+        ${a.product?.ports?c`${Vt(a.product,l)}<div class="muted tt-ports">${lt(a.product.ports)}</div>`:u}
         <table>
-          <tr><td>Status</td><td class="status-${$(r)}"><i class="dot"></i> ${A[$(r)]}${q(r)?` (${q(r)})`:""}${r.stale?" \xB7 stale data":""}</td></tr>
-          ${r.connected&&r.connected_time!=null?a`<tr><td>Connected</td><td>for ${ce(r.connected_time)}</td></tr>`:h}
-          <tr><td>Version</td><td class="mono">${r.version??"\u2013"}</td></tr>
-          <tr><td>Channel</td><td>${r.channel??"\u2013"}${r.available_version&&r.available_version!==r.version?a` <span class="muted">(${r.update_available?"update to":"offers"} <span class="mono">${r.available_version}</span>)</span>`:h}</td></tr>
-          ${r.address?a`<tr><td>Address</td><td class="mono">${r.address}</td></tr>`:h}
-          <tr><td>Uptime</td><td>${ce(r.uptime)}</td></tr>
-          ${r.labels.length?a`<tr><td>Labels</td><td>${r.labels.map(o=>a`<span class="chip">${o}</span> `)}</td></tr>`:h}
-          ${r.alerts?a`<tr><td>Alerts</td><td>${r.alerts.on} firing of ${r.alerts.total} rules</td></tr>`:h}
+          <tr><td>Status</td><td class="status-${C(a)}"><i class="dot"></i> ${R[C(a)]}${X(a)?` (${X(a)})`:""}${a.stale?" \xB7 stale data":""}</td></tr>
+          ${a.connected&&a.connected_time!=null?c`<tr><td>Connected</td><td>for ${me(a.connected_time)}</td></tr>`:u}
+          <tr><td>Version</td><td class="mono">${a.version??"\u2013"}</td></tr>
+          <tr><td>Channel</td><td>${a.channel??"\u2013"}${a.available_version&&a.available_version!==a.version?c` <span class="muted">(${a.update_available?"update to":"offers"} <span class="mono">${a.available_version}</span>)</span>`:u}</td></tr>
+          ${a.address?c`<tr><td>Address</td><td><span class="mono">${a.address}</span>${t&&navigator.clipboard?c`<button class="copy" title="Copy the address" @click=${()=>this._copy(a.address)}>
+                    ${this._copied?"copied":c`<ha-icon icon="mdi:content-copy"></ha-icon>`}</button>`:u}</td></tr>`:u}
+          <tr><td>Uptime</td><td>${me(a.uptime)}</td></tr>
+          ${a.labels.length?c`<tr><td>Labels</td><td>${a.labels.map(p=>c`<span class="chip">${p}</span> `)}</td></tr>`:u}
+          ${a.alerts?c`<tr><td>Alerts</td><td>${a.alerts.on} active of ${a.alerts.total} rules</td></tr>`:u}
+          ${l.length?c`<tr><td>Links</td><td>
+                ${l.slice(0,8).map(p=>c`<div>
+                    <span class="mono">${p.interface}</span>${p.poe?c` <ha-icon class="inline poe" icon="mdi:flash"></ha-icon>`:u}
+                    → ${p.peer}${p.up===!1?c` <span class="muted">(down)</span>`:u}
+                  </div>`)}
+                ${l.length>8?c`<div class="muted">and ${l.length-8} more</div>`:u}
+              </td></tr>`:u}
         </table>
-      `}else return a``;return a`<div class="tooltip" style="left:${Math.max(8,e.x)}px;top:${e.y}px">${s}</div>`}static{this.styles=[M,w`
+        ${t?this._popoverActions(a):u}
+      `}else return c``;let o=t?`;max-height:calc(100% - ${e.y+8}px)`:"";return c`<div class="tooltip ${t?"pinned":""}" style="left:${Math.max(8,e.x)}px;top:${e.y}px${o}"
+        role=${t?"dialog":u} aria-label=${t?i.name:u}>
+      ${t?c`<button class="pop-close" title="Close" @click=${()=>this._pinned=void 0}><ha-icon icon="mdi:close"></ha-icon></button>`:u}
+      ${n}
+    </div>`}_popoverActions(e){let t=this._config.views?.devices,i=e.entities;return c`<div class="pop-actions">
+      ${e.update_available&&i.update?c`<button class="pill on" @click=${()=>S(this,i.update)}><ha-icon icon="mdi:arrow-up-circle"></ha-icon>Update</button>`:u}
+      ${e.device_id?c`<button class="pill" @click=${()=>E(`/config/devices/device/${e.device_id}`)}>Device page</button>`:u}
+      ${t?c`<button class="pill" @click=${()=>E(N(t,{cmr_search:e.identity}))}>In Devices</button>`:u}
+      ${i.connected?c`<button class="pill" @click=${()=>S(this,i.connected)}>History</button>`:u}
+    </div>`}async _copy(e){try{await navigator.clipboard.writeText(e),this._copied=!0}catch{this._copied=!1}}static{this.styles=[z,Yt,k`
       .card-header { padding-bottom: 4px; flex-wrap: wrap; }
       .crumbs { display: flex; align-items: center; gap: 2px; min-width: 0; flex-wrap: wrap; }
       .title { margin-right: 8px; }
@@ -1013,7 +1126,8 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       ha-card { display: flex; flex-direction: column; }
       .viewport {
         flex: 1 1 auto;
-        position: relative; overflow: hidden; cursor: grab; touch-action: pan-y pinch-zoom;
+        /* One finger pans the map and two zoom it, as in Home Assistant's own map card. */
+        position: relative; overflow: hidden; cursor: grab; touch-action: none;
         background:
           radial-gradient(circle, var(--cmr-line) 1px, transparent 1.2px) 0 0 / 22px 22px;
         border-top: 1px solid var(--cmr-line);
@@ -1099,6 +1213,49 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
         background: var(--cmr-alert); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; padding: 0 4px;
       }
       .node.site { border-style: dashed; border-width: 1.5px; }
+
+      /* Level of detail: zoomed far out a node is a status dot of constant
+         screen size (--inv is 1/zoom), then its name only, then the card. */
+      .node .pin { display: none; }
+      .lod-dot .node { background: none; border-color: transparent; box-shadow: none; }
+      .lod-dot .node > :not(.pin) { visibility: hidden; }
+      .lod-dot .node .pin {
+        display: block; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: calc(12px * var(--inv)); height: calc(12px * var(--inv)); border-radius: 50%;
+        background: var(--status, var(--cmr-muted)); box-shadow: 0 0 0 calc(2px * var(--inv)) var(--cmr-surface);
+      }
+      .lod-dot .port, .lod-dot .comment, .lod-text .port, .lod-text .comment { display: none; }
+      .lod-text .node .badge, .lod-text .node .sub, .lod-text .node .ver, .lod-text .node .chev,
+      .lod-text .node .crown, .lod-text .node .count { display: none; }
+      /* Names only: the status dot (the same one the far zoom draws) leads the name. */
+      .lod-text .node { justify-content: center; border-color: color-mix(in srgb, var(--status, var(--cmr-line)) 45%, var(--cmr-line)); }
+      .lod-text .node .pin {
+        display: block; flex: none; width: 14px; height: 14px; border-radius: 50%;
+        background: var(--status, var(--cmr-muted));
+      }
+      .lod-text .node .name { font-size: 18px; text-align: center; }
+
+      .find {
+        position: absolute; left: 10px; top: 10px; z-index: 2; display: flex; align-items: center; gap: 6px;
+        padding: 4px 8px; border-radius: 10px; background: var(--cmr-surface); border: 1px solid var(--cmr-line);
+        color: var(--cmr-muted); --mdc-icon-size: 16px; cursor: auto;
+      }
+      .find input { all: unset; width: 130px; font-size: 13px; color: var(--primary-text-color); }
+      .find .hits { font-size: 11px; font-variant-numeric: tabular-nums; }
+      .controls .problems { color: var(--cmr-alert); }
+
+      .tooltip.pinned { pointer-events: auto; z-index: 4; overflow: auto; cursor: auto; box-sizing: border-box; }
+      .pop-close {
+        all: unset; cursor: pointer; position: absolute; top: 6px; right: 6px; line-height: 0; padding: 3px;
+        border-radius: 50%; color: var(--cmr-muted); --mdc-icon-size: 18px;
+      }
+      .pop-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
+      .pop-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; --mdc-icon-size: 16px; }
+      .copy {
+        all: unset; cursor: pointer; margin-left: 6px; color: var(--cmr-muted); font-size: 11px;
+        --mdc-icon-size: 14px; vertical-align: -2px;
+      }
+      .copy:hover { color: var(--primary-text-color); }
       .node.site .chev { color: var(--cmr-muted); --mdc-icon-size: 20px; }
       .node.unknown { opacity: 0.6; cursor: default; }
       .node.dim { opacity: 0.18; filter: grayscale(1); }
@@ -1110,6 +1267,14 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       .hl > ha-icon { color: var(--cmr-alert); }
       .hl-close { all: unset; cursor: pointer; line-height: 0; color: var(--cmr-muted); border-radius: 50%; padding: 2px; }
       .hl-close:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
+      .hl.rebuild { background: var(--cmr-surface-2); }
+      .hl.rebuild > ha-icon { color: var(--cmr-muted); }
+      .hl.rebuild.error > ha-icon { color: var(--cmr-offline); }
+      .tool {
+        all: unset; cursor: pointer; line-height: 0; padding: 5px; border-radius: 8px;
+        color: var(--cmr-muted); --mdc-icon-size: 18px;
+      }
+      .tool:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
 
       .tooltip {
         position: absolute; z-index: 3; width: 300px; padding: 10px 12px; border-radius: 12px;
@@ -1126,6 +1291,7 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       .tooltip td { padding: 2px 0; vertical-align: top; }
       .tooltip td:first-child { color: var(--cmr-muted); width: 1%; white-space: nowrap; padding-right: 12px; }
       .tooltip td i.dot { display: inline-block; }
+      .tt-ports { text-align: center; font-size: 11px; }
 
       .controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 4px; }
       .controls button {
@@ -1144,55 +1310,84 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       .wire-sample.k-wireless { border-top: 3px dotted var(--cmr-update); }
       .wire-sample.k-unknown { border-top: 2.5px dashed var(--cmr-muted); }
       .poe-sample { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--cmr-poe); box-shadow: 0 0 4px var(--cmr-poe); }
-      @media (max-width: 600px) { .legend { font-size: 10px; gap: 2px 8px; max-width: calc(100% - 64px); } }
-    `]}};var Ei={done:"mdi:check-circle",failed:"mdi:close-circle",processing:"mdi:progress-upload","version check":"mdi:magnify","waiting devices":"mdi:timer-sand",queued:"mdi:tray-full","queued (busy)":"mdi:tray-full",scheduled:"mdi:calendar-clock",cancelled:"mdi:cancel"},Nt=new Set(["processing","version check","waiting devices","queued","queued (busy)"]);function st(n){return(n??"").split(",").map(i=>i.trim()).filter(Boolean)}function Si(n){let[i,e]=(n.success??"").split("/").map(Number);return n.state==="done"&&e&&i<e?"failed":n.state??"scheduled"}function Ai(n){return(n??"").replace(/([a-z])(\d)/g,"$1 $2")}var He=class extends S{setConfig(i){this._config={jobs:5,...i}}static getConfigForm(){return{schema:[z,{name:"title",selector:{text:{}}},{name:"jobs",selector:{number:{min:0,max:30,mode:"box"}}}],computeLabel:L({entry_id:"Controller",title:"Title",jobs:"Recent jobs to show"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:4}}getCardSize(){return 6}render(){let i=this._entry;if(!i)return this.renderWaiting();let e=i.devices.filter(r=>r.update_available).length,t=i.upgrade_rules.filter(r=>r.dynamic!=="true"||i.devices.some(o=>o.upgrade_rule===r.name)),s=[...i.upgrade_jobs].sort((r,o)=>(o.schedule_time??"").localeCompare(r.schedule_time??"")).slice(0,this._config.jobs??5);return a`
+      @media (max-width: 600px) {
+        .legend { font-size: 10px; gap: 2px 8px; max-width: calc(100% - 64px); }
+        .find input { width: 84px; }
+      }
+    `]}};var Gi=12,Xi={done:"mdi:check-circle",failed:"mdi:close-circle",processing:"mdi:progress-upload","version check":"mdi:magnify","waiting devices":"mdi:timer-sand",queued:"mdi:tray-full","queued (busy)":"mdi:tray-full",scheduled:"mdi:calendar-clock",cancelled:"mdi:cancel"},ut=new Set(["processing","version check","waiting devices","queued","queued (busy)"]),Zi=new Set([...ut,"scheduled"]),Qi=new Set(["processing","version check","waiting devices"]);function pt(r){return(r??"").split(",").map(s=>s.trim()).filter(Boolean)}function es(r){let[s,e]=(r.success??"").split("/").map(Number);return r.state==="done"&&e&&s<e?"failed":r.state??"scheduled"}function ts(r){return(r??"").replace(/([a-z])(\d)/g,"$1 $2")}var Fe=class extends T{constructor(){super();this._jobDevices=new xe(()=>this.requestUpdate());this._open="",this._outcome={}}static{this.properties={_open:{state:!0},_confirm:{state:!0},_outcome:{state:!0}}}setConfig(e){this._config={jobs:5,...e}}static getConfigForm(){return{schema:[O,{name:"title",selector:{text:{}}},{name:"jobs",selector:{number:{min:0,max:30,mode:"box"}}}],computeLabel:D({entry_id:"Controller",title:"Title",jobs:"Recent jobs to show"})}}getGridOptions(){return{columns:"full",rows:"auto",min_columns:4}}getCardSize(){return 6}render(){let e=this._entry;if(!e)return this.renderWaiting();let t=e.devices.filter(o=>o.update_available).length,i=e.upgrade_rules.filter(o=>o.dynamic!=="true"||e.devices.some(a=>a.upgrade_rule===o.name)),n=[...e.upgrade_jobs].sort((o,a)=>(a.schedule_time??"").localeCompare(o.schedule_time??"")).slice(0,this._config.jobs??5);return c`
       <ha-card>
         <div class="card-header">
           <ha-icon icon="mdi:update"></ha-icon>
           <span>${this._config.title??"Upgrades"}</span>
-          ${e?a`<span class="chip update">${e} available</span>`:a`<span class="chip">up to date</span>`}
+          ${t?c`<span class="chip update">${t} available</span>`:c`<span class="chip">up to date</span>`}
         </div>
-        ${this.renderStale(i)}
+        ${this.renderStale(e)}
 
-        ${t.length?t.map(r=>this._rule(i,r)):a`<div class="empty small">No upgrade rules. Devices are checked against their channel only.</div>`}
+        ${i.length?i.map(o=>this._rule(e,o)):c`<div class="empty small">No upgrade rules. Devices are checked against their channel only.</div>`}
 
-        ${s.length?a`<div class="section section-label">Recent jobs</div>
-              <div class="jobs">
-                ${s.map(r=>{let o=Si(r),l=o==="failed"?"failed":Nt.has(o)?"running":o==="scheduled"?"scheduled":o==="done"?"done":"other",c=o==="scheduled"&&r.starts_in?`starts in ${Ai(r.starts_in)}`:`${r.schedule_time??""}${r.run_time?` \xB7 took ${r.run_time}`:""}`;return a`<div class="job js-${l}">
-                    <ha-icon icon=${Ei[o]??"mdi:circle-outline"} title=${o}></ha-icon>
-                    <div class="what">
-                      <div><span class="mono">${r.channel??"?"}</span> → ${st(r.labels).join(", ")||"all"}
-                        ${Nt.has(o)?a`<span class="chip update">${o}</span>`:h}</div>
-                      <div class="muted small">${c}</div>
-                    </div>
-                    <div class="ok mono">${r.success||(o==="scheduled"?"":"\u2013")}</div>
-                  </div>`})}
-              </div>`:h}
+        ${n.length?c`<div class="section section-label">Recent jobs</div>
+              <div class="jobs">${n.map(o=>this._job(e,o))}</div>`:u}
       </ha-card>
-    `}_rule(i,e){let t=i.devices.filter(c=>c.upgrade_rule===e.name),s=st(e.order),r=s.length?s.map(c=>({label:c,devices:t.filter(d=>d.labels.includes(c))})):[{label:st(e.labels).join(", ")||"all",devices:t}],o=new Set(r.flatMap(c=>c.devices.map(d=>d.key))),l=t.filter(c=>!o.has(c.key));return l.length&&r.push({label:"other",devices:l}),a`
+    `}_job(e,t){let i=es(t),n=i==="failed"?"failed":ut.has(i)?"running":i==="scheduled"?"scheduled":i==="done"?"done":"other",o=i==="scheduled"&&t.starts_in?`starts in ${ts(t.starts_in)}`:`${t.schedule_time??""}${t.run_time?` \xB7 took ${t.run_time}`:""}`,a=!!t.id&&this._open===t.id,d=()=>{t.id&&(this._open=a?"":t.id,this._confirm=void 0)};return c`<div class="job js-${n} ${t.id?"opens":""} ${a?"open":""}" role="button" tabindex="0"
+        aria-expanded=${a?"true":"false"} @click=${d}
+        @keydown=${l=>(l.key==="Enter"||l.key===" ")&&(l.preventDefault(),d())}>
+        <ha-icon icon=${Xi[i]??"mdi:circle-outline"} title=${i}></ha-icon>
+        <div class="what">
+          <div><span class="mono">${t.channel??"?"}</span> → ${pt(t.labels).join(", ")||"all"}
+            ${ut.has(i)?c`<span class="chip update">${i}</span>`:u}</div>
+          <div class="muted small">${o}</div>
+        </div>
+        <div class="ok mono">${t.success||(i==="scheduled"?"":"\u2013")}</div>
+        ${t.id?c`<ha-icon class="chev" icon=${a?"mdi:chevron-up":"mdi:chevron-down"}></ha-icon>`:u}
+      </div>
+      ${a?this._jobDetail(e,t,i):u}`}_jobDetail(e,t,i){let n=this._jobDevices.get(this.hass,e.entry_id,t),o=new Map(e.devices.map(m=>[m.key,m])),a;n==="loading"?a=c`<div class="muted small">Loading the job's devices…</div>`:n==="unsupported"?a=c`<div class="muted small">This controller can't list a job's devices.</div>`:n==="error"?a=c`<div class="muted small">The job's devices couldn't be read.</div>`:n.length?a=c`${n.map(m=>this._jobDevice(m,o.get(m.device_key??"")))}
+        ${n.some(m=>m.error==="no upgrade available")?c`<div class="muted small note">CMR counts <i>no upgrade available</i> as a failed upgrade: the
+              device already ran the target version, or that version's packages weren't found.</div>`:u}`:a=c`<div class="muted small">${i==="scheduled"?"The controller lists the devices when the job starts.":"No devices."}</div>`;let d=t.state??"scheduled",l=[];e.actions&&this.hass.user?.is_admin&&(d==="scheduled"&&l.push("run_next"),Zi.has(d)&&l.push("cancel"));let p=this._outcome[t.id],h=this._confirm?.job===t.id?this._confirm.action:void 0;return c`<div class="job-detail">
+      ${a}
+      ${h?c`<div class="confirm">
+            <span>${h==="run_next"?"Run this job now? It starts as a new job, and this one stays scheduled.":Qi.has(d)?"Stop this job? Devices not upgraded yet are marked cancelled; an install already under way can still finish when its device reboots.":"Cancel this job?"}</span>
+            <button class="pill on" @click=${()=>this._act(e,t.id,h)}>
+              ${h==="run_next"?"Run now":"Cancel job"}</button>
+            <button class="pill" @click=${()=>this._confirm=void 0}>Back</button>
+          </div>`:l.length&&p!=="busy"?c`<div class="actions">
+              ${l.map(m=>c`<button class="pill" @click=${()=>this._confirm={job:t.id,action:m}}>
+                ${m==="run_next"?"Run now":"Cancel job"}</button>`)}
+            </div>`:u}
+      ${p?c`<div class="muted small">${p==="busy"?"Sending\u2026":p}</div>`:u}
+    </div>`}_jobDevice(e,t){let i=e.error?"failed":e.state==="done"?"done":e.state==="cancelled"?"other":"running",n={failed:"mdi:alert-circle",done:"mdi:check-circle",other:"mdi:cancel",running:"mdi:progress-clock"}[i],o=e.upgrade_version&&e.upgrade_version!==e.current_version?`${e.current_version??"?"} \u2192 ${e.upgrade_version}`:e.current_version??"";return c`<div class="jd js-${i}">
+      <ha-icon icon=${n}></ha-icon>
+      ${t?.entities.update?c`<button class="name" @click=${()=>S(this,t.entities.update)}>${e.identity}</button>`:c`<span class="name">${e.identity}</span>`}
+      <span class="mono muted">${o}</span>
+      <span class="chip">${e.state??"?"}</span>
+      ${e.error?c`<span class="reason">${e.error}</span>`:u}
+    </div>`}async _act(e,t,i){this._confirm=void 0,this._outcome={...this._outcome,[t]:"busy"};let n;try{await Ht(this.hass,e.entry_id,t,i),n=i==="run_next"?"Started as a new job.":"Job removed; the list updates on the next poll."}catch(o){n=o?.message??String(o)}this._outcome={...this._outcome,[t]:n}}_rule(e,t){let i=e.devices.filter(l=>l.upgrade_rule===t.name),n=pt(t.order),o=n.length?n.map(l=>({label:l,devices:i.filter(p=>p.labels.includes(l))})):[{label:pt(t.labels).join(", ")||"all",devices:i}],a=new Set(o.flatMap(l=>l.devices.map(p=>p.key))),d=i.filter(l=>!a.has(l.key));return d.length&&o.push({label:"other",devices:d}),c`
       <div class="rule">
         <div class="rule-head">
-          <b>${e.name}</b>
+          <b>${t.name}</b>
           <span class="muted small">
-            ${[e.channel&&`channel ${e.channel}`,e.strategy,e.fail_policy&&`on failure: ${e.fail_policy}`].filter(Boolean).join(" \xB7 ")}
+            ${[t.channel&&`channel ${t.channel}`,t.strategy,t.fail_policy&&`on failure: ${t.fail_policy}`].filter(Boolean).join(" \xB7 ")}
           </span>
         </div>
-        ${e.comment?a`<div class="muted small comment">${e.comment}</div>`:h}
+        ${t.comment?c`<div class="muted small comment">${t.comment}</div>`:u}
         <div class="pipeline">
-          ${r.map((c,d)=>a`
-              ${d?a`<ha-icon class="arrow" icon="mdi:chevron-right"></ha-icon>`:h}
+          ${o.map((l,p)=>c`
+              ${p?c`<ha-icon class="arrow" icon="mdi:chevron-right"></ha-icon>`:u}
               <div class="step">
-                <div class="step-label"><span class="n">${d+1}</span>${c.label}</div>
-                <div class="devs">
-                  ${c.devices.map(p=>a`<button class="dev status-${$(p)}" title="${p.identity} · ${p.version}"
-                      @click=${()=>P(this,p.entities.update)}><ha-icon icon=${Q(p)}></ha-icon></button>`)}
-                  ${c.devices.length?h:a`<span class="muted small">none</span>`}
-                </div>
+                <div class="step-label"><span class="n">${p+1}</span>${l.label}</div>
+                ${l.devices.length>Gi?this._summary(l.devices):c`<div class="devs">
+                      ${l.devices.map(h=>c`<button class="dev status-${C(h)}" title="${h.identity} · ${h.version}"
+                          @click=${()=>S(this,h.entities.update)}><ha-icon icon=${se(h)}></ha-icon></button>`)}
+                      ${l.devices.length?u:c`<span class="muted small">none</span>`}
+                    </div>`}
               </div>
             `)}
         </div>
       </div>
-    `}static{this.styles=[M,w`
+    `}_summary(e){let t=new Map,i=0;for(let o of e){!o.connected&&!o.controller&&i++;let a=o.version??"?",d=o.update_available?o.available_version??void 0:void 0,l=`${a}\0${d??""}`,p=t.get(l)??{from:a,to:d,count:0};p.count++,t.set(l,p)}let n=this._config.views?.devices;return c`<div class="summary">
+      ${[...t.values()].sort((o,a)=>a.count-o.count||o.from.localeCompare(a.from)).map(o=>{let a=c`<b>${o.count}×</b> <span class="mono">${o.from}${o.to?` \u2192 ${o.to}`:""}</span>`,d=`trans ${o.to?"status-update":"status-ok"}`;return n?c`<button class=${d} title="Show these devices"
+                @click=${()=>E(N(n,{cmr_version:o.from}))}>${a}</button>`:c`<span class=${d}>${a}</span>`})}
+      ${i?c`<span class="trans status-offline"><b>${i}</b> offline</span>`:u}
+    </div>`}static{this.styles=[z,k`
       .rule { margin: 0 12px 10px; padding: 10px 12px; border-radius: 12px; background: var(--cmr-surface-2); }
       .rule-head { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
       .comment { margin-top: 2px; }
@@ -1206,10 +1401,34 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
         all: unset; cursor: pointer; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
         background: color-mix(in srgb, var(--status) 14%, transparent); color: var(--status); --mdc-icon-size: 16px;
       }
+      .summary { display: flex; flex-wrap: wrap; gap: 4px; }
+      .trans {
+        all: unset; font-size: 12px; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+        background: color-mix(in srgb, var(--status) 14%, transparent);
+      }
+      button.trans { cursor: pointer; }
+      button.trans:hover { background: color-mix(in srgb, var(--status) 24%, transparent); }
       .section { padding: 4px 16px 4px; }
       .jobs { padding: 0 8px 10px; }
       .job { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-size: 13px; }
       .job ha-icon { --mdc-icon-size: 20px; }
+      .job.opens { cursor: pointer; }
+      .job.opens:hover, .job.open { background: var(--cmr-surface-2); }
+      .job .chev { color: var(--cmr-muted); --mdc-icon-size: 18px; }
+      .job-detail { margin: 2px 8px 8px 38px; display: grid; gap: 4px; font-size: 12.5px; }
+      .jd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+      .jd ha-icon { --mdc-icon-size: 16px; }
+      .jd .name { all: unset; font-weight: 500; }
+      .jd button.name { cursor: pointer; }
+      .jd button.name:hover { text-decoration: underline; }
+      .jd .reason { color: var(--cmr-alert); }
+      .js-done.jd ha-icon { color: var(--cmr-ok); }
+      .js-failed.jd ha-icon { color: var(--cmr-alert); }
+      .js-running.jd ha-icon { color: var(--cmr-update); }
+      .js-other.jd ha-icon { color: var(--cmr-muted); }
+      .note { margin-top: 2px; }
+      .actions, .confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; }
+      .confirm span { flex: 1 1 220px; }
       .js-done ha-icon { color: var(--cmr-ok); }
       .js-failed ha-icon { color: var(--cmr-alert); }
       .js-running ha-icon { color: var(--cmr-update); }
@@ -1217,4 +1436,4 @@ ${i}`}]}]}}var Te=class extends HTMLElement{static getCreateSuggestions(){return
       .js-other ha-icon { color: var(--cmr-muted); }
       .what { flex: 1; min-width: 0; }
       .ok { font-size: 12px; color: var(--cmr-muted); }
-    `]}};var It="https://github.com/trakais/ha-cmr",Ot=[["cmr-status-card",Me,"CMR status","Controller, devices online, updates and alerts at a glance."],["cmr-topology-card",ze,"CMR topology","Live network map drawn from the controller's CMR layouts."],["cmr-fleet-card",Pe,"CMR devices","Every managed device with model, version, uptime and labels."],["cmr-alerts-card",Ee,"CMR alerts","Alert rules, what is firing, and pushing alerts to Home Assistant."],["cmr-upgrades-card",He,"CMR upgrades","Upgrade rules as a rollout pipeline, plus recent jobs."],["cmr-events-card",Ae,"CMR events","Network timeline from the controller's log and changes, with detected issues."]];function Pi(){for(let[n,i]of Ot)customElements.get(n)||customElements.define(n,i);customElements.get("ll-strategy-dashboard-cmr")||customElements.define("ll-strategy-dashboard-cmr",Te),customElements.get("cmr-strategy-editor")||customElements.define("cmr-strategy-editor",Re)}function Ut(n,i=0){if(customElements.get("home-assistant")||i>=15e3){n();return}setTimeout(()=>Ut(n,i+25),25)}Ut(Pi);window.customCards=window.customCards||[];for(let[n,,i,e]of Ot)window.customCards.some(t=>t.type===n)||window.customCards.push({type:n,name:i,description:e,preview:!1,documentationURL:It});window.customStrategies=window.customStrategies||[];window.customStrategies.some(n=>n.type==="cmr")||window.customStrategies.push({type:"cmr",strategyType:"dashboard",name:"MikroTik CMR network",description:"A complete network dashboard generated from your MikroTik CMR controller: status, topology, devices, alerts and upgrades.",documentationURL:It});var rt=performance.getEntriesByType("resource").find(n=>n.name.includes("/cmr_static/cmr.js")),Li=rt?`fetched ${Math.round(rt.startTime)}\u2013${Math.round(rt.responseEnd)} ms, `:"";console.info("%c CMR %c cards loaded ","background:#3a6ea5;color:#fff;border-radius:3px 0 0 3px","background:#ddd;color:#333;border-radius:0 3px 3px 0",`${Li}script ran at ${Math.round(performance.now())} ms`);var Mi="Timeout waiting for strategy element ll-strategy-dashboard-cmr",nt="cmr-strategy-reloaded";function ot(n,i=0){if(i>12)return!1;if(n instanceof Element&&n.shadowRoot&&ot(n.shadowRoot,i+1))return!0;for(let e of Array.from(n.children))if(!(e.tagName==="SCRIPT"||e.tagName==="STYLE")&&(e.children.length===0&&e.textContent?.includes(Mi)||ot(e,i+1)))return!0;return!1}function jt(n=0){if(!ot(document)){if(n<6)setTimeout(()=>jt(n+1),2e3);else try{sessionStorage.removeItem(nt)}catch{}return}let i=!1;try{i=sessionStorage.getItem(nt)===location.pathname,sessionStorage.setItem(nt,location.pathname)}catch{i=n>0}if(i){console.warn("cmr: the dashboard strategy timed out again after a reload; not retrying");return}console.warn("cmr: the dashboard strategy timed out before this script registered it; reloading once"),location.reload()}jt();
+    `]}};var Xt="https://github.com/trakais/ha-cmr",Zt=[["cmr-status-card",He,"CMR status","Controller, devices online, updates and alerts at a glance."],["cmr-topology-card",Ue,"CMR topology","Live network map drawn from the controller's CMR layouts."],["cmr-fleet-card",De,"CMR devices","Every managed device with model, version, uptime and labels."],["cmr-alerts-card",Le,"CMR alerts","Alert rules, which are active, and pushing alerts to Home Assistant."],["cmr-upgrades-card",Fe,"CMR upgrades","Upgrade rules as a rollout pipeline, plus recent jobs."],["cmr-events-card",Re,"CMR events","Network timeline from the controller's log and changes, with detected issues."]];function is(){for(let[r,s]of Zt)customElements.get(r)||customElements.define(r,s);customElements.get("ll-strategy-dashboard-cmr")||customElements.define("ll-strategy-dashboard-cmr",Ne),customElements.get("cmr-strategy-editor")||customElements.define("cmr-strategy-editor",Ie)}function Qt(r,s=0){if(customElements.get("home-assistant")||s>=15e3){r();return}setTimeout(()=>Qt(r,s+25),25)}Qt(is);window.customCards=window.customCards||[];for(let[r,,s,e]of Zt)window.customCards.some(t=>t.type===r)||window.customCards.push({type:r,name:s,description:e,preview:!1,documentationURL:Xt});window.customStrategies=window.customStrategies||[];window.customStrategies.some(r=>r.type==="cmr")||window.customStrategies.push({type:"cmr",strategyType:"dashboard",name:"MikroTik CMR network",description:"A complete network dashboard generated from your MikroTik CMR controller: status, topology, devices, alerts and upgrades.",documentationURL:Xt});var ht=performance.getEntriesByType("resource").find(r=>r.name.includes("/cmr_static/cmr.js")),ss=ht?`fetched ${Math.round(ht.startTime)}\u2013${Math.round(ht.responseEnd)} ms, `:"";console.info("%c CMR %c cards loaded ","background:#3a6ea5;color:#fff;border-radius:3px 0 0 3px","background:#ddd;color:#333;border-radius:0 3px 3px 0",`${ss}script ran at ${Math.round(performance.now())} ms`);var ns="Timeout waiting for strategy element ll-strategy-dashboard-cmr",mt="cmr-strategy-reloaded";function vt(r,s=0){if(s>12)return!1;if(r instanceof Element&&r.shadowRoot&&vt(r.shadowRoot,s+1))return!0;for(let e of Array.from(r.children))if(!(e.tagName==="SCRIPT"||e.tagName==="STYLE")&&(e.children.length===0&&e.textContent?.includes(ns)||vt(e,s+1)))return!0;return!1}function ei(r=0){if(!vt(document)){if(r<6)setTimeout(()=>ei(r+1),2e3);else try{sessionStorage.removeItem(mt)}catch{}return}let s=!1;try{s=sessionStorage.getItem(mt)===location.pathname,sessionStorage.setItem(mt,location.pathname)}catch{s=r>0}if(s){console.warn("cmr: the dashboard strategy timed out again after a reload; not retrying");return}console.warn("cmr: the dashboard strategy timed out before this script registered it; reloading once"),location.reload()}ei();

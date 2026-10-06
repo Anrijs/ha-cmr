@@ -3,12 +3,15 @@
 `cmr/subscribe` streams one structured snapshot per controller
 (devices with their Home Assistant entity ids, alert rules, upgrade rules and
 jobs, and the topology layouts) and resends it after every poll, so the cards
-never need hard-coded entity ids.
+never need hard-coded entity ids. Layouts and nodes (the bulk on a big fleet)
+go to each subscriber only when they changed; `topology_version` tells.
 """
 
 from __future__ import annotations
 
 from dataclasses import asdict
+import hashlib
+import json
 from typing import Any
 
 import voluptuous as vol
@@ -18,9 +21,11 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
-from .api import CmrApiError
+from .actions import async_cancel_job, async_job_devices, async_rebuild_links, async_run_next
+from .api import CmrApiError, CmrNotFoundError
 from .const import DOMAIN
-from .coordinator import CmrConfigEntry
+from .coordinator import CmrConfigEntry, CmrCoordinator
+from .models import parse_job_devices
 from .pairing import async_pair
 from .webhook import (
     alert_setup_script,
@@ -57,6 +62,9 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_alert_setup)
     websocket_api.async_register_command(hass, ws_alert_push)
     websocket_api.async_register_command(hass, ws_pair)
+    websocket_api.async_register_command(hass, ws_rebuild_links)
+    websocket_api.async_register_command(hass, ws_job_devices)
+    websocket_api.async_register_command(hass, ws_job_action)
     websocket_api.async_register_command(hass, ws_alert_devices)
     websocket_api.async_register_command(hass, ws_issue_dismiss)
 
@@ -68,6 +76,29 @@ def _loaded_entries(hass: HomeAssistant, entry_id: str | None) -> list[CmrConfig
         if entry.state is ConfigEntryState.LOADED
         and (entry_id is None or entry.entry_id == entry_id)
     ]
+
+
+# Parts of the snapshot that change only when someone edits a layout. Links
+# stay in every message: they carry live traffic counters and PoE state.
+_STATIC_TOPOLOGY = ("layouts", "nodes")
+
+
+def topology_version(topology: dict[str, Any]) -> str:
+    """A short hash of the layouts and nodes, to send them only when they changed."""
+    return hashlib.sha256(json.dumps(topology, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def _acting_coordinator(connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> CmrCoordinator | None:
+    """The coordinator a card asks to act on, or None after sending the error."""
+    entries = _loaded_entries(connection.hass, msg["entry_id"])
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return None
+    coordinator = entries[0].runtime_data
+    if not coordinator.allow_upgrades:
+        connection.send_error(msg["id"], "not_allowed", "Actions on the controller are not allowed in the options")
+        return None
+    return coordinator
 
 
 def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any]:
@@ -85,23 +116,30 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
         return device.id if device else None
 
     catalog = coordinator.catalog
+    # Each catalog product once per controller; devices name theirs by code.
+    products: dict[str, dict[str, Any]] = {}
+
+    matched: dict[str, dict[str, Any] | None] = {}
+    for device in snapshot.devices.values():
+        product = catalog.product_for(device) if catalog else None
+        matched[device.key] = product
+        if product:
+            products.setdefault(product["code"], {k: v for k, v in product.items() if k != "ambiguous"})
+
     out_devices = [
         {
             "key": d.key,
             "identity": d.identity,
-            "serial": d.serial,
             "board": d.board,
             "model_code": d.model_code,
             "arch": d.arch,
             "version": d.version,
             "available_version": d.available_version,
             "update_available": d.update_available,
-            "minimum_version": d.minimum_version,
             "channel": d.channel,
             "upgrade_rule": d.upgrade_rule,
             "address": d.address,
             "labels": d.labels,
-            "packages": d.packages,
             "uptime": d.uptime,
             "connected_time": d.connected_time,
             # The controller's own timestamp (its local time), when disconnected.
@@ -110,11 +148,12 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "connected": d.connected,
             "pending": d.pending,
             "remote_pending": d.remote_pending,
-            "inactive": d.inactive,
             "stale": d.stale,
             "alerts": asdict(d.alerts) if d.alerts else None,
             "device_id": device_id(d.key),
-            "product": catalog.product_for(d) if catalog else None,
+            "product": (matched[d.key] or {}).get("code"),
+            # Several catalog variants fit: the photo is right, the name a guess.
+            "product_ambiguous": bool((matched[d.key] or {}).get("ambiguous")),
             "entities": {
                 name: entity_id(platform, f"{d.key}_{name}")
                 for name, platform in _DEVICE_ENTITIES.items()
@@ -134,7 +173,10 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "devices": rule.devices,
             "devices_on": rule.devices_on,
             "fired": rule.fired,
-            "action_failures": rule.action_failures,
+            # state: stays active while it matches; event: fires per occurrence, never active.
+            "kind": rule.kind,
+            # system: about the controller as a whole (a finished upgrade job), not a device.
+            "scope": rule.scope,
             "disabled": rule.disabled,
             "webhook": rule.webhook_url is not None,
             "webhook_ha": pushes_to_home_assistant(rule.webhook_url, entry.data["webhook_id"]),
@@ -153,14 +195,12 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
                 "x": node.x,
                 "y": node.y,
                 "target_layout": node.target_layout,
-                "device_ref": node.device_ref,
                 "device_key": device.key if device else None,
             }
         )
     return {
         "entry_id": entry.entry_id,
         "title": entry.title,
-        "controller_key": controller_key,
         "controller_url": coordinator.api.base_url,
         "last_update": coordinator.last_poll.isoformat() if coordinator.last_poll else None,
         "available": coordinator.last_update_success,
@@ -173,16 +213,17 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             for name, platform in _FLEET_ENTITIES.items()
         },
         "devices": out_devices,
+        "products": products,
         "alerts": out_alerts,
         "upgrade_rules": [
             {k.replace("-", "_"): v for k, v in rule.items() if not k.startswith(".")}
             for rule in snapshot.upgrade_rules
         ],
         "upgrade_jobs": [
-            {k.replace("-", "_"): v for k, v in job.items() if not k.startswith(".")}
+            {"id": job.get(".id"), **{k.replace("-", "_"): v for k, v in job.items() if not k.startswith(".")}}
             for job in snapshot.upgrade_jobs
         ],
-        "layouts": [asdict(layout) for layout in snapshot.layouts],
+        "layouts": [{"name": layout.name, "comment": layout.comment} for layout in snapshot.layouts],
         "nodes": nodes,
         "links": [
             {
@@ -208,20 +249,21 @@ def ws_subscribe(
     """Send the snapshot now and after every poll."""
     entry_id = msg.get("entry_id")
     msg_id = msg["id"]
+    # Topology version each controller's layouts and nodes were last sent at.
+    sent: dict[str, str] = {}
 
     @callback
     def send() -> None:
-        connection.send_message(
-            websocket_api.event_message(
-                msg_id,
-                {
-                    "entries": [
-                        serialize_entry(hass, entry)
-                        for entry in _loaded_entries(hass, entry_id)
-                    ]
-                },
-            )
-        )
+        entries = []
+        for entry in _loaded_entries(hass, entry_id):
+            data = serialize_entry(hass, entry)
+            topology = {key: data.pop(key) for key in _STATIC_TOPOLOGY}
+            data["topology_version"] = version = topology_version(topology)
+            if sent.get(entry.entry_id) != version:
+                data.update(topology)
+                sent[entry.entry_id] = version
+            entries.append(data)
+        connection.send_message(websocket_api.event_message(msg_id, {"entries": entries}))
 
     unsubscribers = [
         entry.runtime_data.async_add_listener(send)
@@ -317,6 +359,90 @@ async def ws_pair(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
     await coordinator.async_request_refresh()
 
 
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {vol.Required("type"): "cmr/rebuild_links", vol.Required("entry_id"): str, vol.Required("layout"): str}
+)
+@websocket_api.async_response
+async def ws_rebuild_links(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Generate a layout's links from detected ports (the map's Rebuild links button)."""
+    coordinator = _acting_coordinator(connection, msg)
+    if coordinator is None:
+        return
+    layout = next((item for item in coordinator.data.layouts if item.name == msg["layout"]), None)
+    if layout is None:
+        connection.send_error(msg["id"], "no_layout", f"No layout named {msg['layout']}")
+        return
+    try:
+        await async_rebuild_links(coordinator.api, layout.rest_id)
+    except CmrApiError as err:
+        connection.send_error(msg["id"], "rebuild_failed", err.detail)
+        return
+    connection.send_result(msg["id"], {"layout": layout.name})
+    await coordinator.async_request_refresh()
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "cmr/job_devices", vol.Required("entry_id"): str, vol.Required("job_id"): str}
+)
+@websocket_api.async_response
+async def ws_job_devices(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """An upgrade job's devices with CMR's state and reason for each (read-only)."""
+    entries = _loaded_entries(hass, msg["entry_id"])
+    if not entries:
+        connection.send_error(msg["id"], "not_found", "Controller not loaded")
+        return
+    coordinator = entries[0].runtime_data
+    if not any(job.get(".id") == msg["job_id"] for job in coordinator.data.upgrade_jobs):
+        connection.send_error(msg["id"], "no_job", "No such upgrade job")
+        return
+    try:
+        rows = await async_job_devices(coordinator.api, msg["job_id"])
+    except CmrApiError as err:
+        # Builds without show-devices answer "no such command" or reject the argument.
+        unsupported = isinstance(err, CmrNotFoundError) or "unknown parameter" in err.detail
+        connection.send_error(msg["id"], "unsupported" if unsupported else "failed", err.detail)
+        return
+    connection.send_result(msg["id"], {"devices": [asdict(row) for row in parse_job_devices(rows, coordinator.data)]})
+
+
+# Job states in which a job can still be cancelled (removed).
+_CANCELLABLE = {"scheduled", "queued", "queued (busy)", "waiting devices", "version check", "processing"}
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "cmr/job_action",
+        vol.Required("entry_id"): str,
+        vol.Required("job_id"): str,
+        vol.Required("action"): vol.In(["cancel", "run_next"]),
+    }
+)
+@websocket_api.async_response
+async def ws_job_action(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Cancel an upgrade job, or run a scheduled one now (the upgrades card)."""
+    coordinator = _acting_coordinator(connection, msg)
+    if coordinator is None:
+        return
+    job = next((job for job in coordinator.data.upgrade_jobs if job.get(".id") == msg["job_id"]), None)
+    state = (job or {}).get("state") or "scheduled"
+    allowed = state == "scheduled" if msg["action"] == "run_next" else state in _CANCELLABLE
+    if job is None or not allowed:
+        connection.send_error(msg["id"], "not_allowed_now", f"Not possible for a job that is {state}")
+        return
+    try:
+        if msg["action"] == "cancel":
+            await async_cancel_job(coordinator.api, msg["job_id"])
+        else:
+            await async_run_next(coordinator.api, msg["job_id"])
+    except CmrApiError as err:
+        connection.send_error(msg["id"], "job_action_failed", err.detail)
+        return
+    connection.send_result(msg["id"], {"job_id": msg["job_id"], "action": msg["action"]})
+    await coordinator.async_request_refresh()
+
+
 @websocket_api.websocket_command(
     {vol.Required("type"): "cmr/alert_devices", vol.Required("entry_id"): str, vol.Required("rule_id"): str}
 )
@@ -324,7 +450,7 @@ async def ws_pair(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
 async def ws_alert_devices(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
 ) -> None:
-    """Keys of the devices an alert rule is firing on (read-only; needs the console)."""
+    """Keys of the devices an alert rule's state alert is active on (read-only; needs the console)."""
     entries = _loaded_entries(hass, msg["entry_id"])
     if not entries:
         connection.send_error(msg["id"], "not_found", "Controller not loaded")

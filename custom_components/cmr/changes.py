@@ -14,8 +14,14 @@ from .models import CmrDevice, CmrSnapshot, is_newer
 ALERT_SEVERITY = {"critical": "error", "high": "warning", "medium": "notice", "low": "info"}
 
 
-def diff_snapshots(old: CmrSnapshot, new: CmrSnapshot, now: datetime) -> list[dict[str, Any]]:
-    """Devices, alert rules and upgrade jobs that changed since the last poll."""
+def diff_snapshots(
+    old: CmrSnapshot, new: CmrSnapshot, now: datetime, pushed: frozenset[str] = frozenset()
+) -> list[dict[str, Any]]:
+    """Devices, alert rules and upgrade jobs that changed since the last poll.
+
+    `pushed`: ids of rules whose HTTP action reaches this Home Assistant; their
+    occurrences arrive one by one as pushed alerts, so they aren't counted here.
+    """
     events: list[dict[str, Any]] = []
     controller_key = new.controller.key if new.controller else None
 
@@ -72,11 +78,20 @@ def diff_snapshots(old: CmrSnapshot, new: CmrSnapshot, now: datetime) -> list[di
         before = old.alerts.get(rule_id)
         if before is None:
             continue
-        if not before.devices_on and rule.devices_on:
+        if rule.kind == "event":
+            # Event alerts never stay active: their occurrences show in `fired`.
+            count = rule.fired - before.fired
+            if count > 0 and rule_id not in pushed:
+                add(
+                    "alert", ALERT_SEVERITY.get(rule.severity, "notice"),
+                    f"Alert {rule.name} fired" + (f" {count} times" if count > 1 else ""),
+                    event="fired", rule=rule.name, rule_id=rule_id, severity=rule.severity, count=count,
+                )
+        elif not before.devices_on and rule.devices_on:
             add(
                 "alert", ALERT_SEVERITY.get(rule.severity, "notice"),
-                f"Alert {rule.name} fired on {rule.devices_on} device(s)",
-                event="fired", rule=rule.name, rule_id=rule_id, severity=rule.severity,
+                f"Alert {rule.name} active on {rule.devices_on} device(s)",
+                event="active", rule=rule.name, rule_id=rule_id, severity=rule.severity,
             )
         elif before.devices_on and not rule.devices_on:
             add("alert", "info", f"Alert {rule.name} cleared", event="cleared", rule=rule.name, rule_id=rule_id)

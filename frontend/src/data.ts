@@ -1,4 +1,11 @@
-import type { CmrEntry, HassLike } from "./types";
+import type { CmrDevice, CmrEntry, CmrLayout, CmrNode, CmrProduct, HassLike } from "./types";
+
+/** A device as sent: its catalog product by code (the entry carries each product once). */
+type WireDevice = Omit<CmrDevice, "product"> & { product: string | null; product_ambiguous?: boolean };
+
+/** An entry as sent: layouts and nodes only when they changed since the last message. */
+type WireEntry = Omit<CmrEntry, "layouts" | "nodes" | "devices"> &
+  Partial<Pick<CmrEntry, "layouts" | "nodes">> & { devices: WireDevice[]; products?: Record<string, CmrProduct> };
 
 // `error` is set once, with no entries, when the subscription itself failed.
 type Listener = (entries: CmrEntry[], error?: string) => void;
@@ -15,15 +22,18 @@ class CmrStore {
   private listeners = new Set<Listener>();
   private unsubscribe?: Promise<() => Promise<void>>;
   private latest?: CmrEntry[];
+  /** The last layouts and nodes per controller, for messages that leave them out. */
+  private topology = new Map<string, { layouts: CmrLayout[]; nodes: CmrNode[] }>();
 
   subscribe(hass: HassLike, listener: Listener): () => void {
     this.listeners.add(listener);
     if (this.latest) listener(this.latest);
     if (!this.unsubscribe) {
-      this.unsubscribe = hass.connection.subscribeMessage<{ entries: CmrEntry[] }>(
+      this.unsubscribe = hass.connection.subscribeMessage<{ entries: WireEntry[] }>(
         (message) => {
-          this.latest = message.entries;
-          this.listeners.forEach((fn) => fn(message.entries));
+          const entries = message.entries.map((entry) => this._hydrate(entry));
+          this.latest = entries;
+          this.listeners.forEach((fn) => fn(entries));
         },
         { type: "cmr/subscribe" },
       );
@@ -39,10 +49,26 @@ class CmrStore {
         const pending = this.unsubscribe;
         this.unsubscribe = undefined;
         this.latest = undefined;
+        this.topology.clear();
         // The subscription may already be gone after a reconnect; that's fine.
         pending.then((unsub) => unsub()).catch(() => undefined);
       }
     };
+  }
+
+  /** Back to the shape the cards read: products on the devices, the last layouts and nodes. */
+  private _hydrate(wire: WireEntry): CmrEntry {
+    const { products = {}, ...entry } = wire;
+    const devices: CmrDevice[] = entry.devices.map(({ product, product_ambiguous, ...device }) => ({
+      ...device,
+      product: product && products[product] ? { ...products[product], ...(product_ambiguous ? { ambiguous: true } : {}) } : null,
+    }));
+    if (entry.layouts && entry.nodes) {
+      this.topology.set(entry.entry_id, { layouts: entry.layouts, nodes: entry.nodes });
+      return { ...entry, devices, layouts: entry.layouts, nodes: entry.nodes };
+    }
+    const kept = this.topology.get(entry.entry_id) ?? { layouts: [], nodes: [] };
+    return { ...entry, devices, ...kept };
   }
 
   /** Resolve with the first snapshot (used by the dashboard strategy). */
@@ -76,7 +102,7 @@ export function pickEntry(entries: CmrEntry[] | undefined, entryId?: string): Cm
 
 // ----------------------------------------------------------- rule devices
 
-/** Keys of the devices an alert rule fires on, or why they aren't known. */
+/** Keys of the devices an alert rule's state alert is active on, or why they aren't known. */
 export type RuleDevicesState = string[] | "loading" | "error" | "unsupported";
 
 // Shared by every card on the page; a result is good for half a minute.
@@ -123,6 +149,56 @@ export class RuleDevices {
   invalidate(): void {
     for (const key of this.state.keys()) this.stale.add(key);
   }
+}
+
+// ------------------------------------------------------------ job devices
+
+/** One device of an upgrade job: CMR's own state and reason for it. */
+export interface JobDevice {
+  identity: string;
+  address: string | null;
+  state: string | null;
+  /** CMR's reason, e.g. "no upgrade available" (CMR counts it as a failure). */
+  error: string | null;
+  current_version: string | null;
+  upgrade_version: string | null;
+  channel: string | null;
+  device_key: string | null;
+}
+
+export type JobDevicesState = JobDevice[] | "loading" | "error" | "unsupported";
+
+/**
+ * Per-card device lists of opened upgrade jobs. A finished job's list doesn't
+ * change; a live one is fetched again whenever its row in the snapshot changes,
+ * and the previous list stays up meanwhile.
+ */
+export class JobDevices {
+  private state = new Map<string, { version: string; value: JobDevicesState }>();
+
+  constructor(private onChange: () => void) {}
+
+  get(hass: HassLike, entryId: string, job: Record<string, string>): JobDevicesState {
+    const key = `${entryId}/${job.id}`;
+    const version = [job.state, job.success, job.start_time, job.end_time].join("|");
+    const current = this.state.get(key);
+    if (current?.version === version) return current.value;
+    const value: JobDevicesState = current?.value ?? "loading";
+    this.state.set(key, { version, value });
+    hass.connection
+      .sendMessagePromise<{ devices: JobDevice[] }>({ type: "cmr/job_devices", entry_id: entryId, job_id: job.id })
+      .then((result) => this.state.set(key, { version, value: result.devices }))
+      .catch((err: { code?: string }) =>
+        this.state.set(key, { version, value: err?.code === "unsupported" ? "unsupported" : "error" }),
+      )
+      .finally(() => this.onChange());
+    return value;
+  }
+}
+
+/** Cancel an upgrade job, or run a scheduled one now. */
+export function jobAction(hass: HassLike, entryId: string, jobId: string, action: "cancel" | "run_next"): Promise<unknown> {
+  return hass.connection.sendMessagePromise({ type: "cmr/job_action", entry_id: entryId, job_id: jobId, action });
 }
 
 // ------------------------------------------------------------------ events

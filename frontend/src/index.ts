@@ -22,7 +22,7 @@ const CARDS: [string, CustomElementConstructor, string, string][] = [
   ["cmr-status-card", CmrStatusCard, "CMR status", "Controller, devices online, updates and alerts at a glance."],
   ["cmr-topology-card", CmrTopologyCard, "CMR topology", "Live network map drawn from the controller's CMR layouts."],
   ["cmr-fleet-card", CmrFleetCard, "CMR devices", "Every managed device with model, version, uptime and labels."],
-  ["cmr-alerts-card", CmrAlertsCard, "CMR alerts", "Alert rules, what is firing, and pushing alerts to Home Assistant."],
+  ["cmr-alerts-card", CmrAlertsCard, "CMR alerts", "Alert rules, which are active, and pushing alerts to Home Assistant."],
   ["cmr-upgrades-card", CmrUpgradesCard, "CMR upgrades", "Upgrade rules as a rollout pipeline, plus recent jobs."],
   ["cmr-events-card", CmrEventsCard, "CMR events", "Network timeline from the controller's log and changes, with detected issues."],
 ];

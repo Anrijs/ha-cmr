@@ -94,8 +94,11 @@ async def test_websocket_subscribe_payload(hass: HomeAssistant, entry, hass_ws_c
     assert (await client.receive_json())["success"]
     message = await client.receive_json()
     (payload,) = message["event"]["entries"]
-    assert payload["controller_key"] == CONTROLLER
     assert payload["available"] is True
+    # Fields no card reads stay home (the snapshot is resent every poll).
+    assert not {"controller_key", "serial", "packages", "minimum_version", "inactive"} & (
+        set(payload) | set(payload["devices"][0])
+    )
     assert len(payload["devices"]) == 7
     core = next(d for d in payload["devices"] if d["controller"])
     assert core["update_available"] is False and "prerelease" not in core
@@ -208,3 +211,66 @@ async def test_up_to_date_device_without_available_version(hass: HomeAssistant, 
     assert state and state.state == "off"
     assert state.attributes["installed_version"] == "7.90_ab12"
     assert state.attributes["latest_version"] == "7.90_ab12"
+
+
+async def test_cmr_log_lines_belong_to_the_device_they_name(
+    hass: HomeAssistant, controller: FakeController, make_entry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from . import conftest
+
+    monkeypatch.setattr(conftest, "LOG_LINES", [
+        *conftest.LOG_LINES,
+        (20, "cmr,warning", "Site-AP1@192.0.2.15 failed to upgrade from 7.90_ab11 to 7.90_ab12, error: no upgrade available"),
+        (10, "cmr,info", "upgrade job finished"),
+    ])
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    by_message = {e["message"]: e for e in entry.runtime_data.eventlog.events if e["source"] == "log"}
+    assert by_message["Site-AP1@192.0.2.15 failed to upgrade from 7.90_ab11 to 7.90_ab12, error: no upgrade available"][
+        "device_name"
+    ] == "Site-AP1"
+    # Lines naming no device, and other categories, stay with the controller.
+    assert by_message["upgrade job finished"]["device_name"] == "Site-Core"
+    assert by_message["login failure for user admin from 203.0.113.9 via ssh"]["device_name"] == "Site-Core"
+
+
+async def test_websocket_sends_layouts_only_when_they_change(
+    hass: HomeAssistant, entry, controller: FakeController, hass_ws_client
+) -> None:
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/subscribe"})
+    assert (await client.receive_json())["success"]
+    (first,) = (await client.receive_json())["event"]["entries"]
+    assert first["nodes"] and first["layouts"] and first["topology_version"]
+
+    # An ordinary poll: devices and links (live counters) again, layouts and nodes not.
+    await entry.runtime_data.async_refresh()
+    (second,) = (await client.receive_json())["event"]["entries"]
+    assert "nodes" not in second and "layouts" not in second
+    assert second["links"] and second["devices"]
+    assert second["topology_version"] == first["topology_version"]
+
+    # Someone moves a node on the controller: the layouts come along again.
+    controller.data["cmr/layout/node"][0]["x"] = "123"
+    await entry.runtime_data.async_refresh()
+    (third,) = (await client.receive_json())["event"]["entries"]
+    assert third["nodes"] and third["topology_version"] != first["topology_version"]
+
+
+async def test_websocket_sends_each_product_once(hass: HomeAssistant, entry, hass_ws_client) -> None:
+    hap_be = {"code": "MA53UG+HbeH", "name": "hAP be³ Media", "status": "Current", "url": None,
+              "image": "s.png", "image_large": "l.png", "ports": None}
+    rb5009 = {**hap_be, "code": "RB5009UPr+S+IN", "name": "RB5009UPr+S+IN"}
+    entry.runtime_data.catalog.products = [hap_be, rb5009, {**rb5009, "code": "RB5009UPr+S+OUT"}]
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/subscribe"})
+    assert (await client.receive_json())["success"]
+    (payload,) = (await client.receive_json())["event"]["entries"]
+    by_name = {d["identity"]: d for d in payload["devices"]}
+    # Two hAP be³ devices share one product entry.
+    assert by_name["Site-AP1"]["product"] == by_name["Remote-AP"]["product"] == "MA53UG+HbeH"
+    assert set(payload["products"]) == {"MA53UG+HbeH", "RB5009UPr+S+IN"}
+    # The board name fits two variants: the device says so, the shared product doesn't.
+    assert by_name["Site-Core"]["product_ambiguous"] is True and "ambiguous" not in payload["products"]["RB5009UPr+S+IN"]
+    assert by_name["Site-GW"]["product"] is None

@@ -43,9 +43,9 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
   declare _copied: boolean;
   /** "busy" while rules are being changed, else the last result or error text. */
   declare _push?: string;
-  /** Chip filter: all rules, or only the firing / disabled / pushing ones. */
+  /** Chip filter: all rules, or only the active / disabled / pushing ones. */
   declare _only: "" | "firing" | "disabled" | "pushing";
-  /** Id of the rule opened to show the devices it fires on. */
+  /** Id of the rule opened to show the devices it is active on. */
   declare _open: string;
   private _ruleDevices = new RuleDevices(() => this.requestUpdate());
 
@@ -57,7 +57,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
 
   protected willUpdate(changed: PropertyValues): void {
     super.willUpdate(changed);
-    // A new snapshot may mean new firing devices; the open list refreshes quietly.
+    // A new snapshot may mean new active devices; the open list refreshes quietly.
     if (changed.has("_entry")) this._ruleDevices.invalidate();
   }
 
@@ -153,7 +153,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
         <div class="card-header">
           <ha-icon icon=${firing ? "mdi:bell-alert" : "mdi:bell-check-outline"}></ha-icon>
           <span>${this._config.title ?? "Alerts"}</span>
-          ${firing ? html`<span class="chip alert">${firing} firing</span>` : html`<span class="chip">all quiet</span>`}
+          ${firing ? html`<span class="chip alert">${firing} active</span>` : html`<span class="chip">all quiet</span>`}
           <div class="spacer"></div>
         </div>
         ${this.renderStale(entry)}
@@ -161,7 +161,7 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
           ? html`<div class="filters">
               <button class="pill ${this._only ? "" : "on"}" @click=${() => (this._only = "")}>All ${pool.length}</button>
               ${counts.firing ? html`<button class="pill hot ${this._only === "firing" ? "on" : ""}" @click=${() => (this._only = this._only === "firing" ? "" : "firing")}>
-                  <ha-icon icon="mdi:bell-alert-outline"></ha-icon>Firing ${counts.firing}</button>` : nothing}
+                  <ha-icon icon="mdi:bell-alert-outline"></ha-icon>Active ${counts.firing}</button>` : nothing}
               ${counts.pushing ? html`<button class="pill ${this._only === "pushing" ? "on" : ""}" @click=${() => (this._only = this._only === "pushing" ? "" : "pushing")}>
                   <ha-icon icon="mdi:webhook"></ha-icon>Pushing ${counts.pushing}</button>` : nothing}
               ${counts.disabled ? html`<button class="pill ${this._only === "disabled" ? "on" : ""}" @click=${() => (this._only = this._only === "disabled" ? "" : "disabled")}>
@@ -234,14 +234,19 @@ export class CmrAlertsCard extends CmrEntryCard<AlertsConfig> {
             ${rule.webhook ? html`<ha-icon class="hook" icon="mdi:webhook" title=${rule.webhook_ha ? "Pushes to Home Assistant" : "Pushes to another webhook"}></ha-icon>` : nothing}
           </div>
           <div class="muted small">
-            ${rule.disabled ? "disabled · " : nothing}${rule.categories.join(", ") || "uncategorised"} ·
-            ${rule.labels.join(", ") || "all"}
+            ${rule.disabled ? "disabled · " : nothing}${rule.kind === "event" ? "event · " : nothing}${rule.categories.join(", ") || "uncategorised"} ·
+            ${rule.scope === "system" ? "upgrade jobs" : rule.labels.join(", ") || "all"}
           </div>
         </div>
-        <div class="nums">
-          <div class=${on ? "hot" : ""}>${rule.devices_on}/${rule.devices}</div>
-          <div class="muted small" title="Times fired">${rule.fired}×</div>
-        </div>
+        ${rule.kind === "event"
+          ? html`<div class="nums" title="An event alert fires per occurrence and never stays active">
+              <div>${rule.fired}×</div>
+              <div class="muted small">fired</div>
+            </div>`
+          : html`<div class="nums">
+              <div class=${on ? "hot" : ""} title="Active on / covered devices">${rule.devices_on}/${rule.devices}</div>
+              <div class="muted small" title="Times fired">${rule.fired}×</div>
+            </div>`}
         ${rule.entity_id
           ? html`<span class="info" role="button" title="Entity details"
               @click=${(e: Event) => { e.stopPropagation(); moreInfo(this, rule.entity_id); }}>

@@ -146,3 +146,18 @@ async def test_pushed_alert_reaches_bus_and_event_entity(
     events = [s for s in hass.states.async_all("event") if s.attributes.get("event_type") == "high"]
     assert len(events) == 2  # the fleet event entity and the gateway's own
     assert all(s.attributes["alert"] == "cpu>95%" for s in events)
+
+
+async def test_pushed_alert_device_from_its_text(hass: HomeAssistant, entry, controller: FakeController, hass_client) -> None:
+    """Without usable placeholders the device named in the message is used; job alerts stay fleet-wide."""
+    fired = []
+    hass.bus.async_listen(EVENT_ALERT, lambda event: fired.append(event.data))
+    client = await hass_client()
+    body = '{"alert":"cpu>95%","severity":"high","device":"[identity]","message":"CPU 97% on Site-GW@192.0.2.1"}'
+    assert (await client.post("/api/webhook/test-webhook-id", data=body)).status == 200
+    controller.data["cmr/alert"][5]["upgrade-job-done"] = "yes"  # "upgrade successful" becomes a job alert
+    await entry.runtime_data.async_refresh()
+    body = '{"alert":"upgrade successful","severity":"low","message":"job of Site-GW done"}'
+    assert (await client.post("/api/webhook/test-webhook-id", data=body)).status == 200
+    await hass.async_block_till_done()
+    assert [data["device_key"] for data in fired] == ["S0000000002", None]

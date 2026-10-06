@@ -261,3 +261,81 @@ def test_product_matching():
     assert hit["ambiguous"]  # IN and OUT both match: photo yes, name no
     assert models.match_product(products, "CRS999", None) is None
     assert models.match_product(products, None, None) is None
+
+
+def _params(**values):
+    return [{"name": name, "data": data, "group_name": "Ethernet"} for name, data in values.items()]
+
+
+def test_port_spec_from_catalog_parameters():
+    # RB5009: the 2.5G port is ether1; the PoE-in/out counts are the same ports.
+    rb5009 = _params(**{
+        "Number of 2.5G Ethernet ports with Reverse PoE (PoE-in)": "1",
+        "Number of 2.5G Ethernet ports": "1",
+        "10/100/1000 Ethernet ports": "7",
+        "Number of 1G Ethernet ports with Reverse PoE (PoE-in)": "7",
+        "SFP+ ports": "1",
+        "PoE-out ports": "Ether1-Ether8",
+        "Number of USB ports": "1",
+    })
+    assert models.port_spec(rb5009) == {
+        "ether": [["2.5G", 1], ["1G", 7]], "mgmt": 0, "cages": [["sfp+", 1]], "poe_out": [[1, 8]],
+    }
+    # A lone 10/100 port beside many fast ones is the management port; QSFP56
+    # is not an SFP56 cage.
+    spine = _params(**{
+        "10/100 Ethernet ports": "1",
+        "Number of 50G SFP56 ports": "8",
+        "Number of 200G QSFP56 ports": "2",
+        "Number of 400G QSFP56-DD ports": "2",
+    })
+    assert models.port_spec(spine) == {
+        "ether": [], "mgmt": 1, "cages": [["sfp56", 8], ["qsfp56", 2], ["qsfp56-dd", 2]], "poe_out": [],
+    }
+    # Five 10/100 ports are the ports themselves; several PoE-out ranges.
+    hex_lite = _params(**{"10/100 Ethernet ports": "5", "PoE-out ports": "Ether1-Ether8 (af/at), Ether 10"})
+    assert models.port_spec(hex_lite)["ether"] == [["100M", 5]]
+    assert models.port_spec(hex_lite)["poe_out"] == [[1, 8], [10, 10]]
+    assert models.port_spec(_params(**{"Number of Combo 10G Ethernet/ SFP+ ports": "4* (2.5G ETH/10G SFP+)"}))[
+        "cages"
+    ] == [["combo", 4]]
+    # Accessories have no ports.
+    assert models.port_spec(_params(**{"Material": "Aluminium"})) is None
+    assert models.port_spec(None) is None
+    product = models.compact_product({**CATALOG[0], "parameters": rb5009})
+    assert product["ports"]["cages"] == [["sfp+", 1]]
+
+
+def test_parse_job_devices():
+    rows = [
+        {"device": "AP@192.0.2.24", "state": "done", "current-version": "7.90", "upgrade-version": "7.90"},
+        {"device": "AP@192.0.2.25", "state": "pending", "error": "no upgrade available"},
+        {"device": "Core", "state": "done"},  # the controller itself: identity only
+    ]
+    parsed = models.parse_job_devices(rows)
+    assert [(d.identity, d.address, d.state, d.error) for d in parsed] == [
+        ("AP", "192.0.2.24", "done", None),
+        ("AP", "192.0.2.25", "pending", "no upgrade available"),
+        ("Core", None, "done", None),
+    ]
+    assert parsed[0].current_version == "7.90" and parsed[0].device_key is None
+    assert models.parse_job_devices(None) == []
+
+
+def test_alert_rule_kind_and_scope():
+    def rule(**fields):
+        return models.CmrAlertRule.from_rest({".id": "*1", "name": "r", **fields})
+
+    # State conditions stay active while they match.
+    assert rule(**{"cpu-above": "95"}).kind == "state"
+    assert rule(**{"connected": "false"}).kind == "state"  # "disconnected" is a state too
+    assert rule(**{"upgrade-available": "true"}).kind == "state"
+    # Event conditions fire per occurrence; REST shows them as true, an outcome or a filter.
+    assert rule(**{"rebooted": "true"}).kind == "event"
+    assert rule(**{"upgrade-done": "fail"}).kind == "event"
+    assert rule(**{"interface-change": "not-running", "interface-type": "ethernet"}).kind == "event"
+    assert rule(**{"log-regex": "login failure", "log-topics": "system"}).kind == "event"
+    assert rule(**{"rebooted": "false", "cpu-above": "95"}).kind == "state"  # an explicit no is no condition
+    # Only a finished upgrade job is a system alert.
+    assert rule(**{"upgrade-job-done": "success"}).scope == "system"
+    assert rule(**{"upgrade-done": "success"}).scope == "device"

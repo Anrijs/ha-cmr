@@ -7,6 +7,7 @@ nothing here depends on one network's names or language.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import re
@@ -220,6 +221,31 @@ def find_identity(text: str, identities: list[str]) -> str | None:
         if re.search(pattern, text) and (best is None or len(identity) > len(best)):
             best = identity
     return best
+
+
+_IPV4 = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.])")
+
+
+def find_device(text: str, devices: Sequence[tuple[str, str, str | None]]) -> str | None:
+    """Key of the managed device a free-text line names, from (key, identity, address).
+
+    The longest identity that appears as a whole token wins; when several
+    devices share it, an "identity@address" mention picks one. Failing that,
+    an address that belongs to exactly one device (NAT'd devices share theirs).
+    """
+    identity = find_identity(text, [identity for _, identity, _ in devices])
+    if identity:
+        same = [(key, address) for key, ident, address in devices if ident == identity]
+        return next((key for key, address in same if address and f"{identity}@{address}" in text), same[0][0])
+    owners: dict[str, list[str]] = {}
+    for key, _, address in devices:
+        if address:
+            owners.setdefault(address, []).append(key)
+    for address in _IPV4.findall(text):
+        keys = owners.get(address, [])
+        if len(keys) == 1:
+            return keys[0]
+    return None
 
 
 _MONTHS = {m: i for i, m in enumerate(

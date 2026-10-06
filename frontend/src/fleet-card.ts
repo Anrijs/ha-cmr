@@ -35,7 +35,7 @@ interface FleetConfig {
   status?: Status;
   /** Start filtered to one firmware version. */
   version?: string;
-  /** Start filtered to the devices this alert rule (its id) fires on. */
+  /** Start filtered to the devices this alert rule (its id) is active on. */
   alert?: string;
   show_filters?: boolean;
   show_search?: boolean;
@@ -89,7 +89,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
   declare _filter: Set<string>;
   declare _status: Status | "";
   declare _version: string;
-  /** Alert rule id: only the devices it fires on (the list comes from the controller's console). */
+  /** Alert rule id: only the devices it is active on (the list comes from the controller's console). */
   declare _alert: string;
   declare _search: string;
   private _ruleDevices = new RuleDevices(() => this.requestUpdate());
@@ -262,7 +262,7 @@ export class CmrFleetCard extends CmrEntryCard<FleetConfig> {
     const labelNeedle = this._labelSearch.trim().toLowerCase();
     const needle = this._search.trim().toLowerCase();
     // Label, version and search narrow the pool; the status chips count within it.
-    // An alert filter narrows to the devices the rule fires on; while the
+    // An alert filter narrows to the devices the rule is active on; while the
     // controller is asked (or can't answer) the other filters still apply.
     const rule = this._alert ? entry.alerts.find((r) => r.id === this._alert) : undefined;
     const ruleState = rule && rule.devices_on > 0 ? this._ruleDevices.get(this.hass, entry.entry_id, rule.id) : rule ? [] : undefined;

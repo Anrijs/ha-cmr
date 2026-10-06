@@ -26,6 +26,9 @@ _LOGGER = logging.getLogger(__name__)
 
 REFRESH = timedelta(days=1)
 STORE_VERSION = 1
+# Bumped when compact_product() keeps more fields, so an older cache is
+# refetched at once (its photos still serve until the fetch succeeds).
+CACHE_FORMAT = 2
 
 
 class CatalogError(Exception):
@@ -66,7 +69,8 @@ class ProductCatalog:
                 self.products = cached.get("products", [])
                 self._url = url
                 fetched = cached.get("fetched")
-                self._fetched = dt_util.parse_datetime(fetched) if fetched else None
+                fresh = fetched and cached.get("format") == CACHE_FORMAT
+                self._fetched = dt_util.parse_datetime(fetched) if fresh else None
         now = dt_util.utcnow()
         if self._url == url and self._fetched and now - self._fetched < REFRESH:
             return
@@ -83,7 +87,7 @@ class ProductCatalog:
         self.products, self._url, self._fetched = products, url, now
         _LOGGER.debug("Product catalog: %d products", len(products))
         self._store.async_delay_save(
-            lambda: {"url": url, "fetched": now.isoformat(), "products": products}, 5
+            lambda: {"url": url, "fetched": now.isoformat(), "format": CACHE_FORMAT, "products": products}, 5
         )
 
     def product_for(self, device: CmrDevice) -> dict[str, Any] | None:

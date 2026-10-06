@@ -207,6 +207,7 @@ export class CmrEventsCard extends LitElement {
     const cfg = this._config;
     const search = this._search.trim().toLowerCase();
     const hidden = new Set(cfg.hide_categories ?? []);
+    const deviceMatches = this._deviceFilter();
     return this._events.filter((e) => {
       if (this._notable && !this._category && !isNotable(e)) return false;
       if (this._category) {
@@ -214,10 +215,22 @@ export class CmrEventsCard extends LitElement {
       } else if (cfg.categories?.length ? !cfg.categories.includes(e.category) : hidden.has(e.category)) {
         return false;
       }
-      if (this._device && e.device_name !== this._device) return false;
+      if (!deviceMatches(e.device_name)) return false;
       if (search && !`${e.title} ${e.message} ${e.device_name ?? ""}`.toLowerCase().includes(search)) return false;
       return true;
     });
+  }
+
+  /**
+   * The device filter: a picked name matches that device only, typed text any
+   * device whose name contains it (a big fleet has hundreds of names).
+   */
+  private _deviceFilter(): (name: string | null | undefined) => boolean {
+    const wanted = this._device.trim();
+    if (!wanted) return () => true;
+    if (this._events.some((e) => e.device_name === wanted)) return (name) => name === wanted;
+    const needle = wanted.toLowerCase();
+    return (name) => !!name && name.toLowerCase().includes(needle);
   }
 
   /** Newest first, with runs of events about the same subject folded together. */
@@ -258,7 +271,7 @@ export class CmrEventsCard extends LitElement {
       (a, b) => Object.keys(CATEGORY).indexOf(a) - Object.keys(CATEGORY).indexOf(b),
     );
     const devices = [...new Set(this._events.map((e) => e.device_name).filter(Boolean) as string[])].sort();
-    const issues = this._device ? this._issues.filter((i) => i.device_name === this._device) : this._issues;
+    const issues = this._issues.filter((i) => this._deviceFilter()(i.device_name));
 
     return html`
       <ha-card>
@@ -290,10 +303,12 @@ export class CmrEventsCard extends LitElement {
                 })}
               </div>
               <div class="find">
-                <select .value=${this._device} @change=${(e: Event) => (this._device = (e.target as HTMLSelectElement).value)}>
-                  <option value="">All devices</option>
-                  ${devices.map((d) => html`<option value=${d} ?selected=${d === this._device}>${d}</option>`)}
-                </select>
+                <input class="device" type="search" list="cmr-event-devices" placeholder="All devices"
+                  aria-label="Device" .value=${this._device}
+                  @input=${(e: Event) => (this._device = (e.target as HTMLInputElement).value)} />
+                <datalist id="cmr-event-devices">
+                  ${devices.map((d) => html`<option value=${d}></option>`)}
+                </datalist>
                 <input type="search" placeholder="Search" .value=${this._search}
                   @input=${(e: Event) => (this._search = (e.target as HTMLInputElement).value)} />
               </div>
@@ -435,11 +450,12 @@ export class CmrEventsCard extends LitElement {
       .filters { padding: 0 12px 6px; display: flex; flex-direction: column; gap: 8px; }
       .cats { display: flex; flex-wrap: wrap; gap: 6px; }
       .find { display: flex; gap: 8px; }
-      .find select, .find input {
+      .find input {
         font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 8px; min-width: 0;
         border: 1px solid var(--cmr-line); background: var(--cmr-surface); color: var(--primary-text-color);
       }
       .find input { flex: 1; }
+      .find input.device { flex: 0 1 40%; }
 
       .timeline { padding: 0 8px 10px; }
       .day { padding: 10px 8px 4px; }

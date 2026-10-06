@@ -72,8 +72,8 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
 - Per device: *Connected*, *Up since*, *RouterOS version*, a **RouterOS update**
   entity (listed in Settings → Updates), an *Alert* event entity, and
   diagnostic sensors (address, channel, upgrade rule, packages, labels).
-- For the fleet: managed devices, devices online, updates available, alert
-  rules firing, last upgrade job, *Network issues*, *Network trouble*, and one
+- For the fleet: managed devices, devices online, updates available, active
+  alert rules, last upgrade job, *Network issues*, *Network trouble*, and one
   problem sensor per alert rule.
 - A **network timeline** and **issue detection** (flapping Wi-Fi clients and
   links, repeated reboots, login failures…), with issues in **Settings →
@@ -90,7 +90,7 @@ it discovers the fleet; the bundled dashboard builds itself from what it finds.
 | Status | Controller, devices online, updates, alerts, issues, version spread |
 | Topology | Live map from CMR layouts: drill into buildings, port names, PoE and SFP on cables, status per device |
 | Fleet | Sortable device table with label filters |
-| Alerts | Alert rules by severity, what is firing, the webhook setup script |
+| Alerts | Alert rules by severity, which are active, how often event alerts fired, the webhook setup script |
 | Upgrades | Upgrade rules as a rollout pipeline, recent jobs |
 | Events | Detected issues and the network timeline, with filters |
 
@@ -173,6 +173,9 @@ Every feature reads the controller over REST; only upgrades need write access.
 | Timeline and issues | `/log` (new lines only), `/system/clock` | same |
 | Instant alerts | Controller calls `POST /api/webhook/<id>` | (the controller must reach Home Assistant) |
 | Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow actions on the controller* option |
+| Rebuild a layout's links (map) | `/cmr/layout/rebuild-links` | **+ `write`**, and the *Allow actions on the controller* option |
+| A job's devices, state and reason (upgrades card) | `/cmr/upgrade/job/show-devices` | `read`, `api`, `rest-api` |
+| Cancel a job, run a scheduled job now | `/cmr/upgrade/job/remove`, `/cmr/upgrade/job/run-next` | **+ `write`**, and the *Allow actions on the controller* option |
 
 The `api` policy is needed even though the integration only uses REST: REST
 logins also use it internally, and without it the controller's menus appear
@@ -395,9 +398,26 @@ controller when you have several.
   hide_categories: [api]    # the default; API logins are routine
 ```
 
-On the map: click a building to open its layout, click a device for its
-details, hover a cable for its ports, PoE and traffic. Pinch or Ctrl/⌘-scroll
-zooms, drag pans, double-click zooms in on that spot, ⤢ shows the whole map.
+On the map: click a building to open its layout, hover a cable for its
+ports, PoE and traffic. Hover a device for its details and the cables it uses;
+with the product catalog on, a drawing of its front panel lights those ports
+and marks the ones that power a device (the catalog gives port counts, so the
+arrangement is an approximation). Click or tap a device for the same card with
+its address to copy and links to install its update, its Home Assistant device
+page and its row in *Devices*. Pinch or Ctrl/⌘-scroll zooms, drag (one finger
+on a phone) pans, double-click zooms in on that spot, ⤢ shows the whole map.
+Zoomed far out, devices become status dots, then names, then full cards.
+*Find on map* dims everything that doesn't match a name, address or label
+(Enter zooms to the matches), and the amber ! button zooms to whatever needs
+attention. On a
+phone the map opens at a readable size from its left edge.
+
+With *Allow actions on the controller* on, an administrator sees a cable
+button on a layout with devices: *Rebuild links* creates that layout's links
+from the ports the controller detected between its devices (`track-topology`
+must be on), so a layout filled with `add-devices` gets its cables without
+the controller's own GUI. Connections the controller can't detect, such as a
+VPN or a switch it doesn't manage, stay links you draw yourself.
 
 Finding what needs attention in a large fleet: the device table lists
 offline, waiting-to-pair, alerting and updatable devices first; the chips
@@ -405,10 +425,10 @@ above it (*Offline 3*, *Updates 12*, …) filter to one status, the label chips
 and the search box narrow further, a version is a filter when clicked, and
 above `fold_after` rows the healthy devices fold into "995 devices online and
 up to date — show them". The status card's tiles open the same lists inline
-(offline since when, update from → to, firing rules, issues, devices to
-approve), and the version bar lists who runs what. A firing rule opens to the
-devices it fires on, with *Show in Devices* (the table filtered to them) and
-*Show on map* (everything else dimmed). In the generated dashboard the panel's
+(offline since when, update from → to, active alert rules, issues, devices to
+approve), and the version bar lists who runs what. An active rule opens to the
+devices it is active on, with *Show in Devices* (the table filtered to them)
+and *Show on map* (everything else dimmed). In the generated dashboard the panel's
 *Open in Devices* jumps to the device table with that filter;
 `?cmr_status=offline`, `?cmr_version=…`, `?cmr_search=…` and
 `?cmr_alert=<rule id>` on a dashboard URL do the same for your own dashboards.
@@ -432,9 +452,10 @@ thousands of entities — and can be enabled per device on its page. The cards
 don't need any of them.
 
 On the controller's device: `sensor.<controller>_devices_online`,
-`_updates_available`, `_alert_rules_firing`, `_network_issues`,
-`binary_sensor.<controller>_network_trouble`, one
-`binary_sensor.<controller>_alert_<rule>` per alert rule, and with upgrades
+`_updates_available`, `_active_alert_rules` (`_alert_rules_firing` on older
+installations), `_network_issues`, `binary_sensor.<controller>_network_trouble`,
+one `binary_sensor.<controller>_alert_<rule>` per alert rule (on while the
+rule's state alert is active; an event alert's stays off), and with upgrades
 allowed `button.<controller>_check_for_new_versions` and
 `button.<controller>_run_upgrade_rule_<rule>`.
 
@@ -503,6 +524,22 @@ action:
 
 ### Alerts in real time
 
+CMR has two kinds of alert rules
+([CMR documentation](https://manual.mikrotik.com/docs/management-tools/cmr/#alert-rules)):
+
+- A **state alert** (CPU, memory, disk or health thresholds, connected or
+  disconnected, an available update) stays active on a device while its
+  conditions hold and runs its actions once when it becomes active. The
+  cards count these: *alerts active*, a device's alert status, and the
+  *active / covered* devices of a rule.
+- An **event alert** (an unexpected reboot, a finished device upgrade or
+  upgrade job, an interface change, a log line, an unpaired device
+  connecting) runs its actions for every occurrence and never stays active,
+  so it never shows as active anywhere. The cards show how often it fired;
+  the timeline gets "Alert *rule* fired 3 times" from each poll, or every
+  single occurrence when the rule pushes to Home Assistant. A finished
+  upgrade job is about the whole job, not a device.
+
 Polling sees alert rules change state within 30 seconds. To get each alert the
 moment it fires, press *Push alerts to Home Assistant* on the alerts card.
 With *Allow actions on the controller* on, that sets every alert rule's HTTP
@@ -514,9 +551,10 @@ equivalent script to paste into the controller's terminal; edit its `find`
 to choose rules. The address the controller calls comes from the *Home
 Assistant address* option.
 
-Which devices a rule fires on is something the controller only tells on its
-console, so the lists under a rule are read through `/execute` like the
-device alert counters (the user from *Prepare the controller* may). A user
+Which devices a state alert is active on is read through `/execute` (the
+console's list carries device ids), like the device alert counters (the user
+from *Prepare the controller* may). An event alert is never active, so there
+is nothing to list for it. A user
 that is not allowed console commands gets the counts only, and the cards say
 so.
 
@@ -534,7 +572,16 @@ With *Allow actions on the controller* on and `write` on the router user:
 - **Check for new versions** asks the controller to check its channels now.
 
 Progress shows on the update entity while the job runs, and in the upgrades
-card's job list.
+card's job list. Select a job there to see its devices with the controller's
+state and reason for each, for example *no upgrade available*, which CMR
+counts as a failed device upgrade. A scheduled job lists its devices once it
+starts. Administrators also get:
+
+- **Run now** on a scheduled job: it starts as a new job, and the scheduled
+  one stays scheduled.
+- **Cancel job** on a scheduled, queued or running job. A running job stops,
+  and its devices that aren't upgraded yet are marked cancelled; an install
+  already under way can still finish when its device reboots.
 
 ## Network events and issues
 
@@ -545,11 +592,13 @@ sources, all generic:
   message formats: Wi-Fi joins, drops and roaming (attributed to the access
   point whose identity appears in the interface name), link up/down, logins and
   login failures, configuration changes with who made them, DHCP, reboots.
-  Logins over `api`/`rest-api` are filed as routine, and the integration's own
-  are left out.
+  CMR's own lines (upgrades, alert actions written to the log) go to the
+  device they name. Logins over `api`/`rest-api` are filed as routine, and
+  the integration's own are left out.
 - **Changes between polls**: devices going offline or coming back, reboots
-  (uptime went down), version changes, new, paired or removed devices, alert
-  rules firing and clearing, upgrade jobs.
+  (uptime went down), version changes, new, paired or removed devices, state
+  alerts becoming active and clearing, event alerts firing (unless they push
+  every occurrence), upgrade jobs.
 - **Alerts pushed** to the webhook.
 
 **Issues** are patterns across events:

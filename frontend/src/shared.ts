@@ -59,7 +59,7 @@ export function deepLinkParams(): { status?: Status; version?: string; search?: 
     status: status && STATUS_ORDER.includes(status) ? status : undefined,
     version: params.get("cmr_version") ?? undefined,
     search: params.get("cmr_search") ?? undefined,
-    // An alert rule id: only the devices it fires on.
+    // An alert rule id: only the devices it is active on.
     alert: params.get("cmr_alert") ?? undefined,
   };
 }
@@ -78,7 +78,7 @@ export const STATUS_LABEL: Record<Status, string> = {
   // Online with nothing wrong; plain "Online" reads as the connection count.
   ok: "OK",
   update: "Update available",
-  alert: "Alert firing",
+  alert: "Alert active",
   pending: "Waiting to pair",
   offline: "Disconnected",
 };
@@ -427,9 +427,10 @@ export function modelCode(device: CmrDevice): string | null {
 // ------------------------------------------------------------ rule devices
 
 /**
- * The devices an alert rule fires on, under a rule row: the list (or why it
- * isn't available) plus links to the Devices view and the map filtered to
- * the same set. Shared by the alerts and status cards.
+ * The devices on which an alert rule is active, under a rule row: the list
+ * (or why it isn't available) plus links to the Devices view and the map
+ * filtered to the same set. An event alert is never active anywhere, so it
+ * gets an explanation instead. Shared by the alerts and status cards.
  */
 export function renderRuleDevices(
   host: HTMLElement,
@@ -440,8 +441,14 @@ export function renderRuleDevices(
   max = 12,
 ): TemplateResult {
   let body: TemplateResult;
-  if (rule.devices_on === 0) {
-    body = html`<div class="muted small">Not firing on any device right now.</div>`;
+  if (rule.kind === "event") {
+    body = html`<div class="muted small">
+      An event alert: it runs its actions each time it happens (${rule.fired}× so far) and never stays
+      active, so no device is listed here. Its occurrences show in the events timeline.
+      ${rule.scope === "system" ? " It reports a whole upgrade job, not a single device." : nothing}
+    </div>`;
+  } else if (rule.devices_on === 0) {
+    body = html`<div class="muted small">Not active on any device right now.</div>`;
   } else if (!entry.console || state === "unsupported") {
     body = html`<div class="muted small">
       The controller lists these devices only on its console, and this REST user may not run console commands.
@@ -461,7 +468,7 @@ export function renderRuleDevices(
             @click=${() => moreInfo(host, d.entities.connected)}><i class="dot"></i>${d.identity}</button>`,
         )}
         ${devices.length > shown.length ? html`<span class="muted small">+${devices.length - shown.length} more</span>` : nothing}
-        ${devices.length ? nothing : html`<span class="muted small">Fires on devices this Home Assistant doesn't list yet.</span>`}
+        ${devices.length ? nothing : html`<span class="muted small">Active on devices this Home Assistant doesn't list yet.</span>`}
       </div>`;
   }
   const params = { cmr_alert: rule.id };

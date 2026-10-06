@@ -1,4 +1,4 @@
-"""Binary sensors: device connectivity and firing alert rules."""
+"""Binary sensors: device connectivity and active alert rules."""
 
 from __future__ import annotations
 
@@ -82,7 +82,12 @@ class CmrConnectedSensor(CmrDeviceEntity, BinarySensorEntity):
 
 
 class CmrAlertRuleSensor(CmrAlertEntity, BinarySensorEntity):
-    """On while the rule is fired on at least one device."""
+    """On while the rule's state alert is active on at least one device.
+
+    An event alert (reboots, upgrades finishing, interface changes, log lines)
+    never stays active, so its sensor stays off; its occurrences are timeline
+    events and, when pushed, `cmr_alert` events.
+    """
 
     @property
     def name(self) -> str | None:
@@ -99,6 +104,8 @@ class CmrAlertRuleSensor(CmrAlertEntity, BinarySensorEntity):
         rule = self.rule
         if rule is None or rule.disabled:
             return "mdi:bell-off-outline"
+        if rule.kind == "event":
+            return "mdi:bell-ring-outline"
         return "mdi:bell-alert" if rule.devices_on else "mdi:bell-check-outline"
 
     @property
@@ -114,6 +121,8 @@ class CmrAlertRuleSensor(CmrAlertEntity, BinarySensorEntity):
             "devices": rule.devices,
             "devices_on": rule.devices_on,
             "fired": rule.fired,
+            "kind": rule.kind,
+            "scope": rule.scope,
             "action_failures": rule.action_failures,
             "disabled": rule.disabled,
             "webhook": rule.webhook_url is not None,

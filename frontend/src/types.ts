@@ -13,19 +13,16 @@ export interface AlertCounts {
 export interface CmrDevice {
   key: string;
   identity: string;
-  serial: string | null;
   board: string | null;
   model_code: string | null;
   arch: string | null;
   version: string | null;
   available_version: string | null;
   update_available: boolean;
-  minimum_version: string | null;
   channel: string | null;
   upgrade_rule: string | null;
   address: string | null;
   labels: string[];
-  packages: string[];
   uptime: number | null;
   connected_time: number | null;
   /** Controller local time, e.g. "2026-10-04 20:55:21", while disconnected. */
@@ -36,7 +33,6 @@ export interface CmrDevice {
   pending: boolean;
   /** Pairing waits for approval on the device itself (p flag). */
   remote_pending: boolean;
-  inactive: boolean;
   stale: boolean;
   alerts: AlertCounts | null;
   device_id: string | null;
@@ -54,6 +50,21 @@ export interface CmrProduct {
   image_large: string;
   /** Several catalog variants match: the photo fits, the name is a guess. */
   ambiguous?: boolean;
+  /** Front-panel ports from the catalog's specifications (models.port_spec). */
+  ports?: CmrPorts | null;
+}
+
+export type CageKind = "sfp" | "sfp+" | "combo" | "sfp28" | "sfp56" | "qsfp+" | "qsfp28" | "qsfp56" | "qsfp56-dd";
+
+export interface CmrPorts {
+  /** [speed, count] groups in ether-number order (ether1 first). */
+  ether: [string, number][];
+  /** 1 when a 10/100 management port is numbered after the others. */
+  mgmt: number;
+  /** SFP/QSFP groups in front-panel order. */
+  cages: [CageKind, number][];
+  /** Ether numbers that can power a device, as [first, last] ranges. */
+  poe_out: [number, number][];
 }
 
 export interface CmrAlertRule {
@@ -66,7 +77,10 @@ export interface CmrAlertRule {
   devices: number;
   devices_on: number;
   fired: number;
-  action_failures: number;
+  /** state: stays active while it matches (counts in devices_on); event: fires per occurrence, never active. */
+  kind: "state" | "event";
+  /** system: about the controller as a whole (a finished upgrade job), not a device. */
+  scope: "device" | "system";
   disabled: boolean;
   /** Has any HTTP action. */
   webhook: boolean;
@@ -76,11 +90,8 @@ export interface CmrAlertRule {
 }
 
 export interface CmrLayout {
-  rest_id: string;
   name: string;
   comment: string | null;
-  background: string | null;
-  scale: string | null;
 }
 
 export interface CmrNode {
@@ -90,7 +101,6 @@ export interface CmrNode {
   x: number | null;
   y: number | null;
   target_layout: string | null;
-  device_ref: string | null;
   device_key: string | null;
 }
 
@@ -114,7 +124,6 @@ export interface CmrLink {
 export interface CmrEntry {
   entry_id: string;
   title: string;
-  controller_key: string;
   controller_url: string;
   last_update: string | null;
   available: boolean;
@@ -127,6 +136,8 @@ export interface CmrEntry {
   alerts: CmrAlertRule[];
   upgrade_rules: Record<string, string>[];
   upgrade_jobs: Record<string, string>[];
+  /** Changes when layouts or nodes do; they are only sent then (data.ts fills them in). */
+  topology_version: string;
   layouts: CmrLayout[];
   nodes: CmrNode[];
   links: CmrLink[];
@@ -136,6 +147,9 @@ export interface CmrEntry {
 export interface HassLike {
   states: Record<string, { state: string; attributes: Record<string, unknown>; last_changed: string }>;
   user?: { is_admin: boolean };
+  /** Entity and device registry views the frontend keeps (used before the first snapshot). */
+  entities?: Record<string, { platform?: string; translation_key?: string; device_id?: string }>;
+  devices?: Record<string, { name?: string | null; name_by_user?: string | null; config_entries?: string[] }>;
   language?: string;
   themes?: { darkMode?: boolean };
   connection: {

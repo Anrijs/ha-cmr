@@ -47,7 +47,7 @@ def test_alert_rule_firing_keeps_rule_severity():
     )
     (event,) = events
     assert (event["category"], event["severity"], event["data"]["severity"]) == ("alert", "warning", "high")
-    assert event["title"] == "Alert cpu>95% fired on 2 device(s)"
+    assert event["title"] == "Alert cpu>95% active on 2 device(s)"  # a state alert
     assert event["device_key"] == "S1"  # fleet-level events belong to the controller
 
 
@@ -93,3 +93,16 @@ def test_upgrade_jobs():
 def test_no_changes_no_events():
     old = snapshot([CONTROLLER, ap()], [rule()])
     assert changes.diff_snapshots(old, snapshot([CONTROLLER, ap()], [rule()]), NOW) == []
+
+
+def test_event_alert_occurrences_come_from_the_fired_counter():
+    """Event alerts never stay active; each poll reports how often they fired."""
+    reboots = {"name": "rebooted", "rebooted": "true", "severity": "medium"}
+    old = snapshot([CONTROLLER], [rule(**reboots)])
+    new = snapshot([CONTROLLER], [rule(**reboots, fired="3")])
+    (event,) = changes.diff_snapshots(old, new, NOW)
+    assert (event["title"], event["data"]["event"], event["data"]["count"]) == ("Alert rebooted fired 3 times", "fired", 3)
+    # A rule that pushes to Home Assistant reports each occurrence itself.
+    assert changes.diff_snapshots(old, new, NOW, frozenset({"*9"})) == []
+    # devices-on means nothing for an event rule (always 0 on the controller).
+    assert changes.diff_snapshots(new, snapshot([CONTROLLER], [rule(**reboots, fired="3")]), NOW) == []

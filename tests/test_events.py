@@ -265,3 +265,17 @@ def test_dismiss_forgets_counts_and_keeps_offline_quiet():
     # The dismissal survives a save/load round trip.
     engine.dismiss("device_offline:S1", now)
     assert "device_offline:S1" in insights.InsightEngine(engine.as_dict())._dismissed
+
+
+def test_find_device_by_identity_or_address():
+    devices = [("k1", "hAP", "192.0.2.5"), ("k2", "Site-hAPax3", "192.0.2.10"), ("k3", "hAP", "192.0.2.6"),
+               ("k4", "NAT-A", "198.51.100.1"), ("k5", "NAT-B", "198.51.100.1"), ("k6", "Core", None)]
+    # CMR's own log lines start with identity@address; the address picks between equal identities.
+    assert logparse.find_device("hAP@192.0.2.6 failed to upgrade from 7.1 to 7.2", devices) == "k3"
+    assert logparse.find_device("Site-hAPax3@192.0.2.10 has new version available 7.2", devices) == "k2"
+    assert logparse.find_device("Core has successfully upgraded to version 7.2", devices) == "k6"
+    # Alert action text: an address alone works when exactly one device has it.
+    assert logparse.find_device("CPU 90% on 192.0.2.10", devices) == "k2"
+    assert logparse.find_device("CPU 90% on 198.51.100.1", devices) is None  # NAT: shared address
+    assert logparse.find_device("CPU 90% on 192.0.2.100", devices) is None
+    assert logparse.find_device("nothing here", devices) is None

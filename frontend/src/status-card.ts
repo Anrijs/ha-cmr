@@ -17,7 +17,36 @@ import {
   ruleDevicesStyles,
   viewPath,
 } from "./shared";
-import type { CmrAlertRule, CmrDevice, CmrEntry } from "./types";
+import type { CmrAlertRule, CmrDevice, CmrEntry, HassLike } from "./types";
+
+const FLEET_KEYS = ["devices", "devices_online", "updates_available", "alerts_firing", "network_issues"];
+
+/**
+ * The controller's fleet sensors, found through the frontend's registries:
+ * they are in `hass` at once, while the first snapshot may take a moment on
+ * a big fleet. Only the controller the card is set to, or the first one.
+ */
+function fleetSensors(hass: HassLike, entryId?: string): { name: string; value: (key: string) => number } | undefined {
+  const byDevice = new Map<string, Map<string, string>>();
+  for (const [entityId, info] of Object.entries(hass.entities ?? {})) {
+    if (info.platform !== "cmr" || !info.device_id || !FLEET_KEYS.includes(info.translation_key ?? "")) continue;
+    if (entryId && !hass.devices?.[info.device_id]?.config_entries?.includes(entryId)) continue;
+    const sensors = byDevice.get(info.device_id) ?? new Map<string, string>();
+    sensors.set(info.translation_key!, entityId);
+    byDevice.set(info.device_id, sensors);
+  }
+  // A controller that is unreachable has no numbers to show.
+  const found = [...byDevice.entries()].find(([, sensors]) =>
+    Number.isFinite(Number(hass.states[sensors.get("devices_online") ?? ""]?.state)),
+  );
+  if (!found) return undefined;
+  const [deviceId, sensors] = found;
+  const device = hass.devices?.[deviceId];
+  return {
+    name: device?.name_by_user || device?.name || "CMR controller",
+    value: (key) => Number(hass.states[sensors.get(key) ?? ""]?.state) || 0,
+  };
+}
 
 interface StatusConfig {
   type: string;
@@ -51,7 +80,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
   declare _version?: string;
   declare _issues: CmrIssue[];
   declare _pairing: Map<string, string>;
-  /** Rule opened in the alerts panel to show the devices it fires on. */
+  /** Rule opened in the alerts panel to show the devices it is active on. */
   declare _openRule: string;
   private _ticker?: number;
   private _unsubscribeEvents?: () => void;
@@ -127,7 +156,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
 
   protected render(): TemplateResult {
     const entry = this._entry;
-    if (!entry) return this.renderWaiting();
+    if (!entry) return this._renderFromSensors() ?? this.renderWaiting();
 
     const devices = entry.devices;
     const controller = devices.find((d) => d.controller);
@@ -183,7 +212,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
                     <div class="label">of ${devices.length} online</div>`}
             </button>
             ${this._stat("updates", "mdi:update", updates, "updates", updates ? "update" : "ok")}
-            ${this._stat("alerts", "mdi:bell-alert-outline", firing, "alerts firing", firing ? "alert" : "ok")}
+            ${this._stat("alerts", "mdi:bell-alert-outline", firing, "alerts active", firing ? "alert" : "ok")}
             ${this._stat("issues", "mdi:stethoscope", issues, issues === 1 ? "issue" : "issues", issues ? "pending" : "ok")}
             ${this._stat("pending", "mdi:link-variant-plus", pending, "to pair", pending ? "pending" : "ok")}
           </div>
@@ -211,6 +240,40 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
                 <i style="background:${VERSION_COLORS[i % VERSION_COLORS.length]}"></i>
                 <span class="mono">${version}</span> <span class="muted">×${count}</span></button>`,
             )}
+          </div>
+        </div>
+      </ha-card>
+    `;
+  }
+
+  /** The tiles from the fleet sensors, without drill-downs, until the snapshot is in. */
+  private _renderFromSensors(): TemplateResult | undefined {
+    if (this._error) return undefined;
+    const fleet = fleetSensors(this.hass, this._config?.entry_id);
+    if (!fleet) return undefined;
+    const online = fleet.value("devices_online");
+    const total = fleet.value("devices");
+    const tile = (icon: string, value: string | number, label: string, status: string) =>
+      html`<div class="stat static status-${status}"><ha-icon icon=${icon}></ha-icon><b>${value}</b><div class="label">${label}</div></div>`;
+    const updates = fleet.value("updates_available");
+    const firing = fleet.value("alerts_firing");
+    const issues = fleet.value("network_issues");
+    return html`
+      <ha-card>
+        <div class="hero">
+          <div class="identity">
+            <div class="logo"><ha-icon icon="mdi:router-network"></ha-icon></div>
+            <div class="who">
+              <div class="eyebrow">CMR controller</div>
+              <div class="name">${fleet.name}</div>
+              <div class="meta">Loading the details…</div>
+            </div>
+          </div>
+          <div class="stats">
+            ${tile("mdi:lan-connect", total ? `${online}/${total}` : online, "online", online < total ? "offline" : "ok")}
+            ${tile("mdi:update", updates, "updates", updates ? "update" : "ok")}
+            ${tile("mdi:bell-alert-outline", firing, "alerts active", firing ? "alert" : "ok")}
+            ${tile("mdi:stethoscope", issues, issues === 1 ? "issue" : "issues", issues ? "pending" : "ok")}
           </div>
         </div>
       </ha-card>
@@ -253,7 +316,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
       link = { view: this._config.views?.devices, params: { cmr_status: "update" } };
     } else if (panel === "alerts") {
       const rules = entry.alerts.filter((r) => r.devices_on > 0).sort((a, b) => b.devices_on - a.devices_on);
-      title = rules.length ? `${rules.length} alert rule${rules.length > 1 ? "s" : ""} firing` : "No alert rule is firing";
+      title = rules.length ? `${rules.length} alert rule${rules.length > 1 ? "s" : ""} active` : "No alert rule is active";
       empty = "All alert rules are quiet.";
       items = rules.map((r) => this._ruleRow(r, entry));
     } else if (panel === "issues") {
@@ -384,6 +447,8 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
         border: 1px solid transparent;
       }
       .stat:hover { border-color: var(--cmr-line); }
+      .stat.static { cursor: default; }
+      .stat.static:hover { border-color: transparent; }
       .stat.on { border-color: var(--status, var(--primary-color)); background: color-mix(in srgb, var(--status, var(--primary-color)) 10%, var(--cmr-surface-2)); }
       .stat:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
       .stat ha-icon { color: var(--status); --mdc-icon-size: 20px; }

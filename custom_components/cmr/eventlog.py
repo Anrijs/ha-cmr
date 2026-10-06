@@ -4,7 +4,8 @@ Sources, all generic:
 - the controller's log (`/log`), read incrementally and classified by the
   standard router message formats (logparse.py);
 - changes between polls: devices going offline/online, reboots, upgrades,
-  new or removed devices, alert rules firing, upgrade jobs;
+  new or removed devices, state alerts active or cleared, event alerts
+  fired, upgrade jobs;
 - alerts the controller pushes to the webhook.
 
 Patterns across events become insights (insights.py), shown as Repairs, a
@@ -29,11 +30,20 @@ from homeassistant.util import dt as dt_util
 
 from .api import CmrApi, CmrApiError
 from .changes import ALERT_SEVERITY, diff_snapshots
-from .const import CONF_ACTIVITY_LOG, CONF_DETECTION, CONF_OFFLINE_MINUTES, DOMAIN, EVENT_CMR, EVENT_ISSUE
+from .const import (
+    CONF_ACTIVITY_LOG,
+    CONF_DETECTION,
+    CONF_OFFLINE_MINUTES,
+    CONF_WEBHOOK_ID,
+    DOMAIN,
+    EVENT_CMR,
+    EVENT_ISSUE,
+)
 from .insights import DEFAULT_THRESHOLDS, OFFLINE_AFTER, Insight, InsightEngine, describe
 from .logparse import (
     SEVERITIES,
     classify,
+    find_device,
     find_identity,
     gmt_offset_seconds,
     log_id_value,
@@ -164,7 +174,12 @@ class CmrEventLog:
         events = await self._read_log(api, snapshot, now)
         events += await self._read_wifi_logs(api, snapshot, now, replay=replay)
         if previous is not None:
-            events += diff_snapshots(previous, snapshot, now)
+            webhook_id = self.entry.data.get(CONF_WEBHOOK_ID) or ""
+            pushed = frozenset(
+                rule.rest_id for rule in snapshot.alerts.values()
+                if webhook_id and webhook_id in (rule.webhook_url or "")
+            )
+            events += diff_snapshots(previous, snapshot, now, pushed)
         self._ingest(events, snapshot, now, replay=replay)
 
     async def _read_log(self, api: CmrApi, snapshot: CmrSnapshot, now: datetime) -> list[dict[str, Any]]:
@@ -190,6 +205,7 @@ class CmrEventLog:
         offset = timedelta(seconds=self._gmt_offset or 0)
         now_local = (now + offset).replace(tzinfo=None)
         identities = [d.identity for d in snapshot.devices.values()]
+        named = snapshot.named_devices()
         controller = snapshot.controller
         own_user = self.entry.data.get(CONF_USERNAME)
         events = []
@@ -207,6 +223,10 @@ class CmrEventLog:
             if parsed.data.get("interface"):
                 identity = find_identity(parsed.data["interface"], identities)
                 owner = snapshot.device_by_identity(identity) if identity else None
+            elif parsed.category == "cmr":
+                # CMR's own lines (alert actions, upgrades, pairing) name the
+                # device they are about: "hAP@192.0.2.5 failed to upgrade …".
+                owner = snapshot.devices.get(find_device(str(item.get("message", "")), named) or "")
             device = owner or controller
             if parsed.category == "dhcp" and parsed.data.get("host"):
                 self._mac_hosts[parsed.data["mac"]] = parsed.data["host"]

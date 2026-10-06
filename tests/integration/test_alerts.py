@@ -58,3 +58,17 @@ async def test_alert_devices_without_console_rights(hass: HomeAssistant, control
     assert (await client.receive_json())["success"]
     snapshot = await client.receive_json()
     assert snapshot["event"]["entries"][0]["console"] is False
+
+
+async def test_event_alert_has_no_active_devices(hass: HomeAssistant, controller: FakeController, entry, hass_ws_client) -> None:
+    """An event alert (here: rebooted) is never active, so nothing is looked up."""
+    client = await hass_ws_client(hass)
+    await client.send_json({"id": 1, "type": "cmr/alert_devices", "entry_id": entry.entry_id, "rule_id": "*8"})
+    reply = await client.receive_json()
+    assert reply["success"] and reply["result"] == {"devices": []}
+    assert _show_devices_calls(controller) == 0
+
+    await client.send_json({"id": 2, "type": "cmr/subscribe", "entry_id": entry.entry_id})
+    assert (await client.receive_json())["success"]
+    rules = {r["name"]: r for r in (await client.receive_json())["event"]["entries"][0]["alerts"]}
+    assert (rules["rebooted"]["kind"], rules["cpu>95%"]["kind"]) == ("event", "state")
