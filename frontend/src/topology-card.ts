@@ -1,5 +1,6 @@
 import { css, html, nothing, svg, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
 import { RuleDevices } from "./data";
+import { layoutChildren } from "./layouts";
 import { frontPanelStyles, portSummary, renderFrontPanel, usedPorts } from "./ports";
 import {
   CmrEntryCard,
@@ -122,6 +123,8 @@ interface SceneMemo {
   byKey: Map<string, CmrDevice>;
   devicesIn: Map<string, CmrDevice[]>;
   cables: Map<string, Cable | undefined>;
+  /** Sub-layouts of each layout (`layoutChildren`), built on first use. */
+  children?: Map<string, string[]>;
   scene?: Scene;
 }
 
@@ -301,19 +304,23 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     return this._rootLayouts(entry)[0] ?? AUTO;
   }
 
-  /** Devices on a layout, including those on the layouts it links to. */
-  private _devicesIn(entry: CmrEntry, layout: string, seen = new Set<string>()): CmrDevice[] {
+  /**
+   * Devices on a layout, including those on its sub-layouts. Links back to a
+   * parent or across to a sibling layout don't count (`layoutChildren`).
+   */
+  private _devicesIn(entry: CmrEntry, layout: string): CmrDevice[] {
     const memo = this._memoFor(entry);
     const cached = memo.devicesIn.get(layout);
     if (cached) return cached;
-    if (seen.has(layout)) return [];
-    seen.add(layout);
+    memo.children ??= layoutChildren(entry.layouts.map((l) => l.name), entry.nodes, this._rootLayouts(entry));
     const out = new Map<string, CmrDevice>();
     for (const node of entry.nodes) {
       if (node.layout !== layout) continue;
       const device = node.device_key ? memo.byKey.get(node.device_key) : undefined;
       if (device) out.set(device.key, device);
-      if (node.target_layout) this._devicesIn(entry, node.target_layout, seen).forEach((d) => out.set(d.key, d));
+    }
+    for (const child of memo.children.get(layout) ?? []) {
+      this._devicesIn(entry, child).forEach((d) => out.set(d.key, d));
     }
     const devices = [...out.values()];
     memo.devicesIn.set(layout, devices);

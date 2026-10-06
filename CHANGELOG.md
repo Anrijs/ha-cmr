@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.12.2
+- Map: a node that opens another layout counts the devices of that layout and the layouts inside it, not the layouts it links back to. With two layouts linking to each other, each node showed the devices of both, and which count a node showed depended on the order the map drew them. The cable between two layouts is found from the same, corrected device sets.
+
 ## 0.12.1
 - Discontinued devices get their product photo, name and front panel too: the catalog is now fetched with MikroTik's discontinued products. A board name falls back to a discontinued product only when no current one fits, so existing matches stay as they are; the cached catalog keeps serving until the new one is downloaded.
 - README: pushing or clearing alert HTTP actions makes the controller run the actions of active state alerts again.
