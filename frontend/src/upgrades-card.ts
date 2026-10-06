@@ -31,6 +31,8 @@ const RUNNING = new Set(["processing", "version check", "waiting devices", "queu
 // Jobs that removing stops or cancels; run-next only applies to scheduled ones.
 const CANCELLABLE = new Set([...RUNNING, "scheduled"]);
 const UNDERWAY = new Set(["processing", "version check", "waiting devices"]);
+// Upgrade channels; any other `channel` on a job is a pinned version.
+const CHANNELS = new Set(["long-term", "stable", "testing", "development"]);
 
 type JobAction = "cancel" | "run_next";
 
@@ -171,10 +173,17 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
         ? "The controller lists the devices when the job starts."
         : "No devices."}</div>`;
     } else {
-      list = html`${devices.map((d) => this._jobDevice(d, byKey.get(d.device_key ?? "")))}
+      const finished = !CANCELLABLE.has(job.state ?? "scheduled");
+      const pinned = !!job.channel && !CHANNELS.has(job.channel);
+      list = html`${devices.map((d) => this._jobDevice(d, byKey.get(d.device_key ?? ""), finished))}
         ${devices.some((d) => d.error === "no upgrade available")
           ? html`<div class="muted small note">CMR counts <i>no upgrade available</i> as a failed upgrade: the
-              device already ran the target version, or that version's packages weren't found.</div>`
+              device already ran the target version, or that version's packages weren't found.
+              ${pinned
+                ? html`This job pins <span class="mono">${job.channel}</span>, and the controller installs a pinned
+                    version only from packages it already has (its packages directory or cache). An upgrade through
+                    the device's channel downloads them.`
+                : nothing}</div>`
           : nothing}`;
     }
     const state = job.state ?? "scheduled";
@@ -208,8 +217,12 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
     </div>`;
   }
 
-  private _jobDevice(d: JobDevice, device: CmrDevice | undefined): TemplateResult {
-    const kind = d.error ? "failed" : d.state === "done" ? "done" : d.state === "cancelled" ? "other" : "running";
+  private _jobDevice(d: JobDevice, device: CmrDevice | undefined, finished: boolean): TemplateResult {
+    // The controller restarts during its own upgrade, so its row in a finished
+    // job stays "rebooting"; running the target version means it upgraded.
+    const restarted = finished && !d.error && d.state === "rebooting"
+      && !!d.upgrade_version && d.current_version === d.upgrade_version;
+    const kind = d.error ? "failed" : d.state === "done" || restarted ? "done" : d.state === "cancelled" ? "other" : "running";
     const icon = { failed: "mdi:alert-circle", done: "mdi:check-circle", other: "mdi:cancel", running: "mdi:progress-clock" }[kind];
     const versions = d.upgrade_version && d.upgrade_version !== d.current_version
       ? `${d.current_version ?? "?"} → ${d.upgrade_version}`
@@ -220,8 +233,9 @@ export class CmrUpgradesCard extends CmrEntryCard<UpgradesConfig> {
         ? html`<button class="name" @click=${() => moreInfo(this, device.entities.update)}>${d.identity}</button>`
         : html`<span class="name">${d.identity}</span>`}
       <span class="mono muted">${versions}</span>
-      <span class="chip">${d.state ?? "?"}</span>
+      <span class="chip">${restarted ? "upgraded" : (d.state ?? "?")}</span>
       ${d.error ? html`<span class="reason">${d.error}</span>` : nothing}
+      ${restarted ? html`<span class="muted small">restarted before the job could record it</span>` : nothing}
     </div>`;
   }
 

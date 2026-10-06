@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.11.1
+- *Install* failed with "no upgrade available" when the controller didn't already have the new version's packages, for example on the CMR controller itself (the only device with the `cmr` package). It pinned the exact version, and the controller installs a pinned version only from packages it already has. Install now upgrades through the device's channel like the controller's own Upgrade button, which downloads what is needed; only an explicitly requested other version is pinned.
+- Upgrades card: a failed pinned job explains why, and the controller's own upgrade no longer shows as stuck in "rebooting" (it restarts before the job can record the result).
+
 ## 0.11.0
 - Alerts follow CMR's two kinds of rules: a state alert (thresholds, connected/disconnected, update available) is *active* while it matches and is what the cards count; an event alert (reboots, finished upgrades and jobs, interface changes, log lines) fires per occurrence and never stays active, so its row shows how often it fired and explains why it lists no devices, and the timeline reports its occurrences from each poll unless it pushes them itself. *Alert rules firing* is now *Active alert rules* (existing entity ids stay). A finished-upgrade-job alert is recognised by its outcome value too (`success`/`fail`), so it no longer picks up a device from its text.
 - Map: hovering a device lists the cables it uses (port, far end, PoE) and, with the product catalog on, draws its front panel from the catalog's port counts: linked ports lit, PoE-out ports marked, SFP and QSFP cages apart. The catalog cache is refetched once to pick up the port data.

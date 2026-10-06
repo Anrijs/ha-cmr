@@ -94,3 +94,28 @@ async def test_job_actions_need_actions(hass: HomeAssistant, controller: FakeCon
     )
     reply = await client.receive_json()
     assert not reply["success"] and reply["error"]["code"] == "not_allowed"
+
+
+async def test_install_uses_the_channel_unless_another_version_is_asked(
+    hass: HomeAssistant, controller: FakeController, make_entry
+) -> None:
+    """The channel's own version goes through the channel (the controller downloads it);
+    a pinned version is installed only from packages the controller already has."""
+    from homeassistant.helpers import entity_registry as er
+
+    from custom_components.cmr.const import DOMAIN
+
+    for name in ("Site-GW", "Site-AP2"):
+        controller.device(name)["available-version"] = "7.91"
+    entry = make_entry(allow_upgrades=True)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    registry = er.async_get(hass)
+    gateway = registry.async_get_entity_id("update", DOMAIN, "S0000000002_update")
+    access_point = registry.async_get_entity_id("update", DOMAIN, "S0000000006_update")
+
+    await hass.services.async_call("update", "install", {"entity_id": gateway}, blocking=True)
+    assert ("POST", "cmr/device/upgrade", {"numbers": "*6", "duration": "2s"}) in controller.calls
+
+    await hass.services.async_call("update", "install", {"entity_id": access_point, "version": "7.90.1"}, blocking=True)
+    assert ("POST", "cmr/device/upgrade", {"numbers": "*7", "duration": "2s", "channel": "7.90.1"}) in controller.calls

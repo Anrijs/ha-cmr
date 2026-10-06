@@ -51,8 +51,11 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
 
     The controller flags any *different* version as an upgrade; an older
     available version (an internal build ahead of its channel) is reported as
-    up to date, and installing always pins the exact target version so the
-    controller can't fall back to an older channel version.
+    up to date and never installed by default. Installing the version the
+    channel offers goes through the device's channel, like the controller's
+    own Upgrade button: the controller downloads what it needs. Only another
+    version, asked for explicitly, is pinned, and the controller installs a
+    pinned version only from packages it already has (ARCHITECTURE W18).
     """
 
     _installing_to: str | None = None
@@ -155,13 +158,15 @@ class CmrFirmwareUpdate(CmrDeviceEntity, UpdateEntity):
                 translation_key="no_newer_version",
                 translation_placeholders={"device": device.identity, "version": device.version or "?"},
             )
+        # `duration` ends the command's progress output, not the upgrade job,
+        # which keeps running on the controller.
+        payload = {"numbers": device.rest_id, "duration": "2s"}
+        if target != device.available_version:
+            # Only an explicitly requested other version is pinned: a pinned
+            # version must already be on the controller, it isn't downloaded.
+            payload["channel"] = target
         try:
-            await self.coordinator.api.post(
-                "cmr/device/upgrade",
-                # Pin the version; `duration` ends the command's progress output,
-                # not the upgrade job, which keeps running on the controller.
-                {"numbers": device.rest_id, "channel": target, "duration": "2s"},
-            )
+            await self.coordinator.api.post("cmr/device/upgrade", payload)
         except CmrApiError as err:
             refused = "permission" in (err.detail or "").lower()
             raise HomeAssistantError(

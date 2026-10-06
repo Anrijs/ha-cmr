@@ -562,9 +562,13 @@ so.
 
 With *Allow actions on the controller* on and `write` on the router user:
 
-- **Install** on a device's RouterOS update upgrades that one device. It always
-  pins the exact version shown, and only offers versions that are newer than
-  the installed one.
+- **Install** on a device's RouterOS update upgrades that one device to the
+  version its channel offers, the same way as the controller's own *Upgrade*
+  button, so the controller downloads the packages it needs. It only offers
+  versions newer than the installed one. A different version asked for
+  explicitly (`update.install` with `version`) is pinned instead, and the
+  controller installs a pinned version only from packages it already has
+  (its packages directory or cache).
 - **Run upgrade rule** starts that rule's job now. It refuses while the rule's
   channel would move any device to an *older* version (the controller treats
   any different version as an upgrade); the button's attributes list the
