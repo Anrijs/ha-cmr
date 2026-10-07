@@ -100,6 +100,7 @@ export interface CmrLayout {
 
 export interface CmrNode {
   id: string;
+  revision: string;
   name: string;
   layout: string;
   x: number | null;

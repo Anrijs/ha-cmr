@@ -39,6 +39,8 @@ jobs:
       - run: npm ci
       - name: Type check
         run: npm run typecheck
+      - name: Map geometry and editing tests
+        run: npm test
       - name: Build
         run: npm run build
       - name: The committed bundle must match the sources

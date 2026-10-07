@@ -25,6 +25,7 @@ from .actions import async_cancel_job, async_job_devices, async_rebuild_links, a
 from .api import CmrApiError, CmrNotFoundError
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
+from .layout_edit import LayoutEditError, async_move_nodes, node_revision
 from .models import CmrSnapshot, CmrWifiNetwork, CmrWifiRadio, parse_job_devices, wifi_targets
 from .pairing import async_pair
 from .webhook import (
@@ -64,6 +65,7 @@ def async_register_websocket(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_alert_push)
     websocket_api.async_register_command(hass, ws_pair)
     websocket_api.async_register_command(hass, ws_rebuild_links)
+    websocket_api.async_register_command(hass, ws_move_nodes)
     websocket_api.async_register_command(hass, ws_job_devices)
     websocket_api.async_register_command(hass, ws_job_action)
     websocket_api.async_register_command(hass, ws_alert_devices)
@@ -206,6 +208,7 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
         nodes.append(
             {
                 "id": node.rest_id,
+                "revision": node_revision(node),
                 "name": node.name,
                 "layout": node.layout,
                 "x": node.x,
@@ -378,6 +381,47 @@ async def ws_pair(hass: HomeAssistant, connection: websocket_api.ActiveConnectio
         return
     connection.send_result(msg["id"], {"device_key": device.key})
     await coordinator.async_request_refresh()
+
+
+def _coordinate(value: Any) -> int:
+    if type(value) is not int or not -(2**31) <= value < 2**31:
+        raise vol.Invalid("Expected a signed 32-bit integer coordinate")
+    return value
+
+
+@websocket_api.require_admin
+@websocket_api.websocket_command({
+    vol.Required("type"): "cmr/move_nodes",
+    vol.Required("entry_id"): str,
+    vol.Required("layout"): str,
+    vol.Required("nodes"): vol.All([{
+        vol.Required("id"): vol.All(str, vol.Match(r"^\*[0-9a-fA-F]+$")),
+        vol.Required("revision"): vol.All(str, vol.Match(r"^[0-9a-f]{16}$")),
+        vol.Required("x"): _coordinate,
+        vol.Required("y"): _coordinate,
+    }], vol.Length(min=1, max=500)),
+})
+@websocket_api.async_response
+async def ws_move_nodes(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Save an explicit draft of positions to the controller's existing nodes."""
+    coordinator = _acting_coordinator(connection, msg)
+    if coordinator is None:
+        return
+    if coordinator.layout_edit_lock.locked():
+        connection.send_error(msg["id"], "layout_busy", "Another layout save is in progress; try again shortly")
+        return
+    async with coordinator.layout_edit_lock:
+        try:
+            result = await async_move_nodes(coordinator.api, msg["layout"], msg["nodes"])
+        except LayoutEditError as err:
+            # Reopening the editor must use the current controller positions.
+            await coordinator.async_request_refresh()
+            connection.send_error(msg["id"], err.code, str(err))
+        except CmrApiError as err:
+            connection.send_error(msg["id"], "save_failed", err.detail)
+        else:
+            await coordinator.async_request_refresh()
+            connection.send_result(msg["id"], result)
 
 
 @websocket_api.require_admin

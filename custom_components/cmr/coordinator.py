@@ -69,6 +69,7 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
             ),
         )
         self.api = api
+        self.layout_edit_lock = asyncio.Lock()
         # The upgrade controls are entities, so this option only takes effect
         # on a reload; remembered to tell that change from the live ones.
         self.allow_upgrades = bool(entry.options.get(CONF_ALLOW_UPGRADES))

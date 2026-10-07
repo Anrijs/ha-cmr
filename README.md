@@ -371,6 +371,7 @@ dashboard* changes it later. In YAML:
 strategy:
   type: custom:cmr
   entry_id: <config entry id>   # ⋮ on the integration entry → Copy entry ID
+  link_style: elbow            # optional: straight (default) or elbow
 ```
 
 ### Cards on your own dashboards
@@ -391,6 +392,7 @@ controller when you have several.
   max_height: 900           # … up to this (default: 85% of the window)
   show_ports: true          # port names at both ends of each cable
   show_comments: true       # link comments on cables without detected ports
+  link_style: elbow         # right-angle cables; default: straight
   icons:                    # icons for layout nodes that open another layout
     House: mdi:home
 
@@ -675,6 +677,27 @@ names or comments.
 - **Links between layouts** (two buildings on an overview) use the device cable
   that joins them.
 - **Links with no detected ports** are dashed and show their comment.
+
+**Elbow links:** choose *Map link style → Elbow (right angles)* in the generated
+dashboard's editor, or *Link style* in an individual map card's editor. Cables
+turn at right angles and route around node cards where space allows; their
+ports, hover details and PoE pulses follow the route. Straight remains the
+default. This setting changes only the Home Assistant drawing.
+
+**Edit layout:** Home Assistant administrators with *Allow actions on the
+controller* enabled can rearrange an existing CMR layout. Select *Edit layout*,
+drag a node, or focus it and use the arrow keys (Shift moves farther). *Snap to
+grid* aligns positions to a 20-unit grid. *Save to CMR* writes the changed
+positions to the controller; *Cancel* discards the draft. The same positions
+are then visible in CMR's own editor. The origin stays at the layout center;
+negative coordinates are valid, x increases rightward and y downward.
+
+Editing moves existing device, layout and unmanaged nodes; it does not create
+nodes or edit the generated *All devices* fallback. Each changed node is
+checked against the controller before saving, so a stale draft is rejected.
+Saves are verified by reading the positions back. If some writes fail, the
+editor lists them and retains the unsaved changes; CMR cannot save a group of
+nodes as one atomic operation.
 
 ## Data, storage and privacy
 

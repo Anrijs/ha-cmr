@@ -1,6 +1,8 @@
 import { css, html, nothing, svg, type PropertyDeclarations, type PropertyValues, type TemplateResult } from "lit";
 import { RuleDevices } from "./data";
 import { layoutChildren } from "./layouts";
+import { LayoutDraft, type MoveResult } from "./layout-edit";
+import { LINK_STYLE_FIELD, OrthogonalRouter, pathData, pathMiddle, type Point } from "./routing";
 import { frontPanelStyles, portSummary, renderFrontPanel, usedPorts } from "./ports";
 import {
   CmrEntryCard,
@@ -34,6 +36,7 @@ interface TopologyConfig {
   max_height?: number;
   show_ports?: boolean;
   show_comments?: boolean;
+  link_style?: "straight" | "elbow";
   /** Icons for layout (building) nodes by name, e.g. { House: "mdi:home" }. */
   icons?: Record<string, string>;
   /** Dashboard views to link into (the strategy sets `devices`). */
@@ -53,6 +56,7 @@ const AUTO = "__auto__";
 
 interface PlacedNode {
   id: string;
+  restId?: string;
   name: string;
   x: number;
   y: number;
@@ -63,6 +67,7 @@ interface PlacedNode {
 }
 
 interface Scene {
+  origin: Point;
   layout: string;
   nodes: PlacedNode[];
   links: CmrLink[];
@@ -159,6 +164,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _pinned: { state: true },
     _find: { state: true },
     _copied: { state: true },
+    _edit: { state: true },
+    _saving: { state: true },
+    _editMessage: { state: true },
+    _snap: { state: true },
   };
 
   declare _path: string[];
@@ -174,6 +183,12 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   /** Find on map: matching nodes stay lit, the rest dim. */
   declare _find: string;
   declare _copied: boolean;
+  declare _edit?: LayoutDraft;
+  declare _saving: boolean;
+  declare _editMessage: string;
+  declare _snap: boolean;
+  private _nodeDrag?: { pointer: number; id: string; x: number; y: number; start: Point; moved: boolean };
+  private _routes?: { key: string; paths: Map<string, Point[]> };
   private _openTimer?: number;
   private _pointers = new Map<number, { x: number; y: number }>();
   private _pinch?: { dist: number; k: number; wx: number; wy: number };
@@ -200,6 +215,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._alert = "";
     this._find = "";
     this._copied = false;
+    this._saving = false;
+    this._snap = true;
+    this._editMessage = "";
   }
 
   /** Keys of the devices the highlighted rule is active on, set during render. */
@@ -217,6 +235,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   };
 
   setConfig(config: TopologyConfig): void {
+    this._edit = undefined;
+    this._memo = undefined;
     this._config = { height: 440, show_ports: true, show_comments: true, ...config };
     this._path = config.layout ? [config.layout] : [];
     this._userMoved = false;
@@ -238,6 +258,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         },
         { name: "show_ports", selector: { boolean: {} } },
         { name: "show_comments", selector: { boolean: {} } },
+        LINK_STYLE_FIELD,
       ],
       computeLabel: labelsFrom({
         entry_id: "Controller",
@@ -246,6 +267,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         height: "Height",
         show_ports: "Show port names on cables",
         show_comments: "Show link comments",
+        link_style: "Link style",
       }),
     };
   }
@@ -264,6 +286,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     super.connectedCallback();
     window.addEventListener("keydown", this._onKey);
     window.addEventListener("location-changed", this._onLocation);
+    window.addEventListener("beforeunload", this._beforeUnload);
     this._onLocation();
   }
 
@@ -271,6 +294,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     super.disconnectedCallback();
     window.removeEventListener("keydown", this._onKey);
     window.removeEventListener("location-changed", this._onLocation);
+    window.removeEventListener("beforeunload", this._beforeUnload);
+    window.clearTimeout(this._openTimer);
     this._resize?.disconnect();
     this._resize = undefined;
   }
@@ -300,6 +325,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _currentLayout(entry: CmrEntry): string {
+    if (this._edit?.entryId === entry.entry_id) return this._edit.layout;
     if (this._path.length) return this._path[this._path.length - 1];
     return this._rootLayouts(entry)[0] ?? AUTO;
   }
@@ -341,7 +367,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (layout === AUTO) {
       ({ nodes, links } = this._autoLayout(entry));
     } else {
-      const raw = entry.nodes.filter((n) => n.layout === layout);
+      const raw = this._edit ? [...this._edit.originals.values()] : entry.nodes.filter((n) => n.layout === layout);
       const placed = raw.filter((n) => n.x != null && n.y != null);
       const maxY = placed.length ? Math.max(...placed.map((n) => n.y!)) : 0;
       const minX = placed.length ? Math.min(...placed.map((n) => n.x!)) : 0;
@@ -349,8 +375,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       nodes = raw.map((n: CmrNode) => {
         // Nodes never placed in the layout editor have no coordinates: park them in a row below.
         const unplaced = n.x == null || n.y == null;
-        const x = unplaced ? minX + spare * (NODE_W + 40) : n.x!;
-        const y = unplaced ? maxY + NODE_H * 2.4 : n.y!;
+        const draft = this._edit?.positions.get(n.id);
+        const x = draft?.x ?? (unplaced ? minX + spare * (NODE_W + 40) : n.x!);
+        const y = draft?.y ?? (unplaced ? maxY + NODE_H * 2.4 : n.y!);
         if (unplaced) spare += 1;
         if (n.target_layout) {
           const devices = this._devicesIn(entry, n.target_layout);
@@ -365,27 +392,28 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
                 : "ok";
           const comment = entry.layouts.find((l) => l.name === n.target_layout)?.comment ?? null;
           return {
-            id: n.name, name: n.name, x, y, kind: "site", target: n.target_layout,
+            id: n.name, restId: n.id, name: n.name, x, y, kind: "site", target: n.target_layout,
             site: { online, total: devices.length, status, comment },
           };
         }
         const device = n.device_key ? byKey.get(n.device_key) : undefined;
-        return { id: n.name, name: device?.identity ?? n.name, x, y, kind: device ? "device" : "unknown", device };
+        return { id: n.name, restId: n.id, name: device?.identity ?? n.name, x, y, kind: device ? "device" : "unknown", device };
       });
       links = entry.links.filter((l) => l.layout === layout);
     }
 
     const xs = nodes.map((n) => n.x);
     const ys = nodes.map((n) => n.y);
-    const minX = Math.min(...xs, 0) - NODE_W / 2 - PAD;
-    const minY = Math.min(...ys, 0) - NODE_H / 2 - PAD;
+    const margin = PAD + (this._config.link_style === "elbow" ? 96 : 0);
+    const minX = this._edit?.origin.x ?? Math.min(...xs, 0) - NODE_W / 2 - margin;
+    const minY = this._edit?.origin.y ?? Math.min(...ys, 0) - NODE_H / 2 - margin;
     for (const node of nodes) {
       node.x -= minX;
       node.y -= minY;
     }
-    const width = Math.max(...nodes.map((n) => n.x), 0) + NODE_W / 2 + PAD;
-    const height = Math.max(...nodes.map((n) => n.y), 0) + NODE_H / 2 + PAD;
-    return { layout, nodes, links, width, height };
+    const width = Math.max(...nodes.map((n) => n.x), 0) + NODE_W / 2 + margin;
+    const height = Math.max(...nodes.map((n) => n.y), 0) + NODE_H / 2 + margin;
+    return { layout, nodes, links, width, height, origin: { x: minX, y: minY } };
   }
 
   /** No CMR layouts: the controller on top, every other device in a row below. */
@@ -426,6 +454,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   protected willUpdate(changed: PropertyValues): void {
     super.willUpdate(changed);
+    if (this._edit && this._entry && this._edit.entryId !== this._entry.entry_id) {
+      this._edit = undefined;
+      this._nodeDrag = undefined;
+      this._memo = undefined;
+    }
     if (changed.has("_entry")) this._ruleDevices.invalidate();
   }
 
@@ -440,7 +473,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     this._sizeToLayout();
     const key = `${this._entry?.entry_id}|${this._path.join("/")}|${this._entry ? this._scene(this._entry).nodes.length : 0}`;
-    if (this._entry && key !== this._fittedFor) {
+    if (this._entry && !this._edit && key !== this._fittedFor) {
       this._fittedFor = key;
       this._userMoved = false;
       this._fit();
@@ -453,6 +486,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
    * never above `max_height`.
    */
   private _sizeToLayout(): void {
+    if (this._edit) return;
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (!viewport || !this._entry) return;
     const { width, height } = this._scene(this._entry);
@@ -490,6 +524,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     // Plain wheel scrolls the dashboard; pinch (ctrl+wheel) or cmd+wheel zooms.
     if (!ev.ctrlKey && !ev.metaKey) return;
     ev.preventDefault();
+    if (this._nodeDrag) return;
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
     this._zoomAt(ev.clientX - rect.left, ev.clientY - rect.top, Math.exp(-ev.deltaY * 0.0018));
   }
@@ -540,12 +575,24 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._clearHover();
     this._pointers.set(ev.pointerId, this._local(ev));
     if (this._pointers.size === 2) {
+      this._nodeDrag = undefined;
       // Two fingers: pinch around the point between them.
       const [a, b] = [...this._pointers.values()];
       const { x, y, k } = this._view;
       const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
       this._pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, k, wx: (mid.x - x) / k, wy: (mid.y - y) / k };
       if (this._drag) this._drag.moved = true; // no click at the end of a pinch
+      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+      return;
+    }
+    const nodeEl = (ev.target as HTMLElement).closest<HTMLElement>("[data-node-id]");
+    const nodeId = nodeEl?.dataset.nodeId;
+    if (this._edit && nodeId) {
+      if (this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
+      const start = this._edit.positions.get(nodeId);
+      if (!start) return;
+      this._nodeDrag = { pointer: ev.pointerId, id: nodeId, x: ev.clientX, y: ev.clientY, start, moved: false };
+      nodeEl?.focus({ preventScroll: true });
       (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
       return;
     }
@@ -566,6 +613,15 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       this._pinned = undefined;
       return;
     }
+    const move = this._nodeDrag;
+    if (move && this._edit && move.pointer === ev.pointerId && !this._saving) {
+      const dx = ev.clientX - move.x, dy = ev.clientY - move.y;
+      if (!move.moved && Math.hypot(dx, dy) < 4) return;
+      move.moved = true;
+      this._edit.move(move.id, move.start.x + dx / this._view.k, move.start.y + dy / this._view.k, this._snap ? 20 : 1);
+      this._draftChanged();
+      return;
+    }
     const drag = this._drag;
     if (!drag || drag.id !== ev.pointerId) return;
     const dx = ev.clientX - drag.x;
@@ -581,6 +637,14 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _onPointerUp(ev: PointerEvent): void {
     this._pointers.delete(ev.pointerId);
+    if (this._nodeDrag?.pointer === ev.pointerId) {
+      if (ev.type === "pointercancel" && this._nodeDrag.moved && this._edit) {
+        this._edit.move(this._nodeDrag.id, this._nodeDrag.start.x, this._nodeDrag.start.y);
+        this._draftChanged();
+      }
+      this._nodeDrag = undefined;
+      return;
+    }
     if (this._pinch) {
       if (this._pointers.size < 2) {
         this._pinch = undefined;
@@ -609,6 +673,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   /** Double-click: zoom in on that spot (the fit button shows everything again). */
   private _onDoubleClick(ev: MouseEvent): void {
+    if (this._edit && (ev.target as HTMLElement).closest(".node")) return;
     window.clearTimeout(this._openTimer); // a double-click on a node zooms, it doesn't open it
     if ((ev.target as HTMLElement).closest(".controls, .tooltip.pinned, .find")) return;
     const rect = (ev.currentTarget as HTMLElement).getBoundingClientRect();
@@ -625,11 +690,13 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   /** A click on a node acts after CLICK_DELAY, unless a double-click (zoom) follows. */
   private _click(node: PlacedNode, ev: MouseEvent): void {
     ev.stopPropagation();
+    if (this._edit) return;
     window.clearTimeout(this._openTimer);
     this._openTimer = window.setTimeout(() => this._open(node), CLICK_DELAY);
   }
 
   private _open(node: PlacedNode): void {
+    if (this._edit) return;
     if (node.kind === "site" && node.target) {
       this._path = [...(this._path.length ? this._path : [this._currentLayout(this._entry!)]), node.target];
       this._hover = undefined;
@@ -642,11 +709,13 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _goTo(index: number): void {
+    if (!this._leaveEdit()) return;
     this._path = this._path.slice(0, index + 1);
     this._hover = undefined;
   }
 
   private _selectRoot(layout: string): void {
+    if (!this._leaveEdit()) return;
     this._path = [layout];
     this._hover = undefined;
   }
@@ -663,6 +732,19 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   };
 
   private _onNodeKey(ev: KeyboardEvent, node: PlacedNode): void {
+    if (this._edit && node.restId) {
+      const moves: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      const delta = moves[ev.key];
+      if (delta) {
+        ev.preventDefault(); ev.stopPropagation();
+        if (this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
+        const p = this._edit.positions.get(node.restId)!;
+        const step = (this._snap ? 20 : 1) * (ev.shiftKey ? 5 : 1);
+        this._edit.move(node.restId, p.x + delta[0] * step, p.y + delta[1] * step, this._snap ? 20 : 1);
+        this._draftChanged();
+      }
+      return;
+    }
     if (ev.key === "Enter" || ev.key === " ") {
       ev.preventDefault();
       this._open(node);
@@ -671,7 +753,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _showHover(node: PlacedNode, ev: Event): void {
     // A finger has no hover: a tap opens the popover instead.
-    if (this._drag?.moved || this._touch || this._pinned) return;
+    if (this._edit || this._drag?.moved || this._touch || this._pinned) return;
     if (!this.renderRoot.querySelector(".viewport")) return;
     this._hover = { node, ...this._placeBeside(node) };
     ev.stopPropagation();
@@ -703,6 +785,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const height = this._config?.height ?? 440;
     if (!entry) return this.renderWaiting(`height:${height}px`);
     const scene = this._scene(entry);
+    this._prepareRoutes(scene);
     const roots = this._rootLayouts(entry);
     const crumbs = this._path.length ? this._path : [scene.layout];
     const nodeById = new Map(scene.nodes.map((n) => [n.id, n]));
@@ -722,7 +805,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const problems = scene.nodes.filter((node) =>
       node.device ? deviceStatus(node.device) !== "ok" : node.site ? node.site.status !== "ok" : false,
     );
-    const lod = k < DOTS_BELOW ? "lod-dot" : k < NAMES_BELOW ? "lod-text" : "lod-full";
+    const lod = this._edit ? "lod-full editing" : k < DOTS_BELOW ? "lod-dot" : k < NAMES_BELOW ? "lod-text" : "lod-full";
 
     return html`
       <ha-card>
@@ -740,7 +823,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             )}
           </div>
           <div class="spacer"></div>
-          ${this._canRebuild(entry, scene)
+          ${!this._edit && this._canEdit(entry, scene)
+            ? html`<button class="tool edit-tool" @click=${this._startEdit}><ha-icon icon="mdi:pencil-outline"></ha-icon> Edit layout</button>` : nothing}
+          ${!this._edit && this._canRebuild(entry, scene)
             ? html`<button class="tool" title="Rebuild links from detected ports" aria-label="Rebuild links"
                 @click=${() => (this._rebuild = { layout: scene.layout, state: "confirm" })}>
                 <ha-icon icon="mdi:cable-data"></ha-icon></button>`
@@ -754,6 +839,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             : nothing}
         </div>
         ${layoutInfo?.comment ? html`<div class="subtitle">${layoutInfo.comment}</div>` : nothing}
+        ${this._edit ? this._renderEdit(entry, scene) : this._editMessage ? html`<div class="subtitle" role="status">${this._editMessage}</div>` : nothing}
         ${rule
           ? html`<div class="hl">
               <ha-icon icon="mdi:bell-alert-outline"></ha-icon>
@@ -829,6 +915,118 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         </div>
       </ha-card>
     `;
+  }
+
+  private _prepareRoutes(scene: Scene): void {
+    if (this._config.link_style !== "elbow") return;
+    const key = JSON.stringify([scene.nodes.map(n => [n.id, n.x, n.y]), scene.links.map(l => [l.id, l.node1, l.node2])]);
+    if (this._routes?.key === key) return;
+    const router = new OrthogonalRouter(scene.nodes, NODE_W, NODE_H);
+    const nodes = new Map(scene.nodes.map(n => [n.id, n]));
+    const paths = new Map<string, Point[]>();
+    for (const link of [...scene.links].sort((a, b) => a.id.localeCompare(b.id))) {
+      const a = nodes.get(link.node1), b = nodes.get(link.node2);
+      if (a && b) paths.set(link.id, router.route(a, b));
+    }
+    this._routes = { key, paths };
+  }
+
+  private _route(info: LinkInfo): Point[] {
+    return (this._config.link_style === "elbow" ? this._routes?.paths.get(info.link.id) : undefined) ?? [info.a, info.b];
+  }
+
+  private _canEdit(entry: CmrEntry, scene: Scene): boolean {
+    return entry.available && entry.actions && !!this.hass.user?.is_admin && scene.layout !== AUTO
+      && scene.nodes.length > 0 && entry.nodes.filter(n => n.layout === scene.layout).every(n => !!n.revision);
+  }
+
+  private _startEdit(): void {
+    const entry = this._entry!;
+    const scene = this._scene(entry);
+    if (!this._canEdit(entry, scene)) return;
+    window.clearTimeout(this._openTimer);
+    this._clearHover(); this._pinned = undefined; this._rebuild = undefined;
+    this._edit = new LayoutDraft(entry.entry_id, scene.layout, scene.origin, entry.nodes, scene.nodes);
+    this._userMoved = true;
+    this._editMessage = "";
+    this._draftChanged();
+  }
+
+  private _draftChanged(): void {
+    this._memo = undefined;
+    this.requestUpdate();
+  }
+
+  private _cancelEdit(): void {
+    if (this._saving) return;
+    this._edit = undefined; this._nodeDrag = undefined;
+    this._editMessage = "";
+    this._draftChanged();
+    void this.updateComplete.then(() => this._fit());
+  }
+
+  private _leaveEdit(): boolean {
+    if (this._saving) return false;
+    if (this._edit?.changes().length) {
+      this._editMessage = "Save or cancel your changes before opening another layout.";
+      return false;
+    }
+    this._edit = undefined; this._memo = undefined;
+    return true;
+  }
+
+  private _beforeUnload = (ev: BeforeUnloadEvent): void => {
+    if (this._saving || this._edit?.changes().length) { ev.preventDefault(); ev.returnValue = ""; }
+  };
+
+  private async _saveEdit(): Promise<void> {
+    const draft = this._edit;
+    if (!draft || this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
+    const nodes = draft.changes();
+    if (!nodes.length) return;
+    if (nodes.length > 500) { this._editMessage = "Save at most 500 changed nodes at a time."; return; }
+    this._saving = true; this._editMessage = ""; this._nodeDrag = undefined;
+    try {
+      const result = await this.hass.connection.sendMessagePromise<MoveResult>({
+        type: "cmr/move_nodes", entry_id: draft.entryId, layout: draft.layout, nodes,
+      });
+      if (this._edit !== draft) return;
+      draft.acknowledge(result.saved);
+      if (result.failed.length) {
+        this._editMessage = `${result.saved.length} saved; ${result.failed.length} failed. ` + result.failed.map(f =>
+          `${draft.originals.get(f.id)?.name ?? f.id}: ${f.message}`).join("; ");
+      } else {
+        this._edit = undefined;
+        this._memo = undefined;
+        const origin = this._scene(this._entry!).origin;
+        this._view = { ...this._view, x: this._view.x + (origin.x - draft.origin.x) * this._view.k,
+          y: this._view.y + (origin.y - draft.origin.y) * this._view.k };
+        this._editMessage = `Saved ${result.saved.length} node position${result.saved.length === 1 ? "" : "s"} to CMR.`;
+      }
+      this._draftChanged();
+    } catch (err) {
+      if (this._edit === draft) this._editMessage = (err as { message?: string })?.message ?? String(err);
+    } finally {
+      this._saving = false;
+    }
+  }
+
+  private _renderEdit(entry: CmrEntry, scene: Scene): TemplateResult {
+    const count = this._edit!.changes().length;
+    return html`<div class="edit-bar">
+      <div class="edit-controls">
+        <span><b>Edit layout</b> · ${count} changed</span>
+        <label><input type="checkbox" .checked=${this._snap} ?disabled=${this._saving}
+          @change=${(e: Event) => { this._snap = (e.target as HTMLInputElement).checked; }} /> Snap to grid</label>
+        <span class="spacer"></span>
+        <button class="pill" ?disabled=${this._saving} @click=${this._cancelEdit}>Cancel</button>
+        <button class="pill on" ?disabled=${this._saving || !count || !this._canEdit(entry, scene)} @click=${this._saveEdit}>
+          ${this._saving ? "Saving…" : "Save to CMR"}</button>
+      </div>
+      <div class="edit-hint">Drag nodes or use arrow keys when focused. Changes apply to CMR when saved.</div>
+      ${!this._canEdit(entry, scene) ? html`<div role="status">Saving is unavailable. Check the connection and your action permissions.</div>` : nothing}
+      ${this._editMessage ? html`<div class="edit-message" role="status">${this._editMessage}</div>` : nothing}
+    </div>`;
   }
 
   /** Rebuild links needs actions, an administrator and two devices on a real layout. */
@@ -947,8 +1145,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _renderLink(info: LinkInfo) {
-    const { a, b, state, kind, poe } = info;
-    const d = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+    const { a, state, kind, poe } = info;
+    const points = this._route(info);
+    const d = pathData(points);
     // A steady flow marks a live, detected cable; the counters the controller
     // reports are totals since boot, not rates, so they don't set the speed.
     const moving = state === "up" && kind !== "unknown" && kind !== "logical";
@@ -963,7 +1162,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${poe && state === "up"
           ? svg`<circle class="power" r="3.6">
               <animateMotion dur="2.2s" repeatCount="indefinite"
-                path=${`M ${poe.from.x} ${poe.from.y} L ${poe.to.x} ${poe.to.y}`}></animateMotion>
+                path=${pathData(poe.from === a ? points : [...points].reverse())}></animateMotion>
             </circle>`
           : nothing}
       </g>
@@ -974,16 +1173,18 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const pair = info.ports[0];
     if (!pair) return nothing;
     const { a, b } = info;
+    const points = this._config.link_style === "elbow" ? this._route(info) : undefined;
+    const reverse = points ? [...points].reverse() : undefined;
     let chips = [
-      this._chip(a, b, pair.a, info.poe?.from === a),
-      this._chip(b, a, pair.b, info.poe?.from === b),
+      this._chip(a, b, pair.a, info.poe?.from === a, undefined, points),
+      this._chip(b, a, pair.b, info.poe?.from === b, undefined, reverse),
     ];
     // A short cable has no room for both names in line: move them to opposite
     // sides of it, each still next to its own device.
     if (boxesOverlap(chips[0].box, chips[1].box)) {
       chips = [
-        this._chip(a, b, pair.a, info.poe?.from === a, -1),
-        this._chip(b, a, pair.b, info.poe?.from === b, 1),
+        this._chip(a, b, pair.a, info.poe?.from === a, -1, points),
+        this._chip(b, a, pair.b, info.poe?.from === b, 1, reverse),
       ];
     }
     return html`${chips.map((chip) => chip.html)}`;
@@ -993,8 +1194,12 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
    * A port name chip where the cable leaves `from`. With `side`, the chip sits
    * beside the cable (-1 above/left, 1 below/right) instead of on it.
    */
-  private _chip(from: PlacedNode, to: PlacedNode, end: PortEnd, poeOut: boolean, side?: -1 | 1) {
-    const p = edgePoint(from.x, from.y, to.x - from.x, to.y - from.y, side ? 4 : 8);
+  private _chip(from: PlacedNode, to: PlacedNode, end: PortEnd, poeOut: boolean, side?: -1 | 1, route?: Point[]) {
+    let p = edgePoint(from.x, from.y, to.x - from.x, to.y - from.y, side ? 4 : 8);
+    if (route && route.length > 1) {
+      const ux = Math.sign(route[1].x - route[0].x), uy = Math.sign(route[1].y - route[0].y);
+      p = { x: route[0].x + ux * 8, y: route[0].y + uy * 8, ux, uy };
+    }
     const w = end.interface.length * 6.6 + 12 + (poeOut ? 13 : 0);
     const h = 18;
     const horizontal = Math.abs(p.ux) >= Math.abs(p.uy);
@@ -1025,16 +1230,17 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _renderComment(info: LinkInfo) {
-    const { a, b, link } = info;
+    const { link } = info;
+    const middle = pathMiddle(this._route(info));
     // Detected ports say more than a comment; it stays in the hover details.
     if (!link.comment || (info.ports.length && this._config.show_ports)) return nothing;
-    return html`<div class="comment" style="left:${(a.x + b.x) / 2}px;top:${(a.y + b.y) / 2}px" title=${link.comment}>
+    return html`<div class="comment" style="left:${middle.x}px;top:${middle.y}px" title=${link.comment}>
       ${link.comment}
     </div>`;
   }
 
   private _showLinkHover(info: LinkInfo, ev: MouseEvent): void {
-    if (this._drag?.moved) return;
+    if (this._edit || this._drag?.moved) return;
     const viewport = this.renderRoot.querySelector<HTMLElement>(".viewport");
     if (!viewport) return;
     const rect = viewport.getBoundingClientRect();
@@ -1074,8 +1280,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (node.kind === "site") {
       const site = node.site!;
       return html`
-        <div class="node site status-${site.status} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style}
-             role="button" tabindex="0" aria-label="${node.name}, ${site.online} of ${site.total} online, open layout"
+        <div class="node site status-${site.status} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
+             role="button" tabindex="0" aria-label="${node.name}, ${site.online} of ${site.total} online, ${this._edit ? "use arrow keys to move" : "open layout"}"
              @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
              @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
              @focus=${(e: Event) => this._showHover(node, e)} @blur=${this._clearHover}>
@@ -1091,7 +1297,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     if (node.kind === "unknown" || !node.device) {
       return html`
-        <div class="node unknown ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} title="Not a CMR-managed device">
+        <div class="node unknown ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} title="Not a CMR-managed device"
+             data-node-id=${node.restId ?? ""} tabindex=${this._edit ? 0 : -1} role="button" aria-label=${node.name}
+             @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}>
           <i class="pin"></i>
           <div class="badge"><ha-icon icon="mdi:help-network-outline"></ha-icon></div>
           <div class="text"><div class="name">${node.name}</div><div class="sub">Not managed</div></div>
@@ -1102,7 +1310,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const status = deviceStatus(device);
     const dim = (this._lit && !this._lit.has(device.key)) || (this._found && !this._found.has(node.id));
     return html`
-      <div class="node device status-${status} ${device.controller ? "controller" : ""} ${dim ? "dim" : ""}" style=${style}
+      <div class="node device status-${status} ${device.controller ? "controller" : ""} ${dim ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
            role="button" tabindex="0" aria-label="${device.identity}, ${STATUS_LABEL[status]}"
            @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
            @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
@@ -1283,7 +1491,17 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       }
       .viewport:active { cursor: grabbing; }
       .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+      .world.editing .node { cursor: grab; }
+      .world.editing .node:active { cursor: grabbing; }
       .wires { position: absolute; inset: 0; overflow: visible; }
+      .edit-bar { padding: 10px 16px; border-top: 1px solid var(--cmr-line); }
+      .edit-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .edit-controls label { display: flex; align-items: center; gap: 4px; }
+      .edit-hint { color: var(--cmr-muted); font-size: 12px; margin-top: 8px; }
+      .edit-message { margin-top: 8px; overflow-wrap: anywhere; }
+      .editing .node:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; }
+      .editing .link .hit { pointer-events: none; }
+      button:disabled { opacity: 0.5; cursor: default; }
 
       .wires { pointer-events: none; }
       .link .hit { stroke: transparent; stroke-width: 16; fill: none; pointer-events: stroke; cursor: help; }
@@ -1427,6 +1645,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         color: var(--cmr-muted); --mdc-icon-size: 18px;
       }
       .tool:hover { color: var(--primary-text-color); background: var(--cmr-surface-2); }
+      .edit-tool { display: inline-flex; align-items: center; gap: 4px; line-height: 1.4; font-size: 13px; white-space: nowrap; }
 
       .tooltip {
         position: absolute; z-index: 3; width: 300px; padding: 10px 12px; border-radius: 12px;

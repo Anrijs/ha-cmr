@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0
+- Map: optional elbow links with right-angle routing around nodes, available in the dashboard and card editors. Port labels, cable details and PoE pulses follow the route.
+- Map: administrators can drag existing nodes or move them with arrow keys, optionally snap to a grid, and save their positions back to CMR. Save checks for stale edits, verifies each position and retains any failed changes. Negative coordinates work with both signed and unsigned controller APIs.
+- Product photos use transparent WebP images from MikroTik's catalog, thanks to @Anrijs.
+
 ## 0.12.2
 - Map: a node that opens another layout counts the devices of that layout and the layouts inside it, not the layouts it links back to. With two layouts linking to each other, each node showed the devices of both, and which count a node showed depended on the order the map drew them. The cable between two layouts is found from the same, corrected device sets.
 
