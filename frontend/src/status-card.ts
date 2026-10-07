@@ -431,7 +431,7 @@ export class CmrStatusCard extends CmrEntryCard<StatusConfig> {
         width: 64px; height: 64px; background: var(--cmr-pedestal);
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
       }
-      .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; mix-blend-mode: multiply; }
+      .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; }
       .who { min-width: 0; }
       .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cmr-muted); }
       .name { font-size: 22px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

@@ -1438,7 +1438,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         height: 110px; margin: -2px -4px 8px; border-radius: 9px; display: grid; place-items: center;
         background: var(--cmr-pedestal);
       }
-      .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; mix-blend-mode: multiply; }
+      .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; }
       .tooltip table { width: 100%; border-collapse: collapse; margin-top: 6px; }
       .tooltip td { padding: 2px 0; vertical-align: top; }
       .tooltip td:first-child { color: var(--cmr-muted); width: 1%; white-space: nowrap; padding-right: 12px; }

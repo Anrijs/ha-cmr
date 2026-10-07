@@ -30,7 +30,7 @@ _LOGGER = logging.getLogger(__name__)
 CATALOG_URL = (
     "https://api.mikrotik.com/parameters"
     "?apiKey=03e64c40-2f1a-44bd-b03f-f2bcf8530d53-976715c0-9518-4e4e-906e-5ad78bfa8fbc"
-    "&is_history&is_active"
+    "&is_history&is_active&img_type=webp"
 )
 REFRESH = timedelta(days=1)
 STORE_VERSION = 1
