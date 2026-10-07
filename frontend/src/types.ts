@@ -93,9 +93,23 @@ export interface CmrAlertRule {
   entity_id: string | null;
 }
 
+/** A layout's background picture: CMR centres it on (0, 0) at its natural size × scale. */
+export interface LayoutBackground {
+  file: string;
+  /** Percent, 10..1000. */
+  scale: number;
+  /** The shrunk copy Home Assistant serves; null while it is read, or on error. */
+  url: string | null;
+  /** Natural size in pixels (as the controller's GUI draws it at 100 %). */
+  width: number | null;
+  height: number | null;
+  error: string | null;
+}
+
 export interface CmrLayout {
   name: string;
   comment: string | null;
+  background?: LayoutBackground | null;
 }
 
 export interface CmrNode {
@@ -195,6 +209,8 @@ export interface HassLike {
   language?: string;
   themes?: { darkMode?: boolean };
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  /** A request to Home Assistant with the user's credentials. */
+  fetchWithAuth?(path: string, init?: RequestInit): Promise<Response>;
   connection: {
     subscribeMessage<T>(
       callback: (message: T) => void,

@@ -172,6 +172,7 @@ pairing, rebuilding links, cancelling jobs) need write access.
 | Alert rule sensors, alerts card | `/cmr/alert` | same |
 | Upgrades card, last job | `/cmr/upgrade`, `/cmr/upgrade/job` | same |
 | Topology map | `/cmr/layout`, `/cmr/layout/node`, `/cmr/layout/link` | same |
+| Layout background pictures (map) | `/file` (the picture's size and date), `/file/read` | **+ `ftp`, `test`** (optional: without them the map says why the picture is missing) |
 | Wi-Fi card | `/cmr/wifi`, `/cmr/wifi/radio` (passphrases are discarded on arrival) | same |
 | Port names, PoE, SFP, traffic on cables; per-device alert counters | `/execute` running `/cmr/layout/link/print detail` and `/cmr/device/print detail` | same (works read-only) |
 | Timeline and issues | `/log` (new lines only), `/system/clock` | same |
@@ -179,6 +180,7 @@ pairing, rebuilding links, cancelling jobs) need write access.
 | Install update, run rule, check versions | `/cmr/device/upgrade`, `/cmr/upgrade/trigger`, `/cmr/upgrade/version-check` | **+ `write`**, and the *Allow actions on the controller* option |
 | Reboot a device | `/cmr/device/reboot` | **+ `write`**, and the *Allow actions on the controller* option |
 | Rebuild a layout's links (map) | `/cmr/layout/rebuild-links` | **+ `write`**, and the *Allow actions on the controller* option |
+| Edit layout: node positions, picture scale (map) | `PATCH /cmr/layout/node/<id>`, `PATCH /cmr/layout/<id>` | **+ `write`**, and the *Allow actions on the controller* option |
 | A job's devices, state and reason (upgrades card) | `/cmr/upgrade/job/show-devices` | `read`, `api`, `rest-api` |
 | Cancel a job, run a scheduled job now | `/cmr/upgrade/job/remove`, `/cmr/upgrade/job/run-next` | **+ `write`**, and the *Allow actions on the controller* option |
 
@@ -372,6 +374,8 @@ strategy:
   type: custom:cmr
   entry_id: <config entry id>   # ⋮ on the integration entry → Copy entry ID
   link_style: elbow            # optional: straight (default) or elbow
+  background_opacity: 50       # optional: layout pictures' opacity in % (default 50)
+  background_tile: false       # optional: repeat layout pictures across the map
 ```
 
 ### Cards on your own dashboards
@@ -393,6 +397,8 @@ controller when you have several.
   show_ports: true          # port names at both ends of each cable
   show_comments: true       # link comments on cables without detected ports
   link_style: elbow         # right-angle cables; default: straight
+  background_opacity: 50    # the layout's picture, in % (default 50, as in CMR)
+  background_tile: false    # repeat the picture across the map
   icons:                    # icons for layout nodes that open another layout
     House: mdi:home
 
@@ -688,13 +694,33 @@ are grouped (hover for the individual ports and peers), and hover details
 and PoE pulses follow each cable. Straight remains the default. This setting
 changes only the Home Assistant drawing.
 
+**Background pictures:** a layout's picture (*Background* and *Background
+Scale* in CMR's layout settings, a PNG or JPEG among the router's files) is
+drawn under the cables and nodes as CMR does: at its own pixel size times the
+scale, centred on the layout's origin, at half opacity. Home Assistant reads
+the file from the controller once in the background, shrinks it to what the
+map needs (a 99-megapixel photo becomes a WebP of about 160 KB) and reads it
+again only when the file changes, so the map opens without waiting. Reading
+files needs the `ftp` and `test` policies; without them, or if the file is
+missing or too large (over 25 MiB), the map says why. *Background picture
+opacity* and *Repeat the background picture* are card and dashboard options
+that only change Home Assistant's drawing.
+
 **Edit layout:** Home Assistant administrators with *Allow actions on the
 controller* enabled can rearrange an existing CMR layout. Select *Edit layout*,
 drag a node, or focus it and use the arrow keys (Shift moves farther). *Snap to
-grid* aligns positions to a 20-unit grid. *Save to CMR* writes the changed
-positions to the controller; *Cancel* discards the draft. The same positions
-are then visible in CMR's own editor. The origin stays at the layout center;
-negative coordinates are valid, x increases rightward and y downward.
+grid* aligns positions to a 20-unit grid. To move several nodes together,
+Shift-click them or Shift-drag a box around them (*Select all* takes every
+node), then drag one of them or use the arrow keys. *Save to CMR* writes the
+changed positions to the controller; *Cancel* discards the draft. The same
+positions are then visible in CMR's own editor. The origin stays at the layout
+center; negative coordinates are valid, x increases rightward and y downward.
+
+On a layout with a picture, *Move picture* lets you drag the picture under the
+nodes, and *Picture scale* resizes it around its centre, to line a floor plan
+up with the devices. CMR always centres the picture on the origin, so saving
+moves every node the other way instead of the picture: CMR's own editor then
+shows the same map. The scale is saved to the layout.
 
 Editing moves existing device, layout and unmanaged nodes; it does not create
 nodes or edit the generated *All devices* fallback. Each changed node is
@@ -711,6 +737,9 @@ nodes as one atomic operation.
   counts to devices: Home Assistant fetches MikroTik's public product list
   from `api.mikrotik.com` once a day, and browsers load the photos from
   `cdn.mikrotik.com`. Without internet access the cards simply go without them.
+- Layout pictures are kept in Home Assistant's cache folder
+  (`.cache/cmr/backgrounds`, not part of backups) and removed with the
+  integration entry.
 - Each poll makes about ten small REST requests; the log is read from the last
   seen line on, filtered by the controller.
 - The timeline and issue state are stored in Home Assistant's `.storage`

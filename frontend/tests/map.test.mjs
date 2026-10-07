@@ -158,3 +158,50 @@ test("draft rejects nonfinite moves and clamps to signed coordinate limits", () 
   edit.move("*1", -(2 ** 40), 2 ** 40);
   assert.deepEqual(edit.positions.get("*1"), { x: -(2 ** 31), y: 2 ** 31 - 1 });
 });
+
+test("a group moves by one distance and keeps its shape", () => {
+  const { edit } = draft();
+  edit.move("*2", 300, 200); // placed by the user first
+  const starts = new Map([["*1", edit.positions.get("*1")], ["*2", edit.positions.get("*2")]]);
+  edit.moveBy(starts, 40, -20);
+  assert.deepEqual(edit.changes().sort((a, b) => a.id.localeCompare(b.id)), [
+    { id: "*1", revision: "abc", x: 20, y: -20 },
+    { id: "*2", revision: "def", x: 340, y: 180 },
+  ]);
+  edit.moveBy(starts, NaN, 0);
+  assert.equal(edit.changes().length, 2);
+});
+
+test("moving the picture saves every placed node moved the other way", () => {
+  const { edit } = draft();
+  edit.moveOffset(33, -47, 20);
+  assert.deepEqual(edit.offset, { x: 40, y: -40 });
+  // The unplaced node stays unplaced; the picture itself stays where CMR centres it.
+  assert.deepEqual(edit.changes(), [{ id: "*1", revision: "abc", x: -60, y: 40 }]);
+  // A node dragged onto the moved picture keeps its place on it.
+  edit.move("*1", 100, 100);
+  assert.deepEqual(edit.changes(), [{ id: "*1", revision: "abc", x: 60, y: 140 }]);
+  edit.acknowledge([{ id: "*1", revision: "new", x: 60, y: 140 }]);
+  assert.deepEqual(edit.positions.get("*1"), { x: 100, y: 100 });
+  assert.deepEqual(edit.changes(), []);
+});
+
+test("the picture scale is clamped and saved only when it changed", () => {
+  const { edit } = draft();
+  assert.equal(edit.scaleChange(), undefined);
+  const withPicture = new LayoutDraft("entry", "Site", { x: 0, y: 0 }, [], [], 10);
+  withPicture.setScale(5);
+  assert.equal(withPicture.scaleChange(), undefined); // clamped to 10 %, unchanged
+  withPicture.setScale(1500);
+  assert.equal(withPicture.scaleChange(), 1000);
+  withPicture.acknowledgeScale(1000);
+  assert.equal(withPicture.scaleChange(), undefined);
+});
+
+test("a fractional map origin still gives whole-number positions", () => {
+  const nodes = [{ id: "*1", name: "Router", revision: "abc", layout: "Site", x: 340, y: -20 }];
+  const origin = { x: -565.35, y: -438.55 }; // set by a picture's edge
+  const edit = new LayoutDraft("entry", "Site", origin, nodes, [{ restId: "*1", x: 340 - origin.x, y: -20 - origin.y }]);
+  assert.deepEqual(edit.positions.get("*1"), { x: 340, y: -20 });
+  assert.deepEqual(edit.changes(), []);
+});

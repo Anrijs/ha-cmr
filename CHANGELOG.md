@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.0
+- Map: a layout's background picture from CMR is drawn under the cables and nodes, placed and scaled as CMR does. Home Assistant reads it from the controller once in the background, shrinks it (a 99-megapixel photo becomes a 160 KB WebP) and reads it again only when the file changes, so the map opens without waiting. Opacity (default 50 %) and repeating the picture are card and dashboard options. Reading files needs the router user's `ftp` and `test` policies; without them the map says so.
+- Edit layout: Shift-click or Shift-drag selects several nodes, *Select all* takes every node, and a selection moves together. On a layout with a picture, *Move picture* and *Picture scale* line a floor plan up with the devices; saving moves the nodes rather than the picture, since CMR centres it, so CMR's own editor shows the same map.
+- *Last upgrade job* shows the newest job. An upgrade scheduled for a later date no longer hides an install started after it.
+- Large networks: each device model is matched to the product catalog once instead of on every poll, and the daily catalog download runs in the background, so a slow or unreachable catalog no longer delays setup or polling.
+- A controller that lists itself twice with the same serial (a stale record next to the live one) keeps the live record, whatever order the two arrive in.
+- A reply that isn't the REST API (a proxy's error page, another web server on that port) names its HTTP status in the error.
+- A missing card bundle no longer stops the integration from loading; the entities work and the log says the cards are missing.
+
 ## 0.13.1
 - Elbow links now use long runs with small rounded corners and shared branch lanes, matching a network wiring diagram. Nearly aligned nodes connect straight without tiny zigzags; shared port labels are grouped. Node positions stay unchanged, and PoE pulses follow the rounded path.
 

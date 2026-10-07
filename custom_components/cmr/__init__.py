@@ -9,6 +9,7 @@ from homeassistant.core import callback, Event, HomeAssistant
 from homeassistant.helpers import config_validation as cv, device_registry as dr, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
+from .background import BackgroundStore, BackgroundView, async_remove_cache
 from .catalog import ProductCatalog
 from .config_flow import build_api
 from .const import CONF_ALLOW_UPGRADES, DEFAULT_SCAN_INTERVAL, DOMAIN
@@ -36,6 +37,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Register the websocket API and the bundled dashboard cards once."""
     async_register_websocket(hass)
     await async_register_frontend(hass)
+    hass.http.register_view(BackgroundView())
     hass.data[f"{DOMAIN}_catalog"] = ProductCatalog(hass)
     return True
 
@@ -51,6 +53,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
 
     entry.async_on_unload(hass.bus.async_listen_once(EVENT_HOMEASSISTANT_CLOSE, _close_on_stop))
     coordinator.catalog = hass.data[f"{DOMAIN}_catalog"]
+    coordinator.backgrounds = BackgroundStore(hass, entry.entry_id, coordinator.api, coordinator.async_update_listeners)
+    await coordinator.backgrounds.async_load()
+    entry.async_on_unload(coordinator.backgrounds.async_stop)
     coordinator.eventlog = CmrEventLog(hass, entry)
     await coordinator.eventlog.async_load()
     entry.async_on_unload(coordinator.eventlog.async_unload)
@@ -80,8 +85,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> boo
     browser can take in when Home Assistant starts. Users can enable any of
     them again; this runs once.
     """
-    if entry.version > 1:
-        return False
     if entry.minor_version < 2:
         from .sensor import DEVICE_SENSORS  # noqa: PLC0415 - platform module, only needed here
 
@@ -96,6 +99,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> boo
 
 async def async_unload_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> bool:
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> None:
+    """Drop the cached layout pictures of a removed controller."""
+    await async_remove_cache(hass, entry.entry_id)
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: CmrConfigEntry) -> None:

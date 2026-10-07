@@ -71,3 +71,15 @@ async def async_move_nodes(api: CmrApi, layout: str, changes: list[dict[str, Any
             else:
                 failures.setdefault(change["id"], "CMR did not keep the requested position; cancel and reopen the editor")
     return {"saved": saved, "failed": [{"id": key, "message": value} for key, value in failures.items()]}
+
+
+async def async_set_layout_scale(api: CmrApi, layout: str, scale: int) -> None:
+    """Set the scale of a layout's background picture and read it back."""
+    row = next((item for item in await api.get("cmr/layout") if item.get("name") == layout), None)
+    if row is None:
+        raise LayoutEditError("no_layout", "This layout no longer exists; reopen the map")
+    await api.patch(f"cmr/layout/{row['.id']}", {"scale": str(scale)})
+    current = next((item for item in await api.get("cmr/layout") if item.get(".id") == row[".id"]), None)
+    # An unset scale reads as nothing and means 100 %.
+    if current is None or str(current.get("scale") or "100") != str(scale):
+        raise LayoutEditError("not_saved", "CMR did not keep the new picture scale")

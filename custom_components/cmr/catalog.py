@@ -8,13 +8,14 @@ a day and shared by all controllers.
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 import logging
 from typing import Any
 
 import aiohttp
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
@@ -62,20 +63,52 @@ class ProductCatalog:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.catalog")
-        self.products: list[dict[str, Any]] = []
+        self._products: list[dict[str, Any]] = []
+        # (board, model code) -> product: matching scans the whole catalog,
+        # and every poll asks again for every device.
+        self._matches: dict[tuple[str | None, str | None], dict[str, Any] | None] = {}
         self._fetched = None
         self._loaded = False
+        self._load_lock = asyncio.Lock()
+        self._refresh_task: asyncio.Task[None] | None = None
+
+    @property
+    def products(self) -> list[dict[str, Any]]:
+        return self._products
+
+    @products.setter
+    def products(self, products: list[dict[str, Any]]) -> None:
+        self._products = products
+        self._matches = {}
+
+    async def async_load(self) -> None:
+        """Read the cached catalog once (a local file, so polls can wait for it)."""
+        async with self._load_lock:
+            if self._loaded:
+                return
+            cached = await self._store.async_load() or {}
+            self.products = cached.get("products", [])
+            fetched = cached.get("fetched")
+            fresh = fetched and cached.get("format") == CACHE_FORMAT and cached.get("url") == CATALOG_URL
+            self._fetched = dt_util.parse_datetime(fetched) if fresh else None
+            self._loaded = True
+
+    @callback
+    def async_schedule_refresh(self) -> None:
+        """Refetch in the background when due: polls never wait for the
+        internet, and one fetch serves every controller."""
+        if self._refresh_task and not self._refresh_task.done():
+            return
+        if self._loaded and self._fetched and dt_util.utcnow() - self._fetched < REFRESH:
+            return
+        self._refresh_task = self.hass.async_create_background_task(
+            self.async_refresh(), f"{DOMAIN} product catalog"
+        )
 
     async def async_refresh(self) -> None:
         """Load the cache, and refetch when a day passed (or it came from another URL)."""
         url = CATALOG_URL
-        if not self._loaded:
-            self._loaded = True
-            cached = await self._store.async_load() or {}
-            self.products = cached.get("products", [])
-            fetched = cached.get("fetched")
-            fresh = fetched and cached.get("format") == CACHE_FORMAT and cached.get("url") == url
-            self._fetched = dt_util.parse_datetime(fetched) if fresh else None
+        await self.async_load()
         now = dt_util.utcnow()
         if self._fetched and now - self._fetched < REFRESH:
             return
@@ -96,6 +129,9 @@ class ProductCatalog:
         )
 
     def product_for(self, device: CmrDevice) -> dict[str, Any] | None:
-        if not self.products:
+        if not self._products:
             return None
-        return match_product(self.products, device.board, device.model_code)
+        key = (device.board, device.model_code)
+        if key not in self._matches:
+            self._matches[key] = match_product(self._products, *key)
+        return self._matches[key]

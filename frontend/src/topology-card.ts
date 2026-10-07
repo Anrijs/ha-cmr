@@ -7,6 +7,8 @@ import { frontPanelStyles, portSummary, renderFrontPanel, usedPorts } from "./po
 import {
   CmrEntryCard,
   ENTRY_FIELD,
+  PICTURE_FIELDS,
+  PICTURE_LABELS,
   STATUS_LABEL,
   baseStyles,
   deepLinkParams,
@@ -23,7 +25,7 @@ import {
   viewPath,
   type Status,
 } from "./shared";
-import type { CmrDevice, CmrEntry, CmrLink, CmrNode, PortEnd } from "./types";
+import type { CmrDevice, CmrEntry, CmrLink, CmrNode, HassLike, PortEnd } from "./types";
 
 interface TopologyConfig {
   type: string;
@@ -37,6 +39,9 @@ interface TopologyConfig {
   show_ports?: boolean;
   show_comments?: boolean;
   link_style?: "straight" | "elbow";
+  /** The layout's background picture: opacity in percent (default 50), and repeated or not. */
+  background_opacity?: number;
+  background_tile?: boolean;
   /** Icons for layout (building) nodes by name, e.g. { House: "mdi:home" }. */
   icons?: Record<string, string>;
   /** Dashboard views to link into (the strategy sets `devices`). */
@@ -73,6 +78,32 @@ interface Scene {
   links: CmrLink[];
   width: number;
   height: number;
+  /** The layout's background picture, in map coordinates. */
+  picture?: { x: number; y: number; w: number; h: number; url: string };
+}
+
+/**
+ * Pictures fetched with the user's credentials, as object URLs. A server
+ * URL names one version of a picture, so each is fetched once per page.
+ */
+const pictures = new Map<string, { src?: string; waiting: Set<() => void> }>();
+
+function pictureSrc(hass: HassLike, url: string, ready: () => void): string | undefined {
+  let item = pictures.get(url);
+  if (!item) {
+    const entry: { src?: string; waiting: Set<() => void> } = { waiting: new Set() };
+    pictures.set(url, item = entry);
+    (hass.fetchWithAuth ? hass.fetchWithAuth(url) : fetch(url))
+      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((blob) => { entry.src = URL.createObjectURL(blob); })
+      .catch((err) => {
+        console.warn("cmr: layout picture failed", url, err);
+        setTimeout(() => pictures.delete(url), 30_000); // try again later
+      })
+      .finally(() => { entry.waiting.forEach((fn) => fn()); entry.waiting.clear(); });
+  }
+  if (!item.src) item.waiting.add(ready);
+  return item.src;
 }
 
 const DEFAULT_SITE_ICON = "mdi:map-marker-radius-outline";
@@ -168,6 +199,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     _saving: { state: true },
     _editMessage: { state: true },
     _snap: { state: true },
+    _selection: { state: true },
+    _pictureMode: { state: true },
+    _box: { state: true },
   };
 
   declare _path: string[];
@@ -187,7 +221,17 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   declare _saving: boolean;
   declare _editMessage: string;
   declare _snap: boolean;
-  private _nodeDrag?: { pointer: number; id: string; x: number; y: number; start: Point; moved: boolean };
+  /** Nodes selected in Edit layout (REST ids); dragging one moves them all. */
+  declare _selection: Set<string>;
+  /** Edit layout: dragging the map moves the background picture. */
+  declare _pictureMode: boolean;
+  /** Shift-drag selection rectangle, in viewport coordinates. */
+  declare _box?: { pointer: number; x0: number; y0: number; x1: number; y1: number };
+  private _nodeDrag?: {
+    pointer: number; id: string; x: number; y: number; start: Point; starts: Map<string, Point>; moved: boolean;
+  };
+  private _pictureDrag?: { pointer: number; x: number; y: number; start: Point; moved: boolean };
+  private _pictureReady = (): void => this.requestUpdate();
   private _routes?: { key: string; paths: Map<string, Point[]> };
   private _openTimer?: number;
   private _pointers = new Map<number, { x: number; y: number }>();
@@ -218,6 +262,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._saving = false;
     this._snap = true;
     this._editMessage = "";
+    this._selection = new Set();
+    this._pictureMode = false;
   }
 
   /** Keys of the devices the highlighted rule is active on, set during render. */
@@ -259,6 +305,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         { name: "show_ports", selector: { boolean: {} } },
         { name: "show_comments", selector: { boolean: {} } },
         LINK_STYLE_FIELD,
+        ...PICTURE_FIELDS,
       ],
       computeLabel: labelsFrom({
         entry_id: "Controller",
@@ -268,6 +315,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         show_ports: "Show port names on cables",
         show_comments: "Show link comments",
         link_style: "Link style",
+        ...PICTURE_LABELS,
       }),
     };
   }
@@ -402,18 +450,31 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       links = entry.links.filter((l) => l.layout === layout);
     }
 
+    // CMR draws a layout's picture at its natural size × scale, centred on (0, 0).
+    const background = layout === AUTO ? undefined : entry.layouts.find((l) => l.name === layout)?.background;
+    let picture: Scene["picture"];
+    if (background?.url && background.width && background.height) {
+      const scale = (this._edit?.scale ?? background.scale) / 100;
+      const centre = this._edit?.offset ?? { x: 0, y: 0 };
+      const w = background.width * scale, h = background.height * scale;
+      picture = { x: centre.x - w / 2, y: centre.y - h / 2, w, h, url: background.url };
+    }
+    // A repeated picture has no edges: the map is as large as its nodes.
+    const framed = picture && !this._config.background_tile ? picture : undefined;
+
     const xs = nodes.map((n) => n.x);
     const ys = nodes.map((n) => n.y);
     const margin = PAD + (this._config.link_style === "elbow" ? 96 : 0);
-    const minX = this._edit?.origin.x ?? Math.min(...xs, 0) - NODE_W / 2 - margin;
-    const minY = this._edit?.origin.y ?? Math.min(...ys, 0) - NODE_H / 2 - margin;
+    const minX = this._edit?.origin.x ?? Math.min(Math.min(...xs, 0) - NODE_W / 2 - margin, framed?.x ?? Infinity);
+    const minY = this._edit?.origin.y ?? Math.min(Math.min(...ys, 0) - NODE_H / 2 - margin, framed?.y ?? Infinity);
     for (const node of nodes) {
       node.x -= minX;
       node.y -= minY;
     }
-    const width = Math.max(...nodes.map((n) => n.x), 0) + NODE_W / 2 + margin;
-    const height = Math.max(...nodes.map((n) => n.y), 0) + NODE_H / 2 + margin;
-    return { layout, nodes, links, width, height, origin: { x: minX, y: minY } };
+    if (picture) picture = { ...picture, x: picture.x - minX, y: picture.y - minY };
+    const width = Math.max(Math.max(...nodes.map((n) => n.x), 0) + NODE_W / 2 + margin, framed ? framed.x - minX + framed.w : 0);
+    const height = Math.max(Math.max(...nodes.map((n) => n.y), 0) + NODE_H / 2 + margin, framed ? framed.y - minY + framed.h : 0);
+    return { layout, nodes, links, width, height, origin: { x: minX, y: minY }, picture };
   }
 
   /** No CMR layouts: the controller on top, every other device in a row below. */
@@ -591,10 +652,40 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       if (this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
       const start = this._edit.positions.get(nodeId);
       if (!start) return;
-      this._nodeDrag = { pointer: ev.pointerId, id: nodeId, x: ev.clientX, y: ev.clientY, start, moved: false };
+      // Shift (or Ctrl/Cmd) adds or removes a node; a plain press on an
+      // unselected node selects it alone. Dragging moves the whole selection.
+      let selection = this._selection;
+      if (ev.shiftKey || ev.ctrlKey || ev.metaKey) {
+        selection = new Set(selection);
+        if (selection.has(nodeId)) selection.delete(nodeId);
+        else selection.add(nodeId);
+        this._selection = selection;
+        if (!selection.has(nodeId)) return;
+      } else if (!selection.has(nodeId)) {
+        this._selection = selection = new Set([nodeId]);
+      }
+      const starts = new Map<string, Point>();
+      for (const id of selection) {
+        const p = this._edit.positions.get(id);
+        if (p) starts.set(id, p);
+      }
+      this._nodeDrag = { pointer: ev.pointerId, id: nodeId, x: ev.clientX, y: ev.clientY, start, starts, moved: false };
       nodeEl?.focus({ preventScroll: true });
       (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
       return;
+    }
+    if (this._edit && !this._saving && !(ev.target as HTMLElement).closest(".node")) {
+      if (this._pictureMode && this._scene(this._entry!).picture) {
+        this._pictureDrag = { pointer: ev.pointerId, x: ev.clientX, y: ev.clientY, start: this._edit.offset, moved: false };
+        (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+        return;
+      }
+      if (ev.shiftKey) {
+        const p = this._local(ev);
+        this._box = { pointer: ev.pointerId, x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+        (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+        return;
+      }
     }
     this._drag = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, vx: this._view.x, vy: this._view.y, moved: false };
   }
@@ -618,8 +709,26 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       const dx = ev.clientX - move.x, dy = ev.clientY - move.y;
       if (!move.moved && Math.hypot(dx, dy) < 4) return;
       move.moved = true;
-      this._edit.move(move.id, move.start.x + dx / this._view.k, move.start.y + dy / this._view.k, this._snap ? 20 : 1);
+      // The node under the pointer snaps to the grid; the others keep their distance to it.
+      const grid = this._snap ? 20 : 1;
+      const x = Math.round((move.start.x + dx / this._view.k) / grid) * grid;
+      const y = Math.round((move.start.y + dy / this._view.k) / grid) * grid;
+      this._edit.moveBy(move.starts, x - move.start.x, y - move.start.y);
       this._draftChanged();
+      return;
+    }
+    const picture = this._pictureDrag;
+    if (picture && this._edit && picture.pointer === ev.pointerId && !this._saving) {
+      const dx = ev.clientX - picture.x, dy = ev.clientY - picture.y;
+      if (!picture.moved && Math.hypot(dx, dy) < 4) return;
+      picture.moved = true;
+      this._edit.moveOffset(picture.start.x + dx / this._view.k, picture.start.y + dy / this._view.k, this._snap ? 20 : 1);
+      this._draftChanged();
+      return;
+    }
+    if (this._box?.pointer === ev.pointerId) {
+      const p = this._local(ev);
+      this._box = { ...this._box, x1: p.x, y1: p.y };
       return;
     }
     const drag = this._drag;
@@ -639,10 +748,33 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     this._pointers.delete(ev.pointerId);
     if (this._nodeDrag?.pointer === ev.pointerId) {
       if (ev.type === "pointercancel" && this._nodeDrag.moved && this._edit) {
-        this._edit.move(this._nodeDrag.id, this._nodeDrag.start.x, this._nodeDrag.start.y);
+        this._edit.moveBy(this._nodeDrag.starts, 0, 0);
         this._draftChanged();
       }
       this._nodeDrag = undefined;
+      return;
+    }
+    if (this._pictureDrag?.pointer === ev.pointerId) {
+      if (ev.type === "pointercancel" && this._pictureDrag.moved && this._edit) {
+        this._edit.moveOffset(this._pictureDrag.start.x, this._pictureDrag.start.y);
+        this._draftChanged();
+      }
+      this._pictureDrag = undefined;
+      return;
+    }
+    const box = this._box;
+    if (box?.pointer === ev.pointerId) {
+      this._box = undefined;
+      if (ev.type !== "pointerup" || !this._entry) return;
+      // Nodes whose centre is inside the rectangle join the selection.
+      const { x, y, k } = this._view;
+      const [x0, x1] = [Math.min(box.x0, box.x1), Math.max(box.x0, box.x1)];
+      const [y0, y1] = [Math.min(box.y0, box.y1), Math.max(box.y0, box.y1)];
+      const inside = this._scene(this._entry).nodes.filter((n) => {
+        const sx = x + n.x * k, sy = y + n.y * k;
+        return n.restId && sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1;
+      });
+      this._selection = new Set([...this._selection, ...inside.map((n) => n.restId!)]);
       return;
     }
     if (this._pinch) {
@@ -662,6 +794,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       ev.currentTarget?.addEventListener("click", (e) => e.stopPropagation(), { capture: true, once: true });
     } else if (!this._drag?.moved && ev.type === "pointerup" && !(ev.target as HTMLElement).closest(".node, .tooltip.pinned, .controls, .find")) {
       this._pinned = undefined; // a tap on the empty map closes the popover
+      if (this._edit && this._selection.size) this._selection = new Set(); // and clears the selection
     }
     this._drag = undefined;
   }
@@ -724,6 +857,10 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (ev.key !== "Escape") return;
     this._clearHover();
     this._pinned = undefined;
+    if (this._edit) {
+      this._selection = new Set();
+      this._pictureMode = false;
+    }
   };
 
   private _clearHover = (): void => {
@@ -738,9 +875,19 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       if (delta) {
         ev.preventDefault(); ev.stopPropagation();
         if (this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
-        const p = this._edit.positions.get(node.restId)!;
         const step = (this._snap ? 20 : 1) * (ev.shiftKey ? 5 : 1);
-        this._edit.move(node.restId, p.x + delta[0] * step, p.y + delta[1] * step, this._snap ? 20 : 1);
+        if (this._selection.has(node.restId) && this._selection.size > 1) {
+          // The focused node is one of several selected: they move together.
+          const starts = new Map<string, Point>();
+          for (const id of this._selection) {
+            const p = this._edit.positions.get(id);
+            if (p) starts.set(id, p);
+          }
+          this._edit.moveBy(starts, delta[0] * step, delta[1] * step);
+        } else {
+          const p = this._edit.positions.get(node.restId)!;
+          this._edit.move(node.restId, p.x + delta[0] * step, p.y + delta[1] * step, this._snap ? 20 : 1);
+        }
         this._draftChanged();
       }
       return;
@@ -806,6 +953,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       node.device ? deviceStatus(node.device) !== "ok" : node.site ? node.site.status !== "ok" : false,
     );
     const lod = this._edit ? "lod-full editing" : k < DOTS_BELOW ? "lod-dot" : k < NAMES_BELOW ? "lod-text" : "lod-full";
+    const picture = scene.picture;
+    const src = picture ? pictureSrc(this.hass, picture.url, this._pictureReady) : undefined;
+    const opacity = Math.min(100, Math.max(0, this._config.background_opacity ?? 50)) / 100;
+    const tiled = !!this._config.background_tile;
+    const box = this._box;
 
     return html`
       <ha-card>
@@ -839,6 +991,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             : nothing}
         </div>
         ${layoutInfo?.comment ? html`<div class="subtitle">${layoutInfo.comment}</div>` : nothing}
+        ${layoutInfo?.background?.error
+          ? html`<div class="subtitle">Background picture ${layoutInfo.background.file}: ${layoutInfo.background.error}</div>`
+          : nothing}
         ${this._edit ? this._renderEdit(entry, scene) : this._editMessage ? html`<div class="subtitle" role="status">${this._editMessage}</div>` : nothing}
         ${rule
           ? html`<div class="hl">
@@ -855,7 +1010,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${this._rebuild?.layout === scene.layout ? this._renderRebuild(this._rebuild) : nothing}
         ${this.renderStale(entry)}
         <div
-          class="viewport"
+          class="viewport ${this._edit && this._pictureMode ? "picture-mode" : ""}"
           style="min-height:${this._autoHeight ?? height}px"
           @wheel=${this._onWheel}
           @pointerdown=${this._onPointerDown}
@@ -865,10 +1020,20 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           @dblclick=${this._onDoubleClick}
           @mouseleave=${this._clearHover}
         >
+          ${picture && src && tiled
+            ? html`<div class="picture tiled" style="opacity:${opacity};background-image:url(${src});background-size:${picture.w * k}px ${picture.h * k}px;background-position:${x + picture.x * k}px ${y + picture.y * k}px"></div>`
+            : nothing}
           <div
             class="world ${lod}"
             style="width:${scene.width}px;height:${scene.height}px;transform:translate(${x}px,${y}px) scale(${k});--inv:${1 / k}"
           >
+            ${picture && src && !tiled
+              ? html`<img class="picture" src=${src} alt="" draggable="false"
+                  style="left:${picture.x}px;top:${picture.y}px;width:${picture.w}px;height:${picture.h}px;opacity:${opacity}" />`
+              : nothing}
+            ${picture && this._edit && this._pictureMode
+              ? html`<div class="picture-frame" style="left:${picture.x}px;top:${picture.y}px;width:${picture.w}px;height:${picture.h}px"></div>`
+              : nothing}
             <svg class="wires" width=${scene.width} height=${scene.height}>
               ${links.map((info) => this._renderLink(info))}
             </svg>
@@ -877,6 +1042,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             ${this._config.show_comments ? links.map((info) => this._renderComment(info)) : nothing}
             ${scene.nodes.map((node) => this._renderNode(node))}
           </div>
+          ${box
+            ? html`<div class="select-box" style="left:${Math.min(box.x0, box.x1)}px;top:${Math.min(box.y0, box.y1)}px;width:${Math.abs(box.x1 - box.x0)}px;height:${Math.abs(box.y1 - box.y0)}px"></div>`
+            : nothing}
           ${scene.nodes.length
             ? nothing
             : html`<div class="nothing">${scene.layout === AUTO ? "No devices on the controller yet." : "This layout has no nodes yet."}</div>`}
@@ -941,7 +1109,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     if (!this._canEdit(entry, scene)) return;
     window.clearTimeout(this._openTimer);
     this._clearHover(); this._pinned = undefined; this._rebuild = undefined;
-    this._edit = new LayoutDraft(entry.entry_id, scene.layout, scene.origin, entry.nodes, scene.nodes);
+    const background = entry.layouts.find((l) => l.name === scene.layout)?.background;
+    this._edit = new LayoutDraft(entry.entry_id, scene.layout, scene.origin, entry.nodes, scene.nodes,
+      background?.url ? background.scale : undefined);
+    this._selection = new Set();
+    this._pictureMode = false;
     this._userMoved = true;
     this._editMessage = "";
     this._draftChanged();
@@ -954,7 +1126,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _cancelEdit(): void {
     if (this._saving) return;
-    this._edit = undefined; this._nodeDrag = undefined;
+    this._edit = undefined; this._nodeDrag = undefined; this._pictureDrag = undefined;
+    this._selection = new Set(); this._pictureMode = false;
     this._editMessage = "";
     this._draftChanged();
     void this.updateComplete.then(() => this._fit());
@@ -962,7 +1135,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _leaveEdit(): boolean {
     if (this._saving) return false;
-    if (this._edit?.changes().length) {
+    if (this._edit && this._pendingChanges(this._edit)) {
       this._editMessage = "Save or cancel your changes before opening another layout.";
       return false;
     }
@@ -971,32 +1144,50 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   }
 
   private _beforeUnload = (ev: BeforeUnloadEvent): void => {
-    if (this._saving || this._edit?.changes().length) { ev.preventDefault(); ev.returnValue = ""; }
+    if (this._saving || (this._edit && this._pendingChanges(this._edit))) { ev.preventDefault(); ev.returnValue = ""; }
   };
+
+  /** Changed nodes, plus one for a changed picture scale. */
+  private _pendingChanges(draft: LayoutDraft): number {
+    return draft.changes().length + (draft.scaleChange() !== undefined ? 1 : 0);
+  }
 
   private async _saveEdit(): Promise<void> {
     const draft = this._edit;
     if (!draft || this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
     const nodes = draft.changes();
-    if (!nodes.length) return;
+    const scale = draft.scaleChange();
+    if (!nodes.length && scale === undefined) return;
     if (nodes.length > 500) { this._editMessage = "Save at most 500 changed nodes at a time."; return; }
-    this._saving = true; this._editMessage = ""; this._nodeDrag = undefined;
+    this._saving = true; this._editMessage = ""; this._nodeDrag = undefined; this._pictureDrag = undefined;
     try {
       const result = await this.hass.connection.sendMessagePromise<MoveResult>({
         type: "cmr/move_nodes", entry_id: draft.entryId, layout: draft.layout, nodes,
+        ...(scale !== undefined ? { scale } : {}),
       });
       if (this._edit !== draft) return;
       draft.acknowledge(result.saved);
-      if (result.failed.length) {
-        this._editMessage = `${result.saved.length} saved; ${result.failed.length} failed. ` + result.failed.map(f =>
-          `${draft.originals.get(f.id)?.name ?? f.id}: ${f.message}`).join("; ");
+      if (result.scale !== undefined) draft.acknowledgeScale(result.scale);
+      const problems = result.failed.map(f => `${draft.originals.get(f.id)?.name ?? f.id}: ${f.message}`);
+      if (result.scale_error) problems.push(`Picture scale: ${result.scale_error}`);
+      if (problems.length) {
+        this._editMessage = `${result.saved.length} saved; ${problems.length} failed. ${problems.join("; ")}`;
       } else {
+        const offset = draft.offset;
         this._edit = undefined;
         this._memo = undefined;
+        this._selection = new Set();
+        this._pictureMode = false;
+        // Keep the map where it was on screen: the scene's origin changed, and
+        // a moved picture is back at CMR's centre with the nodes moved instead.
         const origin = this._scene(this._entry!).origin;
-        this._view = { ...this._view, x: this._view.x + (origin.x - draft.origin.x) * this._view.k,
-          y: this._view.y + (origin.y - draft.origin.y) * this._view.k };
-        this._editMessage = `Saved ${result.saved.length} node position${result.saved.length === 1 ? "" : "s"} to CMR.`;
+        this._view = { ...this._view, x: this._view.x + (origin.x - draft.origin.x + offset.x) * this._view.k,
+          y: this._view.y + (origin.y - draft.origin.y + offset.y) * this._view.k };
+        const saved = [
+          result.saved.length ? `${result.saved.length} node position${result.saved.length === 1 ? "" : "s"}` : "",
+          result.scale !== undefined ? "the picture scale" : "",
+        ].filter(Boolean).join(" and ");
+        this._editMessage = `Saved ${saved} to CMR.`;
       }
       this._draftChanged();
     } catch (err) {
@@ -1006,19 +1197,43 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
   }
 
+  private _selectAll(): void {
+    this._selection = new Set([...(this._edit?.positions.keys() ?? [])]);
+  }
+
   private _renderEdit(entry: CmrEntry, scene: Scene): TemplateResult {
-    const count = this._edit!.changes().length;
+    const draft = this._edit!;
+    const count = this._pendingChanges(draft);
+    const selected = this._selection.size;
+    const background = entry.layouts.find((l) => l.name === scene.layout)?.background;
     return html`<div class="edit-bar">
       <div class="edit-controls">
-        <span><b>Edit layout</b> · ${count} changed</span>
+        <span><b>Edit layout</b> · ${count} changed${selected ? html` · ${selected} selected` : nothing}</span>
         <label><input type="checkbox" .checked=${this._snap} ?disabled=${this._saving}
           @change=${(e: Event) => { this._snap = (e.target as HTMLInputElement).checked; }} /> Snap to grid</label>
+        <button class="pill" ?disabled=${this._saving} @click=${this._selectAll}>Select all</button>
+        ${selected ? html`<button class="pill" ?disabled=${this._saving} @click=${() => (this._selection = new Set())}>Clear selection</button>` : nothing}
+        ${background
+          ? html`<button class="pill ${this._pictureMode ? "on" : ""}" ?disabled=${this._saving || !scene.picture}
+                aria-pressed=${this._pictureMode ? "true" : "false"} @click=${() => (this._pictureMode = !this._pictureMode)}>
+                <ha-icon icon="mdi:image-move"></ha-icon> Move picture</button>
+              <label>Picture scale <input class="scale" type="number" min="10" max="1000" step="1" ?disabled=${this._saving || !scene.picture}
+                .value=${String(draft.scale ?? background.scale)}
+                @change=${(e: Event) => { draft.setScale(Number((e.target as HTMLInputElement).value)); this._draftChanged(); }} /> %</label>`
+          : nothing}
         <span class="spacer"></span>
         <button class="pill" ?disabled=${this._saving} @click=${this._cancelEdit}>Cancel</button>
         <button class="pill on" ?disabled=${this._saving || !count || !this._canEdit(entry, scene)} @click=${this._saveEdit}>
           ${this._saving ? "Saving…" : "Save to CMR"}</button>
       </div>
-      <div class="edit-hint">Drag nodes or use arrow keys when focused. Changes apply to CMR when saved.</div>
+      <div class="edit-hint">
+        Drag nodes or use arrow keys when focused. Shift-click or Shift-drag selects several, and they move together.
+        ${background ? html`<br />Move picture drags the background; saving moves the nodes instead, so CMR keeps the picture centred and shows the same map.` : nothing}
+        Changes apply to CMR when saved.
+      </div>
+      ${background && !scene.picture
+        ? html`<div role="status">${background.error ? `Background picture ${background.file}: ${background.error}` : `Reading the background picture ${background.file}…`}</div>`
+        : nothing}
       ${!this._canEdit(entry, scene) ? html`<div role="status">Saving is unavailable. Check the connection and your action permissions.</div>` : nothing}
       ${this._editMessage ? html`<div class="edit-message" role="status">${this._editMessage}</div>` : nothing}
     </div>`;
@@ -1310,10 +1525,11 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _renderNode(node: PlacedNode): TemplateResult {
     const style = `left:${node.x - NODE_W / 2}px;top:${node.y - NODE_H / 2}px;width:${NODE_W}px;height:${NODE_H}px`;
+    const selected = this._edit && node.restId && this._selection.has(node.restId) ? "selected" : "";
     if (node.kind === "site") {
       const site = node.site!;
       return html`
-        <div class="node site status-${site.status} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
+        <div class="node site status-${site.status} ${selected} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
              role="button" tabindex="0" aria-label="${node.name}, ${site.online} of ${site.total} online, ${this._edit ? "use arrow keys to move" : "open layout"}"
              @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
              @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
@@ -1330,7 +1546,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     }
     if (node.kind === "unknown" || !node.device) {
       return html`
-        <div class="node unknown ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} title="Not a CMR-managed device"
+        <div class="node unknown ${selected} ${this._found && !this._found.has(node.id) ? "dim" : ""}" style=${style} title="Not a CMR-managed device"
              data-node-id=${node.restId ?? ""} tabindex=${this._edit ? 0 : -1} role="button" aria-label=${node.name}
              @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}>
           <i class="pin"></i>
@@ -1343,7 +1559,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const status = deviceStatus(device);
     const dim = (this._lit && !this._lit.has(device.key)) || (this._found && !this._found.has(node.id));
     return html`
-      <div class="node device status-${status} ${device.controller ? "controller" : ""} ${dim ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
+      <div class="node device status-${status} ${device.controller ? "controller" : ""} ${selected} ${dim ? "dim" : ""}" style=${style} data-node-id=${node.restId ?? ""}
            role="button" tabindex="0" aria-label="${device.identity}, ${STATUS_LABEL[status]}"
            @click=${(e: MouseEvent) => this._click(node, e)} @keydown=${(e: KeyboardEvent) => this._onNodeKey(e, node)}
            @mouseenter=${(e: MouseEvent) => this._showHover(node, e)} @mouseleave=${this._clearHover}
@@ -1524,6 +1740,18 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       }
       .viewport:active { cursor: grabbing; }
       .world { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+      /* The layout's picture sits under the cables and nodes, dimmed like the controller's GUI does. */
+      .picture { position: absolute; max-width: none; pointer-events: none; user-select: none; }
+      .picture.tiled { inset: 0; background-repeat: repeat; }
+      .picture-frame { position: absolute; outline: 2px dashed var(--primary-color); outline-offset: -1px; pointer-events: none; }
+      .viewport.picture-mode { cursor: move; }
+      .select-box {
+        position: absolute; pointer-events: none; border: 1px solid var(--primary-color);
+        background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+      }
+      .editing .node.selected { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+      .edit-controls input.scale { width: 4.5em; }
+      .edit-controls .pill ha-icon { --mdc-icon-size: 16px; }
       .world.editing .node { cursor: grab; }
       .world.editing .node:active { cursor: grabbing; }
       .wires { position: absolute; inset: 0; overflow: visible; }

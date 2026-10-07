@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
+import pytest
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.cmr import api, webhook
 from custom_components.cmr.const import EVENT_ALERT
@@ -163,6 +165,25 @@ def test_rest_error_classification() -> None:
     err = api._error_for("POST", "execute", 500, {"message": "failure", "detail": "script error"})
     assert isinstance(err, api.CmrRouterError) and err.detail == "failure script error"
     assert isinstance(api._error_for("GET", "x", 404, "<html>not found</html>"), api.CmrNotFoundError)
+
+
+async def test_non_json_reply_names_its_status(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+    """A proxy's error page, or another web server on that port: not RouterOS, but say which status it sent."""
+    aioclient_mock.get("https://192.0.2.8/rest/cmr", status=502, text="<html><h1>502 Bad Gateway</h1></html>")
+    client = api.CmrApi(aioclient_mock.create_session(hass.loop), "192.0.2.8", "u", "p", owns_session=True)
+    with pytest.raises(api.CmrConnectionError) as caught:
+        await client.get("cmr")
+    await client.async_close()
+    assert caught.value.detail == "192.0.2.8 answered HTTP 502 with something that isn't the REST API (not JSON)."
+
+
+async def test_read_file_returns_the_raw_bytes(hass: HomeAssistant, aioclient_mock: AiohttpClientMocker) -> None:
+    """`/file/read` leaves bytes above 0x7f unescaped in its JSON string; control bytes come escaped."""
+    aioclient_mock.post("https://192.0.2.8/rest/file/read", content=b'[{"data":"\\u0000\\u001e\xf1\xd0A\\"\\\\"}]')
+    client = api.CmrApi(aioclient_mock.create_session(hass.loop), "192.0.2.8", "u", "p", owns_session=True)
+    assert await client.read_file("plan.jpg", 0, 32768) == b'\x00\x1e\xf1\xd0A"\\'
+    await client.async_close()
+    assert aioclient_mock.mock_calls[0][2] == {"file": "plan.jpg", "offset": "0", "chunk-size": "32768"}
 
 
 async def test_pushed_alert_reaches_bus_and_event_entity(

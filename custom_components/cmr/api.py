@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from base64 import b64encode
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 
@@ -78,13 +79,36 @@ class CmrApi:
         """PATCH /rest/<path>/<id>: set fields of one item."""
         return await self._request("PATCH", path, payload)
 
+    async def file_info(self, name: str) -> dict[str, Any] | None:
+        """The `/file` entry of one file (size, last-modified, type), or None."""
+        rows = await self.get(f"file?name={quote(name, safe='')}")
+        rows = rows if isinstance(rows, list) else [rows]
+        return next((row for row in rows if isinstance(row, dict) and row.get("name") == name), None)
+
+    async def read_file(self, name: str, offset: int, length: int) -> bytes:
+        """Up to `length` bytes (at most 32 KiB) of a file, from `offset`.
+
+        `/file/read` puts the raw bytes into a JSON string and leaves those
+        above 0x7f unescaped, so the body isn't UTF-8; read as Latin-1, every
+        character maps back to its byte.
+        """
+        rows = await self._request(
+            "POST", "file/read", {"file": name, "offset": str(offset), "chunk-size": str(length)}, encoding="latin-1"
+        )
+        row = rows[0] if isinstance(rows, list) and rows else rows
+        data = row.get("data", "") if isinstance(row, dict) else ""
+        try:
+            return str(data).encode("latin-1")
+        except UnicodeEncodeError as err:
+            raise CmrRouterError(f"POST file/read: {err}", "the router sent text, not the file's bytes") from err
+
     async def async_close(self) -> None:
         """Drop the connections (and with them the router-side REST session) of an owned session."""
         if self._owns_session:
             await self._session.close()
 
     async def _request(
-        self, method: str, path: str, payload: dict[str, Any] | None = None
+        self, method: str, path: str, payload: dict[str, Any] | None = None, *, encoding: str | None = None
     ) -> Any:
         url = f"{self._rest}/{path.strip('/')}"
         try:
@@ -94,7 +118,14 @@ class CmrApi:
                 ) as resp:
                     if resp.status in (401, 403):
                         raise CmrAuthError(f"{method} {path}: HTTP {resp.status}")
-                    body = await resp.json(content_type=None)
+                    try:
+                        body = await resp.json(content_type=None, encoding=encoding)
+                    except ValueError as err:
+                        # Not RouterOS answering (another web server, a proxy's error page): keep the status.
+                        raise CmrConnectionError(
+                            f"{method} {path}: HTTP {resp.status}: {err!r}",
+                            connection_detail(err, self.base_url, resp.status),
+                        ) from err
                     if resp.status >= 400:
                         raise _error_for(method, path, resp.status, body)
                     return body
@@ -102,7 +133,7 @@ class CmrApi:
             raise CmrConnectionError(f"{method} {path}: {err!r}", connection_detail(err, self.base_url)) from err
 
 
-def connection_detail(err: BaseException, base_url: str) -> str:
+def connection_detail(err: BaseException, base_url: str, status: int | None = None) -> str:
     """What went wrong reaching the controller, in words a user can act on."""
     target = base_url.split("://", 1)[-1]
     https = base_url.startswith("https")
@@ -130,7 +161,8 @@ def connection_detail(err: BaseException, base_url: str) -> str:
     if isinstance(err, TimeoutError):
         return f"No answer from {target} within {REQUEST_TIMEOUT} s."
     if isinstance(err, ValueError):
-        return f"{target} answered with something that isn't the REST API (not JSON)."
+        answered = f"answered HTTP {status}" if status else "answered"
+        return f"{target} {answered} with something that isn't the REST API (not JSON)."
     return f"{target}: {err}"
 
 

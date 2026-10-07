@@ -25,7 +25,7 @@ from .actions import async_cancel_job, async_job_devices, async_rebuild_links, a
 from .api import CmrApiError, CmrNotFoundError
 from .const import DOMAIN
 from .coordinator import CmrConfigEntry, CmrCoordinator
-from .layout_edit import LayoutEditError, async_move_nodes, node_revision
+from .layout_edit import LayoutEditError, async_move_nodes, async_set_layout_scale, node_revision
 from .models import CmrSnapshot, CmrWifiNetwork, CmrWifiRadio, parse_job_devices, wifi_targets
 from .pairing import async_pair
 from .webhook import (
@@ -247,7 +247,14 @@ def serialize_entry(hass: HomeAssistant, entry: CmrConfigEntry) -> dict[str, Any
             "networks": [_wifi_item(item, snapshot) for item in snapshot.wifi_networks],
             "radios": [_wifi_item(item, snapshot) for item in snapshot.wifi_radios],
         },
-        "layouts": [{"name": layout.name, "comment": layout.comment} for layout in snapshot.layouts],
+        "layouts": [
+            {
+                "name": layout.name,
+                "comment": layout.comment,
+                "background": coordinator.backgrounds.payload(layout) if coordinator.backgrounds else None,
+            }
+            for layout in snapshot.layouts
+        ],
         "nodes": nodes,
         "links": [
             {
@@ -399,11 +406,13 @@ def _coordinate(value: Any) -> int:
         vol.Required("revision"): vol.All(str, vol.Match(r"^[0-9a-f]{16}$")),
         vol.Required("x"): _coordinate,
         vol.Required("y"): _coordinate,
-    }], vol.Length(min=1, max=500)),
+    }], vol.Length(max=500)),
+    # The background picture's scale, in percent, saved after the nodes.
+    vol.Optional("scale"): vol.All(int, vol.Range(min=10, max=1000)),
 })
 @websocket_api.async_response
 async def ws_move_nodes(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
-    """Save an explicit draft of positions to the controller's existing nodes."""
+    """Save an explicit draft of positions (and the picture's scale) to the controller's layout."""
     coordinator = _acting_coordinator(connection, msg)
     if coordinator is None:
         return
@@ -412,7 +421,18 @@ async def ws_move_nodes(hass: HomeAssistant, connection: websocket_api.ActiveCon
         return
     async with coordinator.layout_edit_lock:
         try:
-            result = await async_move_nodes(coordinator.api, msg["layout"], msg["nodes"])
+            result: dict[str, Any] = {"saved": [], "failed": []}
+            if msg["nodes"]:
+                result = await async_move_nodes(coordinator.api, msg["layout"], msg["nodes"])
+            if "scale" in msg:
+                try:
+                    await async_set_layout_scale(coordinator.api, msg["layout"], msg["scale"])
+                except LayoutEditError as err:
+                    result["scale_error"] = str(err)
+                except CmrApiError as err:
+                    result["scale_error"] = err.detail
+                else:
+                    result["scale"] = msg["scale"]
         except LayoutEditError as err:
             # Reopening the editor must use the current controller positions.
             await coordinator.async_request_refresh()

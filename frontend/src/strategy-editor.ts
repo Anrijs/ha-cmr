@@ -1,5 +1,5 @@
 import { LitElement, html, type PropertyDeclarations, type TemplateResult } from "lit";
-import { fireEvent, labelsFrom } from "./shared";
+import { PICTURE_FIELDS, PICTURE_LABELS, fireEvent, labelsFrom } from "./shared";
 import type { HassLike } from "./types";
 import { LINK_STYLE_FIELD } from "./routing";
 
@@ -8,18 +8,22 @@ interface StrategyConfig {
   entry_id?: string;
   title?: string;
   link_style?: "straight" | "elbow";
+  background_opacity?: number;
+  background_tile?: boolean;
 }
 
 const SCHEMA = [
   { name: "entry_id", selector: { config_entry: { integration: "cmr" } } },
   { name: "title", selector: { text: {} } },
   LINK_STYLE_FIELD,
+  ...PICTURE_FIELDS,
 ];
 
 const LABELS = labelsFrom({
   entry_id: "Controller (empty: the first one)",
   title: "Title shown in the dashboard header",
   link_style: "Map link style",
+  ...PICTURE_LABELS,
 });
 
 /**

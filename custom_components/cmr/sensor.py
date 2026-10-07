@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 
 from .coordinator import CmrConfigEntry, CmrCoordinator
 from .entity import CmrDeviceEntity, CmrEntity, async_add_per_device
+from .logparse import log_id_value
 from .models import CmrDevice, CmrSnapshot
 
 # A boot or connect timestamp computed from a duration jitters by the poll
@@ -135,8 +136,10 @@ DEVICE_SENSORS: tuple[CmrDeviceSensorDescription, ...] = (
 
 
 def _latest_job(snapshot: CmrSnapshot) -> dict[str, Any] | None:
+    """The newest job: ids count up as jobs are added. A job scheduled for
+    next week must not hide an install started now (schedule-time would)."""
     jobs = snapshot.upgrade_jobs
-    return max(jobs, key=lambda job: str(job.get("schedule-time", ""))) if jobs else None
+    return max(jobs, key=lambda job: log_id_value(job.get(".id"))) if jobs else None
 
 
 FLEET_SENSORS: tuple[CmrFleetSensorDescription, ...] = (

@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import pytest
 
@@ -21,7 +22,7 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_SSL, CONF_USERNAM
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cmr.api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError
+from custom_components.cmr.api import CmrApi, CmrApiError, CmrAuthError, CmrNotFoundError, CmrRouterError
 from custom_components.cmr.const import CONF_WEBHOOK_ID, DOMAIN
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
@@ -66,6 +67,10 @@ class FakeController:
         # Alert rule id -> device ids it fires on (`show-devices on-only=yes`).
         self.alert_devices: dict[str, list[str]] = {"*1": ["*7"]}
         self.has_job_devices = True
+        # Router files by name: (contents, last-modified), for layout pictures.
+        self.files: dict[str, tuple[bytes, str]] = {}
+        # Without the ftp and test policies the router refuses `/file/read`.
+        self.file_read_ok = True
         # Set to a job state ("done", "processing") to have `/cmr/device/upgrade`
         # create a job the way the real controller does (no labels; a channel only when pinned).
         self.install_job_state: str | None = None
@@ -107,6 +112,12 @@ class FakeController:
         raise CmrNotFoundError(f"PATCH {path}: no such item", "no such item")
 
     def _get(self, path: str) -> Any:
+        if path.startswith("file?name="):
+            name = unquote(path.removeprefix("file?name="))
+            if name not in self.files:
+                return []
+            data, modified = self.files[name]
+            return [{".id": "*F1", "name": name, "size": str(len(data)), "last-modified": modified, "type": ".png file"}]
         if path == "system/resource":
             return {"platform": "ExampleVendor", "board-name": "RB-TEST"}
         if path == "system/clock":
@@ -128,6 +139,16 @@ class FakeController:
         return items
 
     def _post(self, path: str, payload: dict[str, Any]) -> Any:
+        if path == "file/read":
+            if not self.file_read_ok:
+                raise CmrAuthError("POST file/read: HTTP 400: not enough permissions", "not enough permissions")
+            if payload["file"] not in self.files:
+                raise CmrRouterError("POST file/read: HTTP 400", "no such file")
+            chunk = int(payload["chunk-size"])
+            assert 1 <= chunk <= 32768  # the router's limit
+            offset = int(payload["offset"])
+            # What the client gets from the router's raw bytes by reading them as Latin-1.
+            return [{"data": self.files[payload["file"]][0][offset:offset + chunk].decode("latin-1")}]
         if path == "cmr/device/print" and ".proplist" in payload:
             return [{".id": d[".id"], "alerts": d.get("alerts", "")} for d in self.devices]
         if path == "cmr/layout/link/print":
@@ -250,7 +271,9 @@ def _no_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
 def controller(monkeypatch: pytest.MonkeyPatch) -> FakeController:
     fake = FakeController()
 
-    async def request(self: CmrApi, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+    async def request(
+        self: CmrApi, method: str, path: str, payload: dict[str, Any] | None = None, *, encoding: str | None = None
+    ) -> Any:
         return await fake.request(method, path.strip("/"), payload)
 
     monkeypatch.setattr(CmrApi, "_request", request)

@@ -7,6 +7,8 @@ interface StrategyConfig {
   entry_id?: string;
   title?: string;
   link_style?: "straight" | "elbow";
+  background_opacity?: number;
+  background_tile?: boolean;
 }
 
 type Card = Record<string, unknown>;
@@ -51,7 +53,7 @@ function deviceSection(device: CmrDevice, hass: HassLike, alertsPushed: boolean)
   return { type: "grid", cards };
 }
 
-function networkView(entry: CmrEntry, base: Card, linkStyle: string): Card {
+function networkView(entry: CmrEntry, base: Card, map: Card): Card {
   const fe = entry.fleet_entities;
   return {
     title: "Network",
@@ -79,7 +81,7 @@ function networkView(entry: CmrEntry, base: Card, linkStyle: string): Card {
       {
         type: "grid",
         column_span: 3,
-        cards: [{ ...base, type: "custom:cmr-topology-card", link_style: linkStyle, height: 480, views: { devices: "devices" }, grid_options: { columns: "full" } }],
+        cards: [{ ...base, type: "custom:cmr-topology-card", ...map, height: 480, views: { devices: "devices" }, grid_options: { columns: "full" } }],
       },
       // Two independent columns: a section is a vertical stack, so a short
       // devices card and a tall alerts card no longer leave a gap under the
@@ -156,13 +158,13 @@ function eventsView(base: Card): Card {
   };
 }
 
-function topologyView(base: Card, linkStyle: string): Card {
+function topologyView(base: Card, map: Card): Card {
   return {
     title: "Topology",
     path: "topology",
     icon: "mdi:sitemap-outline",
     type: "panel",
-    cards: [{ ...base, type: "custom:cmr-topology-card", link_style: linkStyle, height: 760, views: { devices: "devices" } }],
+    cards: [{ ...base, type: "custom:cmr-topology-card", ...map, height: 760, views: { devices: "devices" } }],
   };
 }
 
@@ -226,11 +228,14 @@ export class CmrDashboardStrategy extends HTMLElement {
       // Every card is pinned to the controller this dashboard shows, so the
       // events card doesn't mix in other controllers.
       const base: Card = entries.length > 1 || config.entry_id ? { entry_id: entry.entry_id } : {};
-      const linkStyle = config.link_style ?? "straight";
-      const network = networkView(entry, base, linkStyle);
+      // Map options every map card on the dashboard shares.
+      const map: Card = { link_style: config.link_style ?? "straight" };
+      if (config.background_opacity !== undefined) map.background_opacity = config.background_opacity;
+      if (config.background_tile) map.background_tile = true;
+      const network = networkView(entry, base, map);
       return {
         title: config.title ?? entry.title,
-        views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base, linkStyle), wifiView(base)],
+        views: [network, eventsView(base), devicesView(entry, hass, base), topologyView(base, map), wifiView(base)],
       };
     } catch (err) {
       console.error("cmr: dashboard strategy failed", err);

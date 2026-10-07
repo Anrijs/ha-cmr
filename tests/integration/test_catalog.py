@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -56,3 +57,49 @@ async def test_cache_from_another_url_serves_until_refetched(
     await products.async_refresh()
     assert calls == [CATALOG_URL]
     assert products.products == [OLD]
+
+
+async def test_matches_are_cached_until_the_catalog_changes(hass: HomeAssistant, monkeypatch: pytest.MonkeyPatch) -> None:
+    from custom_components.cmr.models import CmrDevice
+
+    calls = []
+    real = catalog.match_product
+
+    def counting(*args: Any) -> dict[str, Any] | None:
+        calls.append(args[1:])
+        return real(*args)
+
+    monkeypatch.setattr(catalog, "match_product", counting)
+    products = ProductCatalog(hass)
+    products.products = [OLD]
+    devices = [CmrDevice.from_rest({".id": f"*{n}", "identity": f"r{n}", "board": "RB5009"}) for n in range(3)]
+    assert all(products.product_for(d)["code"] == OLD["code"] for d in devices)
+    assert len(calls) == 1  # one board, matched once
+    products.products = [{**OLD, "code": "RB5009UPr+S+OUT", "name": "RB5009 OUT"}]
+    assert products.product_for(devices[0])["code"] == "RB5009UPr+S+OUT"
+    assert len(calls) == 2
+
+
+async def test_polls_never_wait_for_the_catalog(
+    hass: HomeAssistant, controller, make_entry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A slow catalog API doesn't hold up setup or polling, and two polls
+    (or two controllers) don't fetch it twice."""
+    release = asyncio.Event()
+    calls: list[str] = []
+
+    async def slow(_session, url: str) -> list[dict[str, Any]]:
+        calls.append(url)
+        await release.wait()
+        return [OLD]
+
+    monkeypatch.setattr(catalog, "async_fetch_products", slow)
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    coordinator = entry.runtime_data
+    await coordinator.async_refresh()
+    assert coordinator.last_update_success
+    assert calls == [CATALOG_URL] and coordinator.catalog.products == []
+    release.set()
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert coordinator.catalog.products == [OLD]

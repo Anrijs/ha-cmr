@@ -199,6 +199,31 @@ async def test_scheduled_job_is_not_an_install_in_progress(hass: HomeAssistant, 
     assert hass.states.get(gw).attributes["in_progress"] is False
 
 
+async def test_last_upgrade_job_is_the_newest(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
+    """A job scheduled far ahead doesn't hide an install started after it."""
+    jobs = controller.data["cmr/upgrade/job"]
+    jobs.append({".id": "*20", "labels": "ap", "state": "scheduled", "schedule-time": "2099-01-01 03:00:00"})
+    jobs.append({".id": "*21", "state": "processing", "schedule-time": "2026-10-01 23:00:00",
+                 "start-time": "2026-10-01 23:00:00"})
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get(entity_id(hass, "sensor", f"{CONTROLLER}_last_upgrade_job"))
+    assert state.state == "processing" and state.attributes["start_time"] == "2026-10-01 23:00:00"
+
+
+async def test_missing_card_bundle_still_loads(
+    hass: HomeAssistant, controller: FakeController, make_entry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from custom_components.cmr import frontend
+
+    monkeypatch.setattr(frontend, "FRONTEND_SCRIPT", "missing.js")
+    entry = make_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is ConfigEntryState.LOADED
+
+
 async def test_shared_nat_address_gets_no_device_link(hass: HomeAssistant, controller: FakeController, make_entry) -> None:
     controller.device("Site-AP1")["address"] = "198.51.100.216"  # same as Remote-AP: both behind one NAT
     entry = make_entry()

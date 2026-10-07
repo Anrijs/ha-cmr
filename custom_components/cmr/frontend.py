@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
@@ -9,6 +10,8 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, FRONTEND_SCRIPT, FRONTEND_URL
+
+_LOGGER = logging.getLogger(__name__)
 
 _FRONTEND_DIR = Path(__file__).parent / "www"
 
@@ -24,5 +27,10 @@ async def async_register_frontend(hass: HomeAssistant) -> None:
     )
     script = _FRONTEND_DIR / FRONTEND_SCRIPT
     # The file's mtime busts browser caches after an update.
-    version = await hass.async_add_executor_job(lambda: int(script.stat().st_mtime))
+    try:
+        version = await hass.async_add_executor_job(lambda: int(script.stat().st_mtime))
+    except OSError as err:
+        # The cards are a bonus; the entities work without them.
+        _LOGGER.error("Card bundle %s is missing, the CMR cards won't load: %s", script, err)
+        return
     add_extra_js_url(hass, f"{FRONTEND_URL}/{FRONTEND_SCRIPT}?v={version}")

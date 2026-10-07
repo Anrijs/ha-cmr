@@ -174,6 +174,17 @@ def test_snapshot_nodes_and_links():
     assert snapshot.settings == {"enabled": "true"}
 
 
+@pytest.mark.parametrize("stale_last", [False, True])
+def test_duplicate_self_record_keeps_the_live_one(stale_last):
+    """A controller listed itself twice with one serial: a stale record and the live one."""
+    stale = {".id": "*1", "identity": "ctl", "serial": "S1", "connected": "false", "labels": "self"}
+    live = {".id": "*2", "identity": "ctl", "serial": "S1", "controller": "true", "address": "10.0.0.1"}
+    records = [live, stale] if stale_last else [stale, live]
+    snapshot = models.parse_snapshot({"cmr/device": records})
+    assert list(snapshot.devices) == ["S1"]
+    assert snapshot.controller is not None and snapshot.controller.rest_id == "*2"
+
+
 @pytest.mark.parametrize(
     ("installed", "available", "downgrade"),
     [

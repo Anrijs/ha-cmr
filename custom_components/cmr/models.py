@@ -622,6 +622,14 @@ class CmrLayout:
             scale=raw.get("scale") or None,
         )
 
+    @property
+    def scale_percent(self) -> int:
+        """The picture's scale: 10..1000 %, 100 when unset."""
+        try:
+            return min(1000, max(10, int(str(self.scale))))
+        except ValueError:
+            return 100
+
 
 @dataclass
 class CmrNode:
@@ -829,12 +837,18 @@ def _items(value: Any) -> list[dict[str, Any]]:
 
 def parse_snapshot(raw: dict[str, Any]) -> CmrSnapshot:
     """Turn the raw REST responses (keyed by menu path) into a snapshot."""
-    devices = [CmrDevice.from_rest(item) for item in _items(raw.get("cmr/device"))]
+    devices: dict[str, CmrDevice] = {}
+    for device in (CmrDevice.from_rest(item) for item in _items(raw.get("cmr/device"))):
+        seen = devices.get(device.key)
+        # A controller was seen with a stale second record for itself (same
+        # serial, no L flag): keep the live one, whichever comes first.
+        if seen is None or (device.controller, device.connected) >= (seen.controller, seen.connected):
+            devices[device.key] = device
     alerts = [CmrAlertRule.from_rest(item) for item in _items(raw.get("cmr/alert"))]
     settings = raw.get("cmr")
     return CmrSnapshot(
         settings=settings if isinstance(settings, dict) else {},
-        devices={device.key: device for device in devices},
+        devices=devices,
         alerts={rule.rest_id: rule for rule in alerts},
         upgrade_rules=_items(raw.get("cmr/upgrade")),
         upgrade_jobs=_items(raw.get("cmr/upgrade/job")),

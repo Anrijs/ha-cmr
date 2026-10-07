@@ -506,3 +506,13 @@ export const ruleDevicesStyles = css`
   }
   .rd-link:hover { text-decoration: underline; }
 `;
+
+/** Map options for a layout's background picture (cards and the dashboard). */
+export const PICTURE_FIELDS = [
+  { name: "background_opacity", selector: { number: { min: 0, max: 100, step: 5, mode: "slider", unit_of_measurement: "%" } } },
+  { name: "background_tile", selector: { boolean: {} } },
+];
+export const PICTURE_LABELS: Record<string, string> = {
+  background_opacity: "Background picture opacity (default 50 %)",
+  background_tile: "Repeat the background picture across the map",
+};

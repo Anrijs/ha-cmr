@@ -19,6 +19,7 @@ from .const import CONF_ALLOW_UPGRADES, DEFAULT_SCAN_INTERVAL, DOMAIN
 from .models import CmrSnapshot, parse_device_alerts, parse_link_details, parse_snapshot, strip_secrets
 
 if TYPE_CHECKING:
+    from .background import BackgroundStore
     from .catalog import ProductCatalog
     from .eventlog import CmrEventLog
 
@@ -84,6 +85,7 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self._platform_read = False
         self.eventlog: CmrEventLog | None = None
         self.catalog: ProductCatalog | None = None
+        self.backgrounds: BackgroundStore | None = None
         self._missing: set[str] = set()
         # None until tried; False if the user may not run console commands.
         self._console_ok: bool | None = None
@@ -168,8 +170,11 @@ class CmrCoordinator(DataUpdateCoordinator[CmrSnapshot]):
         self.last_poll = dt_util.utcnow()
         snapshot = parse_snapshot(raw)
         if self.catalog is not None:
-            # A no-op unless the catalog is a day old.
-            await self.catalog.async_refresh()
+            # The cached photos right away; a day-old catalog refetches in the background.
+            await self.catalog.async_load()
+            self.catalog.async_schedule_refresh()
+        if self.backgrounds is not None:
+            self.backgrounds.async_sync(snapshot.layouts)
         if self.eventlog is not None:
             try:
                 await self.eventlog.async_process(self.api, self.data, snapshot)
