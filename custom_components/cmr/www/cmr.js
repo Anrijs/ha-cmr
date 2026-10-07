@@ -128,8 +128,8 @@ var be=globalThis,_e=be.ShadowRoot&&(be.ShadyCSS===void 0||be.ShadyCSS.nativeSha
   .stale ha-icon {
     color: var(--cmr-pending);
   }
-  /* Product photos sit on a light "pedestal" in every theme: white devices
-     need contrast on light cards. */
+  /* Product photos sit on a light "pedestal" in every theme.
+     White devices need contrast on light cards. */
   .badge.photo {
     background: var(--cmr-pedestal) !important;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
