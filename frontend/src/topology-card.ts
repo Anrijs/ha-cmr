@@ -57,6 +57,10 @@ const CLICK_DELAY = 250;
 const NODE_W = 184;
 const NODE_H = 62;
 const PAD = 48;
+/** Snap to grid step in layout units; the map's dots mark it. */
+const SNAP = 20;
+/** The dots spread out (doubling) while zoomed out, never closer than this many pixels. */
+const MIN_DOT_GAP = 12;
 const AUTO = "__auto__";
 
 interface PlacedNode {
@@ -710,7 +714,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       if (!move.moved && Math.hypot(dx, dy) < 4) return;
       move.moved = true;
       // The node under the pointer snaps to the grid; the others keep their distance to it.
-      const grid = this._snap ? 20 : 1;
+      const grid = this._snap ? SNAP : 1;
       const x = Math.round((move.start.x + dx / this._view.k) / grid) * grid;
       const y = Math.round((move.start.y + dy / this._view.k) / grid) * grid;
       this._edit.moveBy(move.starts, x - move.start.x, y - move.start.y);
@@ -722,7 +726,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       const dx = ev.clientX - picture.x, dy = ev.clientY - picture.y;
       if (!picture.moved && Math.hypot(dx, dy) < 4) return;
       picture.moved = true;
-      this._edit.moveOffset(picture.start.x + dx / this._view.k, picture.start.y + dy / this._view.k, this._snap ? 20 : 1);
+      this._edit.moveOffset(picture.start.x + dx / this._view.k, picture.start.y + dy / this._view.k, this._snap ? SNAP : 1);
       this._draftChanged();
       return;
     }
@@ -875,7 +879,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       if (delta) {
         ev.preventDefault(); ev.stopPropagation();
         if (this._saving || !this._canEdit(this._entry!, this._scene(this._entry!))) return;
-        const step = (this._snap ? 20 : 1) * (ev.shiftKey ? 5 : 1);
+        const step = (this._snap ? SNAP : 1) * (ev.shiftKey ? 5 : 1);
         if (this._selection.has(node.restId) && this._selection.size > 1) {
           // The focused node is one of several selected: they move together.
           const starts = new Map<string, Point>();
@@ -886,7 +890,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
           this._edit.moveBy(starts, delta[0] * step, delta[1] * step);
         } else {
           const p = this._edit.positions.get(node.restId)!;
-          this._edit.move(node.restId, p.x + delta[0] * step, p.y + delta[1] * step, this._snap ? 20 : 1);
+          this._edit.move(node.restId, p.x + delta[0] * step, p.y + delta[1] * step, this._snap ? SNAP : 1);
         }
         this._draftChanged();
       }
@@ -958,6 +962,9 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const opacity = Math.min(100, Math.max(0, this._config.background_opacity ?? 50)) / 100;
     const tiled = !!this._config.background_tile;
     const box = this._box;
+    // The dots belong to the map: they pan and zoom with it, on the snap grid around CMR's origin.
+    const dotGap = SNAP * 2 ** Math.max(0, Math.ceil(Math.log2(MIN_DOT_GAP / (SNAP * k)))) * k;
+    const dotX = x - scene.origin.x * k - dotGap / 2, dotY = y - scene.origin.y * k - dotGap / 2;
 
     return html`
       <ha-card>
@@ -1011,7 +1018,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${this.renderStale(entry)}
         <div
           class="viewport ${this._edit && this._pictureMode ? "picture-mode" : ""}"
-          style="min-height:${this._autoHeight ?? height}px"
+          style="min-height:${this._autoHeight ?? height}px;background-size:${dotGap}px ${dotGap}px;background-position:${dotX}px ${dotY}px"
           @wheel=${this._onWheel}
           @pointerdown=${this._onPointerDown}
           @pointermove=${this._onPointerMove}
@@ -1734,8 +1741,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         flex: 1 1 auto;
         /* One finger pans the map and two zoom it, as in Home Assistant's own map card. */
         position: relative; overflow: hidden; cursor: grab; touch-action: none;
-        background:
-          radial-gradient(circle, var(--cmr-line) 1px, transparent 1.2px) 0 0 / 22px 22px;
+        background-image: radial-gradient(circle, var(--cmr-line) 1px, transparent 1.2px);
         border-top: 1px solid var(--cmr-line);
       }
       .viewport:active { cursor: grabbing; }

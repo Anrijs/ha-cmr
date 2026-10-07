@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.14.1
+- Map: the dotted background moves and zooms with the map instead of standing still while you pan, and its dots mark the 20-unit snap grid (spread out further when zoomed out).
+
 ## 0.14.0
 - Map: a layout's background picture from CMR is drawn under the cables and nodes, placed and scaled as CMR does. Home Assistant reads it from the controller once in the background, shrinks it (a 99-megapixel photo becomes a 160 KB WebP) and reads it again only when the file changes, so the map opens without waiting. Opacity (default 50 %) and repeating the picture are card and dashboard options. Reading files needs the router user's `ftp` and `test` policies; without them the map says so.
 - Edit layout: Shift-click or Shift-drag selects several nodes, *Select all* takes every node, and a selection moves together. On a layout with a picture, *Move picture* and *Picture scale* line a floor plan up with the devices; saving moves the nodes rather than the picture, since CMR centres it, so CMR's own editor shows the same map.
