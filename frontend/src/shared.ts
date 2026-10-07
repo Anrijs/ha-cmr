@@ -372,8 +372,8 @@ export const baseStyles = css`
   .stale ha-icon {
     color: var(--cmr-pending);
   }
-  /* Product photos sit on a light "pedestal" in every theme: some photos have
-     opaque white backgrounds, and white devices need contrast on light cards. */
+  /* Product photos sit on a light "pedestal" in every theme.
+     White devices need contrast on light cards. */
   .badge.photo {
     background: var(--cmr-pedestal) !important;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
@@ -386,8 +386,6 @@ export const baseStyles = css`
     padding: 9%;
     box-sizing: border-box;
     display: block;
-    /* White photo backgrounds (JPGs, some PNGs) take on the tile's colour. */
-    mix-blend-mode: multiply;
   }
   .badge.photo ha-icon {
     display: none;

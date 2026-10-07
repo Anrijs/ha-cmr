@@ -128,8 +128,8 @@ var be=globalThis,_e=be.ShadowRoot&&(be.ShadyCSS===void 0||be.ShadyCSS.nativeSha
   .stale ha-icon {
     color: var(--cmr-pending);
   }
-  /* Product photos sit on a light "pedestal" in every theme: some photos have
-     opaque white backgrounds, and white devices need contrast on light cards. */
+  /* Product photos sit on a light "pedestal" in every theme: white devices
+     need contrast on light cards. */
   .badge.photo {
     background: var(--cmr-pedestal) !important;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
@@ -142,8 +142,6 @@ var be=globalThis,_e=be.ShadowRoot&&(be.ShadyCSS===void 0||be.ShadyCSS.nativeSha
     padding: 9%;
     box-sizing: border-box;
     display: block;
-    /* White photo backgrounds (JPGs, some PNGs) take on the tile's colour. */
-    mix-blend-mode: multiply;
   }
   .badge.photo ha-icon {
     display: none;
@@ -799,7 +797,7 @@ var be=globalThis,_e=be.ShadowRoot&&(be.ShadyCSS===void 0||be.ShadyCSS.nativeSha
         width: 64px; height: 64px; background: var(--cmr-pedestal);
         box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
       }
-      .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; mix-blend-mode: multiply; }
+      .logo.photo img { width: 100%; height: 100%; object-fit: contain; padding: 8%; box-sizing: border-box; }
       .who { min-width: 0; }
       .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--cmr-muted); }
       .name { font-size: 22px; font-weight: 600; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1300,7 +1298,7 @@ ${s}`}]}]}}var Ie=class extends HTMLElement{static getCreateSuggestions(){return
         height: 110px; margin: -2px -4px 8px; border-radius: 9px; display: grid; place-items: center;
         background: var(--cmr-pedestal);
       }
-      .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; mix-blend-mode: multiply; }
+      .tt-photo img { max-width: 88%; max-height: 92px; object-fit: contain; }
       .tooltip table { width: 100%; border-collapse: collapse; margin-top: 6px; }
       .tooltip td { padding: 2px 0; vertical-align: top; }
       .tooltip td:first-child { color: var(--cmr-muted); width: 1%; white-space: nowrap; padding-right: 12px; }
