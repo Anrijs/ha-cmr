@@ -45,25 +45,70 @@ test("aligned, close, overlapping, and negative positions remain finite and orth
 
 test("many cables stay deterministic and do not pass through unrelated nodes", () => {
   const nodes = Array.from({ length: 120 }, (_, i) => ({ id: String(i), x: 180 + (i % 12) * 260, y: 140 + Math.floor(i / 12) * 150 }));
-  const router = new OrthogonalRouter(nodes), again = new OrthogonalRouter(nodes);
+  const edges = nodes.slice(1).map((n, i) => ({ id: n.id, node1: nodes[Math.floor(i / 2)].id, node2: n.id }));
+  const paths = new OrthogonalRouter(nodes).routeAll(edges);
+  const again = new OrthogonalRouter(nodes).routeAll([...edges].reverse());
   for (let i = 1; i < nodes.length; i++) {
     const a = nodes[Math.floor((i - 1) / 2)], b = nodes[i];
-    const points = router.route(a, b);
+    const points = paths.get(b.id);
     orthogonal(points);
     for (const n of nodes) if (n !== a && n !== b) avoids(points, n);
-    assert.deepEqual(points, again.route(a, b));
+    assert.deepEqual(points, again.get(b.id));
   }
 });
 
-test("clear aligned cables stay straight and near-aligned cables use at most two bends", () => {
+test("near-aligned cables attach along the card edge without a tiny zigzag or moving nodes", () => {
   const a = { id: "a", x: 300, y: 100 };
   for (const x of [300, 304]) {
     const b = { id: "b", x, y: 400 };
     const route = new OrthogonalRouter([a, b]).route(a, b);
     orthogonal(route);
-    assert.ok(route.length <= (x === a.x ? 2 : 4));
+    assert.equal(route.length, 2);
     avoids(route, a); avoids(route, b);
+    assert.deepEqual(a, { id: "a", x: 300, y: 100 });
+    assert.deepEqual(b, { id: "b", x, y: 400 });
   }
+});
+
+test("links from one side share a branch lane in either endpoint order", () => {
+  const nodes = [{ id: "hub", x: 600, y: 300 }, { id: "top", x: 160, y: 100 },
+    { id: "middle", x: 160, y: 300 }, { id: "bottom", x: 160, y: 900 }];
+  const edges = [{ id: "a", node1: "hub", node2: "top" }, { id: "b", node1: "middle", node2: "hub" },
+    { id: "c", node1: "hub", node2: "bottom" }];
+  const paths = new OrthogonalRouter(nodes).routeAll(edges);
+  const top = paths.get("a"), middle = [...paths.get("b")].reverse(), bottom = paths.get("c");
+  assert.deepEqual(top[0], middle[0]);
+  assert.deepEqual(top[0], bottom[0]);
+  assert.equal(top[1].x, bottom[1].x);
+  assert.equal(top[2].x, bottom[2].x);
+  for (const edge of edges) {
+    const route = paths.get(edge.id);
+    orthogonal(route);
+    for (const node of nodes) avoids(route, node);
+  }
+});
+
+test("branch lanes keep clear of obstacles and fall back for an obstructed branch", () => {
+  const nodes = [{ id: "hub", x: 500, y: 100 }, { id: "left", x: 200, y: 500 },
+    { id: "middle", x: 500, y: 500 }, { id: "right", x: 800, y: 500 }, { id: "obstacle", x: 200, y: 290 }];
+  const edges = nodes.slice(1, 4).map(n => ({ id: n.id, node1: "hub", node2: n.id }));
+  const paths = new OrthogonalRouter(nodes).routeAll(edges);
+  for (const route of paths.values()) {
+    orthogonal(route);
+    for (const node of nodes) avoids(route, node);
+  }
+});
+
+test("rounded corners keep a symmetric animation path and put comments on the curve", () => {
+  const points = [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }];
+  assert.equal(pathData(points, 10), "M 0 0 L 90 0 Q 100 0 100 10 L 100 100");
+  assert.equal(pathData([...points].reverse(), 10), "M 100 100 L 100 10 Q 100 0 90 0 L 0 0");
+  const middle = pathMiddle(points, 10);
+  assert.ok(Math.abs(middle.x - 97.5) < 0.001 && Math.abs(middle.y - 2.5) < 0.001);
+  const reversed = pathMiddle([...points].reverse(), 10);
+  assert.ok(Math.hypot(middle.x - reversed.x, middle.y - reversed.y) < 0.001);
+  assert.equal(pathData([{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }], 10),
+    "M 0 0 L 2 0 Q 4 0 4 2 L 4 4");
 });
 
 test("comment midpoint and reversed PoE path follow cable length", () => {

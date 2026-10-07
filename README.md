@@ -680,9 +680,13 @@ names or comments.
 
 **Elbow links:** choose *Map link style → Elbow (right angles)* in the generated
 dashboard's editor, or *Link style* in an individual map card's editor. Cables
-turn at right angles and route around node cards where space allows; their
-ports, hover details and PoE pulses follow the route. Straight remains the
-default. This setting changes only the Home Assistant drawing.
+follow long horizontal and vertical runs with small rounded corners. Links
+leaving the same side of a device share a branch lane where space allows;
+nearly aligned nodes connect straight along their card edges without a tiny
+zigzag. Routes avoid intervening cards. Port labels at a shared attachment
+are grouped (hover for the individual ports and peers), and hover details
+and PoE pulses follow each cable. Straight remains the default. This setting
+changes only the Home Assistant drawing.
 
 **Edit layout:** Home Assistant administrators with *Allow actions on the
 controller* enabled can rearrange an existing CMR layout. Select *Edit layout*,

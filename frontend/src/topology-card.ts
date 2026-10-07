@@ -872,7 +872,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
             <svg class="wires" width=${scene.width} height=${scene.height}>
               ${links.map((info) => this._renderLink(info))}
             </svg>
-            ${this._config.show_ports ? links.map((info) => this._renderPorts(info)) : nothing}
+            ${this._config.show_ports ? this._config.link_style === "elbow"
+              ? this._renderElbowPorts(links) : links.map((info) => this._renderPorts(info)) : nothing}
             ${this._config.show_comments ? links.map((info) => this._renderComment(info)) : nothing}
             ${scene.nodes.map((node) => this._renderNode(node))}
           </div>
@@ -922,13 +923,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
     const key = JSON.stringify([scene.nodes.map(n => [n.id, n.x, n.y]), scene.links.map(l => [l.id, l.node1, l.node2])]);
     if (this._routes?.key === key) return;
     const router = new OrthogonalRouter(scene.nodes, NODE_W, NODE_H);
-    const nodes = new Map(scene.nodes.map(n => [n.id, n]));
-    const paths = new Map<string, Point[]>();
-    for (const link of [...scene.links].sort((a, b) => a.id.localeCompare(b.id))) {
-      const a = nodes.get(link.node1), b = nodes.get(link.node2);
-      if (a && b) paths.set(link.id, router.route(a, b));
-    }
-    this._routes = { key, paths };
+    this._routes = { key, paths: router.routeAll(scene.links) };
   }
 
   private _route(info: LinkInfo): Point[] {
@@ -1147,7 +1142,8 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
   private _renderLink(info: LinkInfo) {
     const { a, state, kind, poe } = info;
     const points = this._route(info);
-    const d = pathData(points);
+    const radius = this._config.link_style === "elbow" ? 10 : 0;
+    const d = pathData(points, radius);
     // A steady flow marks a live, detected cable; the counters the controller
     // reports are totals since boot, not rates, so they don't set the speed.
     const moving = state === "up" && kind !== "unknown" && kind !== "logical";
@@ -1162,11 +1158,48 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
         ${poe && state === "up"
           ? svg`<circle class="power" r="3.6">
               <animateMotion dur="2.2s" repeatCount="indefinite"
-                path=${pathData(poe.from === a ? points : [...points].reverse())}></animateMotion>
+                path=${pathData(poe.from === a ? points : [...points].reverse(), radius)}></animateMotion>
             </circle>`
           : nothing}
       </g>
     `;
+  }
+
+  /** Shared branches have one port label at the hub instead of overlapping labels. */
+  private _renderElbowPorts(links: LinkInfo[]): TemplateResult {
+    type End = { from: PlacedNode; to: PlacedNode; port: PortEnd; poe: boolean; route: Point[] };
+    const groups = new Map<string, End[]>();
+    for (const info of links) {
+      const pair = info.ports[0], route = this._route(info);
+      if (!pair || route.length < 2) continue;
+      const ends: End[] = [
+        { from: info.a, to: info.b, port: pair.a, poe: info.poe?.from === info.a, route },
+        { from: info.b, to: info.a, port: pair.b, poe: info.poe?.from === info.b, route: [...route].reverse() },
+      ];
+      for (const end of ends) {
+        const [a, b] = end.route;
+        const key = JSON.stringify([end.from.id, a.x, a.y, Math.sign(b.x - a.x), Math.sign(b.y - a.y)]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key)!.push(end);
+      }
+    }
+    const chips: ReturnType<CmrTopologyCard["_chip"]>[] = [];
+    for (const group of groups.values()) {
+      const { from, to, port, route } = group[0];
+      const names = [...new Set(group.map(e => e.port.interface))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      const text = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+      const description = group.map(e => `${e.port.interface} → ${e.to.name}${e.poe ? " (PoE out)" : ""}`).join("; ");
+      const make = (side?: -1 | 1) => this._chip(from, to, { ...port, interface: text }, group.some(e => e.poe), side, route, description);
+      let chip = make();
+      if (chips.some(c => boxesOverlap(c.box, chip.box))) {
+        for (const side of [-1, 1] as const) {
+          chip = make(side);
+          if (!chips.some(c => boxesOverlap(c.box, chip.box))) break;
+        }
+      }
+      chips.push(chip);
+    }
+    return html`${chips.map(c => c.html)}`;
   }
 
   private _renderPorts(info: LinkInfo) {
@@ -1194,7 +1227,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
    * A port name chip where the cable leaves `from`. With `side`, the chip sits
    * beside the cable (-1 above/left, 1 below/right) instead of on it.
    */
-  private _chip(from: PlacedNode, to: PlacedNode, end: PortEnd, poeOut: boolean, side?: -1 | 1, route?: Point[]) {
+  private _chip(from: PlacedNode, to: PlacedNode, end: PortEnd, poeOut: boolean, side?: -1 | 1, route?: Point[], description?: string) {
     let p = edgePoint(from.x, from.y, to.x - from.x, to.y - from.y, side ? 4 : 8);
     if (route && route.length > 1) {
       const ux = Math.sign(route[1].x - route[0].x), uy = Math.sign(route[1].y - route[0].y);
@@ -1223,7 +1256,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
       box: { x0, y0, x1: x0 + w, y1: y0 + h },
       html: html`<div class="port m-${portMedium(end.interface)} ${poeOut ? "poe" : ""}"
         style="left:${p.x + dx}px;top:${p.y + dy}px;transform:translate(${fx * 100}%,${fy * 100}%)"
-        title=${poeOut ? `${end.interface}: PoE out, powers ${to.name}` : `${end.interface} (${from.name})`}>
+        title=${description ?? (poeOut ? `${end.interface}: PoE out, powers ${to.name}` : `${end.interface} (${from.name})`)}>
         ${poeOut ? html`<ha-icon icon="mdi:flash"></ha-icon>` : nothing}${end.interface}
       </div>`,
     };
@@ -1231,7 +1264,7 @@ export class CmrTopologyCard extends CmrEntryCard<TopologyConfig> {
 
   private _renderComment(info: LinkInfo) {
     const { link } = info;
-    const middle = pathMiddle(this._route(info));
+    const middle = pathMiddle(this._route(info), this._config.link_style === "elbow" ? 10 : 0);
     // Detected ports say more than a comment; it stays in the hover details.
     if (!link.comment || (info.ports.length && this._config.show_ports)) return nothing;
     return html`<div class="comment" style="left:${middle.x}px;top:${middle.y}px" title=${link.comment}>

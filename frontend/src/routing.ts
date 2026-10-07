@@ -1,6 +1,7 @@
 /** Orthogonal cable routing. One obstacle grid is shared by a whole layout. */
 export interface Point { x: number; y: number }
 export interface RouteNode extends Point { id: string }
+export interface RouteEdge { id: string; node1: string; node2: string }
 type Box = { x0: number; x1: number; y0: number; y1: number };
 type Exit = { cell: number; points: Point[]; direction: number };
 
@@ -11,11 +12,51 @@ export const LINK_STYLE_FIELD = {
   ] } },
 };
 
-export function pathData(points: Point[]): string {
-  return points.map((p, i) => `${i ? "L" : "M"} ${p.x} ${p.y}`).join(" ");
+type Segment = { start: Point; end: Point; corner?: Point };
+
+/** The line and its animation share the same small, symmetric corner curves. */
+function segments(points: Point[], radius: number): Segment[] {
+  const result: Segment[] = [];
+  let start = points[0];
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i], next = points[i + 1], prev = points[i - 1];
+    const before = Math.hypot(p.x - prev.x, p.y - prev.y);
+    const after = next ? Math.hypot(next.x - p.x, next.y - p.y) : 0;
+    const turn = next && (p.x - prev.x) * (next.y - p.y) !== (p.y - prev.y) * (next.x - p.x);
+    const r = turn ? Math.min(radius, before / 2, after / 2) : 0;
+    if (r > 0) {
+      const entry = { x: p.x - (p.x - prev.x) * r / before, y: p.y - (p.y - prev.y) * r / before };
+      const exit = { x: p.x + (next.x - p.x) * r / after, y: p.y + (next.y - p.y) * r / after };
+      result.push({ start, end: entry }, { start: entry, corner: p, end: exit });
+      start = exit;
+    } else {
+      result.push({ start, end: p });
+      start = p;
+    }
+  }
+  return result;
 }
 
-export function pathMiddle(points: Point[]): Point {
+export function pathData(points: Point[], radius = 0): string {
+  if (!points.length) return "";
+  return `M ${points[0].x} ${points[0].y}` + segments(points, radius).map(({ corner, end }) =>
+    corner ? ` Q ${corner.x} ${corner.y} ${end.x} ${end.y}` : ` L ${end.x} ${end.y}`).join("");
+}
+
+export function pathMiddle(points: Point[], radius = 0): Point {
+  if (radius > 0) {
+    // Sample just the corner arcs; straight runs retain their exact length.
+    const rounded: Point[] = [points[0]];
+    for (const { start, end, corner } of segments(points, radius)) {
+      if (!corner) { rounded.push(end); continue; }
+      for (let i = 1; i <= 12; i++) {
+        const t = i / 12, u = 1 - t;
+        rounded.push({ x: u * u * start.x + 2 * u * t * corner.x + t * t * end.x,
+          y: u * u * start.y + 2 * u * t * corner.y + t * t * end.y });
+      }
+    }
+    return pathMiddle(rounded);
+  }
   const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
   let remaining = lengths.reduce((a, b) => a + b, 0) / 2;
   for (let i = 0; i < lengths.length; i++) {
@@ -86,8 +127,10 @@ export class OrthogonalRouter {
   private blocked: Uint8Array;
   private used = new Map<number, number>();
   private boxes: Map<string, Box>;
+  private nodes: Map<string, RouteNode>;
 
   constructor(nodes: RouteNode[], private nodeWidth = 184, private nodeHeight = 62) {
+    this.nodes = new Map(nodes.map(n => [n.id, n]));
     const left = Math.min(0, ...nodes.map(n => n.x - nodeWidth / 2)) - 96;
     const top = Math.min(0, ...nodes.map(n => n.y - nodeHeight / 2)) - 96;
     const right = Math.max(0, ...nodes.map(n => n.x + nodeWidth / 2)) + 96;
@@ -112,6 +155,98 @@ export class OrthogonalRouter {
       const r1 = Math.min(this.rows - 1, Math.floor((b.y1 + this.step / 2 - this.y0) / this.step));
       for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) this.blocked[r * this.cols + c] = 1;
     }
+  }
+
+  /** Give links from the same side of a hub a common, unobstructed branch lane. */
+  routeAll(edges: RouteEdge[]): Map<string, Point[]> {
+    const paths = new Map<string, Point[]>();
+    const groups = new Map<string, { node: RouteNode; dx: number; dy: number; edges: RouteEdge[] }>();
+    const degree = new Map<string, number>();
+    const neighbors = new Map<RouteNode, { peer: RouteNode; edge: RouteEdge }[]>();
+    for (const edge of edges) {
+      const a = this.nodes.get(edge.node1), b = this.nodes.get(edge.node2);
+      if (!a || !b || a === b) continue;
+      for (const [node, peer] of [[a, b], [b, a]]) {
+        degree.set(node.id, (degree.get(node.id) ?? 0) + 1);
+        if (!neighbors.has(node)) neighbors.set(node, []);
+        neighbors.get(node)!.push({ peer, edge });
+      }
+    }
+    for (const [node, peers] of neighbors) {
+      for (const { peer, edge } of peers) {
+        // A column of peers should keep one vertical trunk, even if its last
+        // device is much farther down than it is across from the hub.
+        const column = Math.abs(peer.x - node.x) >= this.nodeWidth + 24
+          ? peers.filter(p => Math.abs(p.peer.x - peer.x) <= 24).length : 0;
+        const row = Math.abs(peer.y - node.y) >= this.nodeHeight + 24
+          ? peers.filter(p => Math.abs(p.peer.y - peer.y) <= 16).length : 0;
+        const horizontal = column >= 2 && column > row ? true : row >= 2 && row > column ? false
+          : Math.abs(peer.x - node.x) > Math.abs(peer.y - node.y);
+        const dx = horizontal ? Math.sign(peer.x - node.x) : 0;
+        const dy = horizontal ? 0 : Math.sign(peer.y - node.y);
+        const key = JSON.stringify([node.id, dx, dy]);
+        if (!groups.has(key)) groups.set(key, { node, dx, dy, edges: [] });
+        groups.get(key)!.edges.push(edge);
+      }
+    }
+    const ordered = [...groups.values()].sort((a, b) => degree.get(b.node.id)! - degree.get(a.node.id)!
+      || a.node.id.localeCompare(b.node.id) || a.dx - b.dx || a.dy - b.dy);
+    for (const group of ordered) {
+      const { node, dx, dy } = group;
+      const pending = group.edges.filter(e => !paths.has(e.id)).sort((a, b) => a.id.localeCompare(b.id));
+      if (pending.length < 2) continue;
+      const start = { x: node.x + dx * this.nodeWidth / 2, y: node.y + dy * this.nodeHeight / 2 };
+      const targets = pending.map(edge => {
+        const peer = this.nodes.get(edge.node1 === node.id ? edge.node2 : edge.node1)!;
+        const end = { x: peer.x - dx * this.nodeWidth / 2, y: peer.y - dy * this.nodeHeight / 2 };
+        return { edge, peer, end, gap: (end.x - start.x) * dx + (end.y - start.y) * dy };
+      }).filter(t => t.gap >= 48);
+      if (targets.length < 2) continue;
+      const gap = Math.min(...targets.map(t => t.gap));
+      let best: { edge: RouteEdge; points: Point[] }[] = [], bestCost = Infinity;
+      // Keep the common run close to the hub; try farther lanes if blocked.
+      for (const offset of [...new Set([Math.min(64, gap / 2), gap / 2, gap / 3, gap * 2 / 3])]) {
+        const branch = { x: start.x + dx * offset, y: start.y + dy * offset };
+        const routes = targets.flatMap(({ edge, peer, end }) => {
+          const points = simplify([start, branch, dx ? { x: branch.x, y: end.y } : { x: end.x, y: branch.y }, end]);
+          return this.clear(points, node, peer) ? [{ edge, points }] : [];
+        });
+        const cost = routes.reduce((sum, r) => sum + r.points.slice(1).reduce((s, p, i) =>
+          s + Math.abs(p.x - r.points[i].x) + Math.abs(p.y - r.points[i].y), 0), 0);
+        if (routes.length > best.length || (routes.length === best.length && cost < bestCost)) { best = routes; bestCost = cost; }
+      }
+      if (best.length >= 2) for (const { edge, points } of best) {
+        paths.set(edge.id, edge.node1 === node.id ? points : [...points].reverse());
+      }
+    }
+    for (const edge of [...edges].sort((a, b) => a.id.localeCompare(b.id))) {
+      const a = this.nodes.get(edge.node1), b = this.nodes.get(edge.node2);
+      if (!paths.has(edge.id) && a && b) paths.set(edge.id, this.route(a, b));
+    }
+    return paths;
+  }
+
+  private clear(points: Point[], a: RouteNode, b: RouteNode): boolean {
+    return [...this.boxes].every(([id, box]) => {
+      const obstacle = id === a.id || id === b.id
+        ? { x0: box.x0 + 10, x1: box.x1 - 10, y0: box.y0 + 10, y1: box.y1 - 10 } : box;
+      return points.slice(1).every((p, i) => !crosses(points[i], p, obstacle));
+    });
+  }
+
+  /** Slide an attachment slightly along the card edge instead of adding a tiny jog. */
+  private alignedRoute(a: RouteNode, b: RouteNode): Point[] | undefined {
+    if (Math.abs(a.x - b.x) <= Math.min(24, this.nodeWidth / 2) && Math.abs(a.y - b.y) >= this.nodeHeight + 24) {
+      const x = (a.x + b.x) / 2, sign = Math.sign(b.y - a.y);
+      const points = [{ x, y: a.y + sign * this.nodeHeight / 2 }, { x, y: b.y - sign * this.nodeHeight / 2 }];
+      if (this.clear(points, a, b)) return points;
+    }
+    if (Math.abs(a.y - b.y) <= Math.min(16, this.nodeHeight / 2) && Math.abs(a.x - b.x) >= this.nodeWidth + 24) {
+      const y = (a.y + b.y) / 2, sign = Math.sign(b.x - a.x);
+      const points = [{ x: a.x + sign * this.nodeWidth / 2, y }, { x: b.x - sign * this.nodeWidth / 2, y }];
+      if (this.clear(points, a, b)) return points;
+    }
+    return undefined;
   }
 
   private point(cell: number): Point {
@@ -145,8 +280,6 @@ export class OrthogonalRouter {
       x: n.x + dx * this.nodeWidth / 2, y: n.y + dy * this.nodeHeight / 2, dx, dy,
     }));
     let best: Point[] | undefined, score = Infinity;
-    const boxes = [...this.boxes].map(([id, box]) => id === a.id || id === b.id
-      ? { x0: box.x0 + 10, x1: box.x1 - 10, y0: box.y0 + 10, y1: box.y1 - 10 } : box);
     for (const start of anchors(a)) for (const end of anchors(b)) {
       const mx = (start.x + end.x) / 2, my = (start.y + end.y) / 2;
       for (const middle of [
@@ -164,7 +297,7 @@ export class OrthogonalRouter {
           : prev.x !== end.x || (prev.y - end.y) * end.dy <= 0) continue;
         const cost = points.slice(1).reduce((sum, p, i) => sum + Math.abs(p.x - points[i].x) + Math.abs(p.y - points[i].y), 0)
           + (points.length - 2) * 20;
-        if (cost >= score || boxes.some(box => points.slice(1).some((p, i) => crosses(points[i], p, box)))) continue;
+        if (cost >= score || !this.clear(points, a, b)) continue;
         best = points; score = cost;
       }
     }
@@ -172,6 +305,8 @@ export class OrthogonalRouter {
   }
 
   route(a: RouteNode, b: RouteNode): Point[] {
+    const aligned = this.alignedRoute(a, b);
+    if (aligned) return aligned;
     const simple = this.simpleRoute(a, b);
     if (simple) return simple;
     const starts = this.exits(a), ends = this.exits(b);

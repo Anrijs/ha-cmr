@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.13.1
+- Elbow links now use long runs with small rounded corners and shared branch lanes, matching a network wiring diagram. Nearly aligned nodes connect straight without tiny zigzags; shared port labels are grouped. Node positions stay unchanged, and PoE pulses follow the rounded path.
+
 ## 0.13.0
 - Map: optional elbow links with right-angle routing around nodes, available in the dashboard and card editors. Port labels, cable details and PoE pulses follow the route.
 - Map: administrators can drag existing nodes or move them with arrow keys, optionally snap to a grid, and save their positions back to CMR. Save checks for stale edits, verifies each position and retains any failed changes. Negative coordinates work with both signed and unsigned controller APIs.
